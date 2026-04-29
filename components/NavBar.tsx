@@ -5,6 +5,7 @@ import { useState } from "react";
 import Logo from "./Logo";
 
 const NAV_LINKS = [
+  { href: "/", label: "Home" },
   { href: "/services", label: "Services" },
   { href: "/services#insurance", label: "Insurance" },
   { href: "/about", label: "About" },
@@ -26,8 +27,6 @@ export default function NavBar() {
               </Link>
             </li>
           ))}
-          <li className="h-[18px] w-[0.5px] bg-black/15" aria-hidden="true" />
-          <li className="text-ink-secondary">EN</li>
           <li>
             <Link href="/intake" className="btn-dark">
               Get matched <span aria-hidden="true">&rarr;</span>

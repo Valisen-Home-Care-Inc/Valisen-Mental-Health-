@@ -11,7 +11,7 @@ export const metadata = {
 const VALUES = [
   {
     title: "Accessibility",
-    body: "Therapy shouldn't be reserved for people who can navigate a year-long waitlist. We meet you where you are.",
+    body: "Therapy shouldn't be reserved for people who already know how to navigate the system. We meet you where you are.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
@@ -35,8 +35,8 @@ const VALUES = [
     ),
   },
   {
-    title: "Speed",
-    body: "When you've finally decided to ask for help, you shouldn't have to wait. We move as fast as we can to find you the right match.",
+    title: "Responsiveness",
+    body: "When you've decided to ask for help, the next step should feel supported. We focus on finding a thoughtful match for your needs.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="2" />
@@ -59,9 +59,9 @@ export default function AboutPage() {
             Making therapy <span className="italic text-teal">actually accessible</span> in Ottawa
           </h1>
           <p className="mt-6 max-w-[680px] text-vlg leading-[1.6] text-ink-secondary">
-            Valisen exists because the gap between deciding to start therapy and actually starting
-            therapy in Ontario is far too long. We&apos;re here to close it - by connecting you
-            with the right therapist and helping make sure your insurance does the heavy lifting.
+            Valisen exists because finding the right therapist in Ontario can feel complicated.
+            We&apos;re here to make the process easier - by connecting you with the right therapist
+            and helping make sure your insurance does the heavy lifting.
           </p>
         </div>
       </section>
@@ -82,8 +82,8 @@ export default function AboutPage() {
               part that&apos;s broken: the matching.
             </p>
             <p>
-              You fill out a short intake. We review it, reach out to learn more about what you
-              need, and connect you with a Registered Psychotherapist or Social Worker who fits.
+              You fill out a simple intake. We review it, connect with you to learn more about
+              what you need, and introduce you to a Registered Psychotherapist or Social Worker who fits.
               From that point on, your relationship is directly with your therapist.
             </p>
             <p>
@@ -125,7 +125,7 @@ export default function AboutPage() {
             Start with a free intake
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] text-ink-secondary">
-            A few minutes. We&apos;ll be in touch soon.
+            Share what you&apos;re looking for. We&apos;ll help with the matching.
           </p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link href="/intake" className="btn-primary justify-center">

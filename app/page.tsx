@@ -18,7 +18,7 @@ export default function HomePage() {
       <section className="bg-canvas py-14 text-center md:py-16">
         <div className="container-v">
           <h2 className="font-serif text-[30px] font-medium leading-[1.15] tracking-[-0.8px] text-ink md:text-[38px]">
-            Ready to get started? It takes 3 minutes.
+            Ready to find a therapist who fits?
           </h2>
           <div className="mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link href="/intake" className="btn-primary">
@@ -58,7 +58,7 @@ export default function HomePage() {
       <CTASection
         dark
         headline="Take the first step."
-        subtext="Fill out a short form and we'll be in touch to find your match."
+        subtext="Fill out a simple intake and we'll help you find a therapist who fits."
       />
       <Footer />
     </main>

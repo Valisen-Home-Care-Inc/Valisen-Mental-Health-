@@ -18,8 +18,8 @@ export default function FormConfirmation({ firstName = "" }: { firstName?: strin
         You&apos;re on the list.
       </h2>
       <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-[1.6] text-ink-secondary">
-        Thanks{firstName ? ` ${firstName}` : ""}. We&apos;ve received your intake and someone will
-        be in touch soon to discuss finding you the right match.
+        Thanks{firstName ? ` ${firstName}` : ""}. We&apos;ve received your intake and will review
+        it carefully so we can help find the right match.
       </p>
       <p className="mx-auto mt-5 max-w-[440px] text-[14px] leading-[1.6] text-ink-secondary">
         Questions in the meantime? Call{" "}

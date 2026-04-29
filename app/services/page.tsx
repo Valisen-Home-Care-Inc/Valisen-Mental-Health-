@@ -208,7 +208,7 @@ export default function ServicesPage() {
             Find a therapist who fits
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-[1.6] text-canvas/75">
-            A few minutes to share what you&apos;re looking for. We handle the rest.
+            Share what you&apos;re looking for. We handle the matching.
           </p>
           <div className="mt-8">
             <Link

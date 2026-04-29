@@ -9,7 +9,7 @@ const EXPECTATIONS = [
   {
     n: "01",
     title: "Initial sessions",
-    body: "Your therapist takes time to understand your situation, your history, and what you're hoping to work through.",
+    body: "Your therapist makes space to understand your situation, your history, and what you're hoping to work through.",
   },
   {
     n: "02",
@@ -19,7 +19,7 @@ const EXPECTATIONS = [
   {
     n: "03",
     title: "Ongoing support",
-    body: "Sessions continue at your pace. Some people work with a therapist for a few months, others for longer. There's no fixed timeline.",
+    body: "Therapy is shaped around your goals, comfort level, and the kind of support that feels right for you.",
   },
 ];
 
@@ -30,9 +30,9 @@ const FAQS = [
       "Session costs vary by therapist. Many extended health plans may cover your sessions in full or in part. We help you understand coverage during intake.",
   },
   {
-    question: "How long does it take to get matched?",
+    question: "How does matching work?",
     answer:
-      "We reach out as soon as we can after you submit your intake. We'll work with you to find the right therapist based on your needs and availability.",
+      "After you submit your intake, we'll review your needs and availability so we can help find a therapist who fits.",
   },
   {
     question: "Do I need a referral from a doctor?",
@@ -114,8 +114,8 @@ function HowValisenHelps({ topic }: { topic: string }) {
           </h2>
           <p className="mx-auto mt-5 max-w-[650px] text-[15px] leading-[1.7] text-ink-secondary">
             Valisen connects you with a Registered Psychotherapist or Social Worker in Ontario who
-            has experience working with {topic}. You fill out a short intake. We reach out to learn
-            more. Then we match you with a therapist who fits what you need. From there, your
+            has experience working with {topic}. You fill out a simple intake. We learn more
+            about what matters to you, then match you with a therapist who fits what you need. From there, your
             relationship is directly with your therapist.
           </p>
         </div>
@@ -159,7 +159,7 @@ function DarkCta() {
           Take the first step
         </h2>
         <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.6] text-canvas/80">
-          Fill out a short form and we&apos;ll be in touch to find your match.
+          Fill out a simple intake and we&apos;ll help you find your match.
         </p>
         <div className="mt-8">
           <Link

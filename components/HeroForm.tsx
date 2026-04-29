@@ -43,7 +43,7 @@ export default function HeroForm() {
       className="rounded-card border-[0.5px] border-hairline bg-white p-6 md:p-8"
     >
       <div className="mb-6 text-vxs font-medium uppercase tracking-[1.2px] text-teal">
-        FREE INTAKE &middot; 3 MINUTES
+        FREE MATCHING INTAKE
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First Name">
@@ -87,7 +87,7 @@ export default function HeroForm() {
         Get matched <span aria-hidden="true">&rarr;</span>
       </button>
       <p className="mt-4 text-center text-[13px] leading-[1.6] text-ink-secondary">
-        We&apos;ll be in touch soon. No commitment required.
+        We&apos;ll review your intake with care. No commitment required.
       </p>
       <CrisisNote className="mt-4 text-center" />
     </form>

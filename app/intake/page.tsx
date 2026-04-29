@@ -5,7 +5,7 @@ import IntakeForm from "@/components/IntakeForm";
 export const metadata = {
   title: "Free intake - Valisen Mental Health",
   description:
-    "A short intake to help connect you with a Registered Psychotherapist or Social Worker in Ontario.",
+    "A simple intake to help connect you with a Registered Psychotherapist or Social Worker in Ontario.",
 };
 
 export default function IntakePage() {
@@ -16,7 +16,7 @@ export default function IntakePage() {
       <section className="py-12 md:py-20">
         <div className="container-v max-w-[560px]">
           <div className="mb-8 text-center">
-            <span className="badge-outline-teal mb-5">FREE INTAKE &middot; 3 MINUTES</span>
+            <span className="badge-outline-teal mb-5">FREE MATCHING INTAKE</span>
             <h1 className="font-serif text-[36px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
               Tell us a bit about you
             </h1>

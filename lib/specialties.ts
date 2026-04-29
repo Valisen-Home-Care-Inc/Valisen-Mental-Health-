@@ -30,7 +30,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     topic: "anxiety",
     whatItIs: [
       "Anxiety shows up differently for everyone. For some it's a constant low-level hum of worry. For others it's panic that comes out of nowhere. It can affect sleep, work, relationships, and the everyday choices that used to feel easy.",
-      "Therapy for anxiety isn't about making the feelings disappear overnight. It's about building tools to work with them, understanding where they come from, and slowly getting back the parts of your life anxiety has been taking up space in.",
+      "Therapy for anxiety isn't about forcing the feelings to disappear. It's about building tools to work with them, understanding where they come from, and gradually getting back the parts of your life anxiety has been taking up space in.",
     ],
   },
   {
@@ -57,7 +57,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
       "Trauma changes how the world feels. We connect you with a Registered Psychotherapist in Ontario who has experience working with trauma - and who will move at your pace.",
     topic: "trauma",
     whatItIs: [
-      "Trauma can come from a single event or from years of difficult experiences. It can show up as flashbacks or numbness, hypervigilance or avoidance, or as a sense that your body still remembers something your mind has tried to set aside.",
+      "Trauma can come from a single event or from ongoing difficult experiences. It can show up as flashbacks or numbness, hypervigilance or avoidance, or as a sense that your body still remembers something your mind has tried to set aside.",
       "Trauma therapy is careful and unhurried. The right therapist won't push you to revisit anything before you're ready. They work with you to build safety first, and to slowly process what happened in a way that feels manageable - not overwhelming.",
     ],
   },
@@ -71,7 +71,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
       "Grief doesn't follow a schedule. We connect you with a Registered Psychotherapist in Ontario who has experience supporting people through loss of every kind.",
     topic: "grief and loss",
     whatItIs: [
-      "Grief is one of the most universal human experiences and one of the loneliest. It can come after the loss of a person, a relationship, a role, or a future you were counting on. There's no right way to grieve and no right timeline.",
+      "Grief is one of the most universal human experiences and one of the loneliest. It can come after the loss of a person, a relationship, a role, or a future you were counting on. There's no right way to grieve, and your experience deserves room to be understood.",
       "Grief counselling gives you a space to feel what you're feeling without anyone trying to fix it. Your therapist walks with you through the experience - helping you make sense of it, hold space for what's hard, and slowly find your footing again.",
     ],
   },
@@ -85,7 +85,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
       "Chronic stress wears on everything - your sleep, your body, your relationships, your sense of yourself. We connect you with a Registered Psychotherapist in Ontario who can help.",
     topic: "stress and burnout",
     whatItIs: [
-      "Stress is supposed to come and go. When it doesn't - when the pressure stays on for months or years - it changes how you function. You might feel exhausted but unable to rest, snappy without knowing why, or stuck in a loop of overthinking that won't let up.",
+      "Stress is supposed to come and go. When it doesn't - when the pressure keeps building - it changes how you function. You might feel exhausted but unable to rest, snappy without knowing why, or stuck in a loop of overthinking that won't let up.",
       "Therapy for stress isn't about adding another thing to your to-do list. It's about understanding what's draining you, finding what actually helps, and rebuilding the kind of capacity that lets you handle life without running on empty.",
     ],
   },

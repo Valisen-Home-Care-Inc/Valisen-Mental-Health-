@@ -17,9 +17,9 @@ export default function DarkSection({
   ),
   body = (
     <>
-      Finding a therapist you can trust takes time you don&apos;t always have. Tell us what
-      you&apos;re looking for and we&apos;ll match you with the right person. No clinical
-      questionnaires, no long waits on hold.
+      Finding a therapist you can trust should feel clear and supported. Tell us what
+      you&apos;re looking for and we&apos;ll help match you with the right person. No clinical
+      questionnaires, no confusing search process.
     </>
   ),
   showMatchCard = true,
@@ -73,8 +73,8 @@ function MatchCard() {
       <div className="relative h-[190px] bg-sage">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="https://picsum.photos/400/300?random=22"
-          alt="A calm therapy consultation setting"
+          src="https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=2560&q=85&auto=format&fit=crop"
+          alt="Young seedlings sprouting in soft natural light"
           className="h-full w-full object-cover"
         />
       </div>
@@ -96,7 +96,7 @@ function MatchCard() {
         </span>
       </Link>
       <p className="px-[22px] pb-[18px] pt-[14px] text-[12px] leading-[1.5] text-ink-secondary">
-        A 3-minute intake. We handle the rest.
+        A simple intake. We handle the matching.
       </p>
     </div>
   );

@@ -2,19 +2,19 @@ const STEPS = [
   {
     n: "01",
     title: "Fill out the form",
-    duration: "A FEW MINUTES",
+    duration: "SHARE WHAT YOU NEED",
     body: "Tell us a bit about yourself and what you're looking for. No clinical questionnaires.",
   },
   {
     n: "02",
-    title: "We reach out",
-    duration: "WITHIN A FEW DAYS",
-    body: "We call you to learn more about what you need and answer any questions.",
+    title: "We learn more",
+    duration: "A SUPPORTED CONVERSATION",
+    body: "We connect with you to better understand your needs and answer any questions.",
   },
   {
     n: "03",
     title: "Get matched",
-    duration: "AT YOUR PACE",
+    duration: "CAREFUL MATCHING",
     body: "We connect you with a Registered Psychotherapist or Social Worker who fits what you're looking for.",
   },
 ];

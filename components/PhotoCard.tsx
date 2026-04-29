@@ -8,6 +8,17 @@ type PhotoCardProps = {
   alt?: string;
 };
 
+const CURATED_PHOTOS = [
+  
+  "https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=2560&q=85&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=2560&q=85&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=2560&q=85&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1491147334573-44cbb4602074?w=2560&q=85&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=2560&q=85&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1497250681960-ef046c08a56e?w=2560&q=85&auto=format&fit=crop",
+
+];
+
 export default function PhotoCard({
   mood,
   src,
@@ -17,7 +28,7 @@ export default function PhotoCard({
   imageHeight = 160,
   alt,
 }: PhotoCardProps) {
-  const imageSrc = src ?? `https://picsum.photos/300/400?random=${fallbackId}`;
+  const imageSrc = src ?? CURATED_PHOTOS[(fallbackId - 1) % CURATED_PHOTOS.length];
   return (
     <div
       className={`rounded-[24px] p-3 ${className}`}

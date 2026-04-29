@@ -10,12 +10,12 @@ export default function HeroSection() {
           <h1 className="mb-6 font-serif text-[40px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
             Therapy that <span className="italic text-teal">actually</span>
             <br />
-            starts <span className="italic text-teal">this week</span>
+            feels <span className="italic text-teal">right for you</span>
           </h1>
 
           <p className="max-w-[560px] text-vbase leading-[1.6] text-ink-secondary">
-            Finding the right therapist in Ontario shouldn&apos;t take months. Fill out our short
-            form or give us a call - we&apos;ll reach out and handle the matching for you.
+            Finding the right therapist in Ontario shouldn&apos;t feel overwhelming. Fill out our
+            intake or give us a call - we&apos;ll help you find a thoughtful match.
           </p>
           <p className="mt-5 text-[14px] text-ink-secondary">
             Or call us directly at{" "}
@@ -23,6 +23,16 @@ export default function HeroSection() {
               613-707-0333
             </a>
           </p>
+          <ul className="mt-5 flex max-w-[560px] flex-col gap-2 text-[15px] leading-[1.5] text-ink-secondary">
+            <li className="flex items-start gap-3">
+              <span className="mt-[8px] h-2 w-2 shrink-0 rounded-full bg-teal" aria-hidden="true" />
+              <span>In-person and virtual therapy available across Ontario</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-[8px] h-2 w-2 shrink-0 rounded-full bg-teal" aria-hidden="true" />
+              <span>Insurance is accepted</span>
+            </li>
+          </ul>
         </div>
 
         <div className="mx-auto w-full max-w-[520px]">
