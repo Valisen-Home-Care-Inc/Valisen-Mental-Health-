@@ -1,0 +1,204 @@
+import Link from "next/link";
+import Footer from "./Footer";
+import HeroForm from "./HeroForm";
+import InsuranceBand from "./InsuranceBand";
+import NavBar from "./NavBar";
+import type { SpecialtyPageData } from "@/lib/specialties";
+
+const EXPECTATIONS = [
+  {
+    n: "01",
+    title: "Initial sessions",
+    body: "Your therapist takes time to understand your situation, your history, and what you're hoping to work through.",
+  },
+  {
+    n: "02",
+    title: "Building the work",
+    body: "Together you set goals and explore approaches that fit you. Therapy is collaborative - your therapist follows your lead.",
+  },
+  {
+    n: "03",
+    title: "Ongoing support",
+    body: "Sessions continue at your pace. Some people work with a therapist for a few months, others for longer. There's no fixed timeline.",
+  },
+];
+
+const FAQS = [
+  {
+    question: "How much does therapy cost?",
+    answer:
+      "Session costs vary by therapist. Many extended health plans may cover your sessions in full or in part. We help you understand coverage during intake.",
+  },
+  {
+    question: "How long does it take to get matched?",
+    answer:
+      "We reach out as soon as we can after you submit your intake. We'll work with you to find the right therapist based on your needs and availability.",
+  },
+  {
+    question: "Do I need a referral from a doctor?",
+    answer:
+      "No. You can self-refer to a Registered Psychotherapist or Social Worker in Ontario. No doctor referral required.",
+  },
+];
+
+export default function SpecialtyPage({ specialty }: { specialty: SpecialtyPageData }) {
+  return (
+    <main>
+      <NavBar />
+      <Hero specialty={specialty} />
+      <WhatItIs specialty={specialty} />
+      <HowValisenHelps topic={specialty.topic} />
+      <WhatToExpect />
+      <DarkCta />
+      <InsuranceBand label="MANY EXTENDED HEALTH PLANS MAY COVER YOUR SESSIONS" />
+      <FAQ />
+      <Footer />
+    </main>
+  );
+}
+
+function Hero({ specialty }: { specialty: SpecialtyPageData }) {
+  return (
+    <section className="bg-canvas">
+      <div className="container-v grid grid-cols-1 items-center gap-10 py-14 md:grid-cols-[1.02fr_0.98fr] md:py-20">
+        <div>
+          <span className="badge-outline-teal mb-6">OTTAWA AND ONTARIO</span>
+          <h1 className="mb-6 font-serif text-[40px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
+            {specialty.headline}
+          </h1>
+          <p className="max-w-[590px] text-vbase leading-[1.6] text-ink-secondary">
+            {specialty.subtext}
+          </p>
+          <p className="mt-5 max-w-[620px] text-[12px] leading-[1.6] text-ink-secondary">
+            Valisen is a matching and referral service. We do not provide therapy or clinical
+            treatment directly. All sessions are delivered by independent Registered
+            Psychotherapists or Registered Social Workers.
+          </p>
+        </div>
+        <div className="mx-auto w-full max-w-[520px]">
+          <HeroForm />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WhatItIs({ specialty }: { specialty: SpecialtyPageData }) {
+  return (
+    <section className="bg-canvas py-16 md:py-20">
+      <div className="container-v grid grid-cols-1 gap-10 md:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <span className="badge-outline-teal mb-5">WHAT IT IS</span>
+          <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
+            Understanding {specialty.topic}
+          </h2>
+        </div>
+        <div className="space-y-5 text-[15px] leading-[1.7] text-ink-secondary">
+          {specialty.whatItIs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HowValisenHelps({ topic }: { topic: string }) {
+  return (
+    <section className="bg-canvas pb-16 md:pb-24">
+      <div className="container-v">
+        <div className="mx-auto max-w-[800px] rounded-card border-[0.5px] border-hairline bg-white p-8 text-center md:p-12">
+          <span className="badge-outline-teal mb-5">HOW VALISEN HELPS</span>
+          <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
+            We connect you with the right therapist
+          </h2>
+          <p className="mx-auto mt-5 max-w-[650px] text-[15px] leading-[1.7] text-ink-secondary">
+            Valisen connects you with a Registered Psychotherapist or Social Worker in Ontario who
+            has experience working with {topic}. You fill out a short intake. We reach out to learn
+            more. Then we match you with a therapist who fits what you need. From there, your
+            relationship is directly with your therapist.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WhatToExpect() {
+  return (
+    <section className="bg-canvas pb-16 md:pb-24">
+      <div className="container-v">
+        <div className="mb-12 max-w-[660px]">
+          <span className="badge-outline-teal mb-5">WHAT TO EXPECT</span>
+          <h2 className="font-serif text-[34px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
+            From first session to feeling supported
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          {EXPECTATIONS.map((item) => (
+            <article
+              key={item.n}
+              className="rounded-card border-[0.5px] border-hairline bg-white p-7"
+            >
+              <div className="mb-5 font-serif text-[28px] font-medium text-teal">{item.n}</div>
+              <h3 className="mb-4 font-serif text-vlg font-medium text-ink">{item.title}</h3>
+              <p className="text-[14px] leading-[1.6] text-ink-secondary">{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DarkCta() {
+  return (
+    <section className="bg-teal-dark py-16 md:py-20">
+      <div className="container-v text-center">
+        <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-canvas md:text-v2xl">
+          Take the first step
+        </h2>
+        <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.6] text-canvas/80">
+          Fill out a short form and we&apos;ll be in touch to find your match.
+        </p>
+        <div className="mt-8">
+          <Link
+            href="/intake"
+            className="btn border border-canvas/80 bg-transparent text-canvas hover:bg-canvas hover:text-ink"
+          >
+            Start free intake <span aria-hidden="true">&rarr;</span>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FAQ() {
+  return (
+    <section className="bg-canvas py-16 md:py-24">
+      <div className="container-v max-w-[800px]">
+        <div className="mb-8 text-center">
+          <span className="badge-outline-teal mb-5">FAQ</span>
+          <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
+            Common questions
+          </h2>
+        </div>
+        <div className="space-y-3">
+          {FAQS.map((faq) => (
+            <details
+              key={faq.question}
+              className="group rounded-card border-[0.5px] border-hairline bg-white p-5"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-serif text-vlg font-medium text-ink">
+                {faq.question}
+                <span className="text-teal transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-4 text-[14px] leading-[1.7] text-ink-secondary">{faq.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}

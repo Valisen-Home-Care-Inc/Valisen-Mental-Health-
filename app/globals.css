@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-teal: #2A7F7F;
+  --color-teal-dark: #1E6B6B;
+  --color-teal-light: #B5D4D4;
+  --color-teal-xlight: #DCEAE4;
+  --color-sage: #8BB5A0;
+  --color-sage-light: #C5D9CB;
+  --color-canvas: #F7F4EF;
+  --color-ink: #2C2C2C;
+  --color-ink-secondary: #5F5E5A;
+  --color-ink-hint: #888780;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-light: rgba(0, 0, 0, 0.06);
+}
+
+html,
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-pill text-[14px] font-medium px-[26px] py-[14px] transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-teal text-white hover:bg-teal-dark;
+  }
+  .btn-outline {
+    @apply btn bg-transparent text-ink border border-black/20 hover:bg-black/5;
+  }
+  .btn-dark {
+    @apply btn bg-ink !text-white hover:bg-black;
+    color: white !important;
+  }
+
+  .badge {
+    @apply inline-block rounded-pill text-vxs font-medium tracking-[1.2px] px-[14px] py-[6px];
+  }
+  .badge-outline-teal {
+    @apply badge text-teal border border-teal/30;
+  }
+  .badge-outline-white {
+    @apply badge text-canvas border border-canvas/30;
+  }
+  .badge-sage {
+    @apply badge bg-teal-xlight text-teal-dark;
+  }
+
+  .container-v {
+    @apply mx-auto w-full max-w-container px-6 md:px-12;
+  }
+}
