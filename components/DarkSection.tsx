@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ImageSlideshow from "./ImageSlideshow";
 
 type DarkSectionProps = {
   badge?: string;
@@ -26,19 +27,6 @@ export default function DarkSection({
 }: DarkSectionProps) {
   return (
     <section className="relative overflow-hidden bg-teal-dark">
-      <svg
-        className="absolute left-5 top-8 opacity-85"
-        width="70"
-        height="70"
-        viewBox="0 0 100 100"
-        fill="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M50 10 Q 30 30, 35 50 Q 25 70, 50 90 Q 75 70, 65 50 Q 70 30, 50 10 Z"
-          fill="#8BB5A0"
-        />
-      </svg>
       <svg
         className="absolute right-10 top-20 hidden md:block"
         width="60"
@@ -71,12 +59,7 @@ function MatchCard() {
   return (
     <div className="overflow-hidden rounded-card bg-white">
       <div className="relative h-[190px] bg-sage">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=2560&q=85&auto=format&fit=crop"
-          alt="Young seedlings sprouting in soft natural light"
-          className="h-full w-full object-cover"
-        />
+        <ImageSlideshow height={190} />
       </div>
       <Link
         href="/intake"

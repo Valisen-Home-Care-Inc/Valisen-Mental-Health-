@@ -47,8 +47,8 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="mailto:support@valisencare.ca" className="no-underline hover:text-teal">
-                  support@valisencare.ca
+                <a href="mailto:info@valisenmentalhealth.com" className="no-underline hover:text-teal">
+                  info@valisenmentalhealth.com
                 </a>
               </li>
               <li className="text-ink-secondary">Ottawa Ontario</li>

@@ -27,8 +27,8 @@ export default function FormConfirmation({ firstName = "" }: { firstName?: strin
           613-707-0333
         </a>{" "}
         or email{" "}
-        <a href="mailto:support@valisencare.ca" className="text-teal hover:underline">
-          support@valisencare.ca
+        <a href="mailto:info@valisenmentalhealth.com" className="text-teal hover:underline">
+          info@valisenmentalhealth.com
         </a>
       </p>
       <CrisisNote className="mt-8" />
