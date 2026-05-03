@@ -43,6 +43,8 @@ export default function IntakeForm() {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<FormData>(INITIAL);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function update<K extends keyof FormData>(key: K, value: FormData[K]) {
     setData((current) => ({ ...current, [key]: value }));
@@ -67,15 +69,27 @@ export default function IntakeForm() {
     return data.days.length > 0 && Boolean(data.timeOfDay);
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (step < TOTAL_STEPS) {
       setStep((current) => current + 1);
       return;
     }
-    // eslint-disable-next-line no-console
-    console.log("Valisen intake submission:", data);
-    setSubmitted(true);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/submit-intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("server error");
+      setSubmitted(true);
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (submitted) {
@@ -224,7 +238,8 @@ export default function IntakeForm() {
             </Step>
           ) : null}
 
-          <div className="mt-10 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-10">
+          <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             {step > 1 ? (
               <button
                 type="button"
@@ -238,11 +253,11 @@ export default function IntakeForm() {
             )}
             <button
               type="submit"
-              disabled={!canAdvance()}
+              disabled={!canAdvance() || submitting}
               className="btn-primary justify-center disabled:cursor-not-allowed disabled:opacity-50"
             >
               {step === TOTAL_STEPS ? (
-                <>
+                submitting ? "Submitting\u2026" : <>
                   Submit <span aria-hidden="true">&rarr;</span>
                 </>
               ) : (
@@ -251,6 +266,10 @@ export default function IntakeForm() {
                 </>
               )}
             </button>
+          </div>
+          {submitError ? (
+            <p className="mt-3 text-center text-[13px] text-red-600">{submitError}</p>
+          ) : null}
           </div>
         </form>
       </div>

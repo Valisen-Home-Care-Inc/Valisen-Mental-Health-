@@ -21,16 +21,30 @@ const INITIAL: HeroFormData = {
 export default function HeroForm() {
   const [data, setData] = useState<HeroFormData>(INITIAL);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function update<K extends keyof HeroFormData>(key: K, value: HeroFormData[K]) {
     setData((current) => ({ ...current, [key]: value }));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // eslint-disable-next-line no-console
-    console.log("Valisen homepage intake submission:", data);
-    setSubmitted(true);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/submit-intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("server error");
+      setSubmitted(true);
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (submitted) {
@@ -83,12 +97,15 @@ export default function HeroForm() {
           />
         </Field>
       </div>
-      <button type="submit" className="btn-primary mt-6 w-full">
-        Get matched <span aria-hidden="true">&rarr;</span>
+      <button type="submit" disabled={submitting} className="btn-primary mt-6 w-full">
+        {submitting ? "Submitting\u2026" : <>Get matched <span aria-hidden="true">&rarr;</span></>}
       </button>
       <p className="mt-4 text-center text-[13px] leading-[1.6] text-ink-secondary">
         We&apos;ll review your intake with care. No commitment required.
       </p>
+      {submitError ? (
+        <p className="mt-2 text-center text-[13px] text-red-600">{submitError}</p>
+      ) : null}
       <CrisisNote className="mt-4 text-center" />
     </form>
   );
