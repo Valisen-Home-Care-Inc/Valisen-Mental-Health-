@@ -21,7 +21,7 @@ const STEPS = [
 
 export default function HowItWorks() {
   return (
-    <section className="bg-canvas py-16 md:py-24">
+    <section className="bg-canvas pb-16 pt-10 md:pb-24 md:pt-14">
       <div className="container-v">
         <div className="mb-12 max-w-[640px]">
           <span className="badge-outline-teal mb-5">HOW IT WORKS</span>

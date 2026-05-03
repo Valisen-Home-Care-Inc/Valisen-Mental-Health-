@@ -15,7 +15,7 @@ export default function HomePage() {
       <HeroSection />
       <DarkSection />
 
-      <section className="bg-canvas py-14 text-center md:py-16">
+      <section className="bg-canvas pb-8 pt-14 text-center md:pb-10 md:pt-16">
         <div className="container-v">
           <h2 className="font-serif text-[30px] font-medium leading-[1.15] tracking-[-0.8px] text-ink md:text-[38px]">
             Ready to find a therapist who fits?
