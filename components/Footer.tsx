@@ -28,8 +28,8 @@ export default function Footer() {
           <div>
             <Logo />
             <p className="mt-4 max-w-[300px] text-[13px] leading-[1.6] text-ink-secondary">
-              Ottawa-based therapy matching service. Connecting Ontario residents with Registered
-              Psychotherapists and Social Workers.
+              Ottawa therapy clinic. Registered Psychotherapists and Social Workers delivering
+              in-person and virtual care across Ontario.
             </p>
           </div>
 

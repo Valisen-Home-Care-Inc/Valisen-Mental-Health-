@@ -43,7 +43,7 @@ export default function CTASection({
                 : "btn-primary"
             }
           >
-            Start free intake <span aria-hidden="true">&rarr;</span>
+            Book My Therapist <span aria-hidden="true">&rarr;</span>
           </Link>
           {secondaryCall ? (
             <a href="tel:613-707-0333" className="btn-outline">

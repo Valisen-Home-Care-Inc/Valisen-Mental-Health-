@@ -1,4 +1,4 @@
-const STEPS = [
+const STEPS: Array<{ n: string; title: string; duration: string; body: string; subLine?: string }> = [
   {
     n: "01",
     title: "Fill out the form",
@@ -9,13 +9,14 @@ const STEPS = [
     n: "02",
     title: "We learn more",
     duration: "A SUPPORTED CONVERSATION",
-    body: "We connect with you to better understand your needs and answer any questions.",
+    body: "Our team reviews your needs and confirms which of our therapists is the right fit for you.",
+    subLine: "Usually a quick call or message — takes about 10 minutes.",
   },
   {
     n: "03",
-    title: "Get matched",
+    title: "Get paired",
     duration: "CAREFUL MATCHING",
-    body: "We connect you with a Registered Psychotherapist or Social Worker who fits what you're looking for.",
+    body: "We pair you with one of our therapists — a Registered Psychotherapist or Social Worker who fits what you're looking for.",
   },
 ];
 
@@ -43,6 +44,11 @@ export default function HowItWorks() {
                 {step.duration}
               </div>
               <p className="text-[14px] leading-[1.6] text-ink-secondary">{step.body}</p>
+              {step.subLine ? (
+                <p className="mt-2 text-[13px] italic leading-[1.6] text-ink-secondary/70">
+                  {step.subLine}
+                </p>
+              ) : null}
             </article>
           ))}
         </div>

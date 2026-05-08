@@ -32,7 +32,7 @@ const FAQS = [
   {
     question: "How does matching work?",
     answer:
-      "After you submit your intake, we'll review your needs and availability so we can help find a therapist who fits.",
+      "After you book, our team reviews your needs and availability to pair you with the right therapist from our clinic.",
   },
   {
     question: "Do I need a referral from a doctor?",
@@ -70,9 +70,8 @@ function Hero({ specialty }: { specialty: SpecialtyPageData }) {
             {specialty.subtext}
           </p>
           <p className="mt-5 max-w-[620px] text-[12px] leading-[1.6] text-ink-secondary">
-            Valisen is a matching and referral service. We do not provide therapy or clinical
-            treatment directly. All sessions are delivered by independent Registered
-            Psychotherapists or Registered Social Workers.
+            Our Registered Psychotherapists and Social Workers deliver in-person and virtual therapy
+            across Ontario.
           </p>
         </div>
         <div className="mx-auto w-full max-w-[520px]">
@@ -110,13 +109,13 @@ function HowValisenHelps({ topic }: { topic: string }) {
         <div className="mx-auto max-w-[800px] rounded-card border-[0.5px] border-hairline bg-white p-8 text-center md:p-12">
           <span className="badge-outline-teal mb-5">HOW VALISEN HELPS</span>
           <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-            We connect you with the right therapist
+            Our team pairs you with the right therapist
           </h2>
           <p className="mx-auto mt-5 max-w-[650px] text-[15px] leading-[1.7] text-ink-secondary">
-            Valisen connects you with a Registered Psychotherapist or Social Worker in Ontario who
-            has experience working with {topic}. You fill out a simple intake. We learn more
-            about what matters to you, then match you with a therapist who fits what you need. From there, your
-            relationship is directly with your therapist.
+            Book with Valisen and our team pairs you with one of our Registered Psychotherapists or
+            Social Workers in Ontario who has experience working with {topic}. You fill out a simple
+            form. We learn more about what matters to you and pair you with a therapist from our
+            team who fits what you need.
           </p>
         </div>
       </div>
@@ -159,14 +158,14 @@ function DarkCta() {
           Take the first step
         </h2>
         <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.6] text-canvas/80">
-          Fill out a simple intake and we&apos;ll help you find your match.
+          Book directly with us and we&apos;ll pair you with one of our therapists.
         </p>
         <div className="mt-8">
           <Link
             href="/intake"
             className="btn border border-canvas/80 bg-transparent text-canvas hover:bg-canvas hover:text-ink"
           >
-            Start free intake <span aria-hidden="true">&rarr;</span>
+            Book My Therapist <span aria-hidden="true">&rarr;</span>
           </Link>
         </div>
       </div>

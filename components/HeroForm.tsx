@@ -97,11 +97,27 @@ export default function HeroForm() {
           />
         </Field>
       </div>
-      <button type="submit" disabled={submitting} className="btn-primary mt-6 w-full">
-        {submitting ? "Submitting\u2026" : <>Get matched <span aria-hidden="true">&rarr;</span></>}
+      <div className="mt-5 space-y-1.5 text-center">
+        <p className="text-[13px] leading-[1.6] text-ink-secondary">
+          Sessions may be covered by Manulife, Sun Life, Canada Life, Green Shield, and more.
+        </p>
+        <p className="text-[13px] leading-[1.6] text-ink-secondary">
+          No cost to enquire. We&apos;ll be in touch within 1 business day.
+        </p>
+        <p className="text-[13px] leading-[1.6] text-ink-secondary">
+          🔒 Your information is kept strictly confidential.
+        </p>
+      </div>
+      <button type="submit" disabled={submitting} className="btn-primary mt-5 w-full">
+        {submitting ? "Submitting\u2026" : <>Book My Therapist <span aria-hidden="true">&rarr;</span></>}
       </button>
-      <p className="mt-4 text-center text-[13px] leading-[1.6] text-ink-secondary">
-        We&apos;ll review your intake with care. No commitment required.
+      <p className="mt-3 text-center text-[13px] font-medium text-teal">
+        ✅ Currently accepting new clients — in-person and virtual.
+      </p>
+      <p className="mt-1.5 text-center text-[12px] text-ink-secondary">
+        <a href="/privacy-policy" className="underline hover:text-ink">
+          Privacy Policy
+        </a>
       </p>
       {submitError ? (
         <p className="mt-2 text-center text-[13px] text-red-600">{submitError}</p>

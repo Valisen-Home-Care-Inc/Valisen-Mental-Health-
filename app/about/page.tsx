@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 export const metadata = {
   title: "About - Valisen Mental Health",
   description:
-    "Valisen is an Ottawa-based therapy matching service connecting Ontario residents with Registered Psychotherapists and Registered Social Workers.",
+    "Valisen Mental Health is an Ottawa therapy clinic offering in-person and virtual sessions with Registered Psychotherapists and Registered Social Workers.",
 };
 
 const VALUES = [
@@ -21,7 +21,7 @@ const VALUES = [
   },
   {
     title: "Trust",
-    body: "We only connect you with Registered Psychotherapists and Registered Social Workers. Regulated professionals who are accountable to their college.",
+    body: "Our therapists are Registered Psychotherapists and Registered Social Workers — regulated professionals who are accountable to their college.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
@@ -60,8 +60,8 @@ export default function AboutPage() {
           </h1>
           <p className="mt-6 max-w-[680px] text-vlg leading-[1.6] text-ink-secondary">
             Valisen exists because finding the right therapist in Ontario can feel complicated.
-            We&apos;re here to make the process easier - by connecting you with the right therapist
-            and helping make sure your insurance does the heavy lifting.
+            We&apos;re here to make it easier — as a clinic, we handle the pairing, the admin,
+            and help make sure your insurance does the heavy lifting.
           </p>
         </div>
       </section>
@@ -71,20 +71,21 @@ export default function AboutPage() {
           <div>
             <span className="badge-outline-white mb-5">HOW WE WORK</span>
             <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-canvas md:text-v2xl">
-              We match.
+              We provide.
               <br />
-              Therapists deliver.
+              Our therapists deliver.
             </h2>
           </div>
           <div className="space-y-5 text-[15px] leading-[1.7] text-canvas/85">
             <p>
-              Valisen is not a clinic. We don&apos;t deliver sessions ourselves. What we do is the
-              part that&apos;s broken: the matching.
+              Valisen Mental Health is an Ottawa therapy clinic. Our Registered Psychotherapists
+              and Social Workers provide in-person and virtual sessions directly to clients who
+              book with us.
             </p>
             <p>
-              You fill out a simple intake. We review it, connect with you to learn more about
-              what you need, and introduce you to a Registered Psychotherapist or Social Worker who fits.
-              From that point on, your relationship is directly with your therapist.
+              You fill out a simple form. Our team reviews it, reaches out to learn more about
+              what you need, and pairs you with one of our therapists who fits. Your care is
+              managed under our roof from day one.
             </p>
             <p>
               That&apos;s how we keep things simple - and how we help make sure your insurance may
@@ -122,14 +123,15 @@ export default function AboutPage() {
       <section className="bg-canvas pb-16 md:pb-24">
         <div className="container-v rounded-card border-[0.5px] border-hairline bg-white px-8 py-12 text-center md:px-16 md:py-16">
           <h2 className="mx-auto max-w-[640px] font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-            Start with a free intake
+            Book with us today
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] text-ink-secondary">
-            Share what you&apos;re looking for. We&apos;ll help with the matching.
+            Share what you&apos;re looking for. We&apos;ll pair you with the right therapist from
+            our team.
           </p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link href="/intake" className="btn-primary justify-center">
-              Start free intake <span aria-hidden="true">&rarr;</span>
+              Book My Therapist <span aria-hidden="true">&rarr;</span>
             </Link>
             <a href="tel:613-707-0333" className="btn-outline justify-center">
               Call 613-707-0333

@@ -8,14 +8,14 @@ export default function HeroSection() {
           <span className="badge-outline-teal mb-6">SERVING OTTAWA AND ONTARIO</span>
 
           <h1 className="mb-6 font-serif text-[40px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
-            Therapy that <span className="italic text-teal">actually</span>
-            <br />
-            feels <span className="italic text-teal">right for you</span>
+            Professional therapy in Ottawa — from our{" "}
+            <span className="italic text-teal">registered</span> therapists, usually within days.
           </h1>
 
           <p className="max-w-[560px] text-vbase leading-[1.6] text-ink-secondary">
-            Finding the right therapist in Ontario shouldn&apos;t feel overwhelming. Fill out our
-            intake or give us a call - we&apos;ll help you find a thoughtful match.
+            Valisen Mental Health is an Ottawa therapy clinic. Book directly with us and get paired
+            with one of our Registered Psychotherapists or Social Workers — in person or virtually
+            across Ontario.
           </p>
           <p className="mt-5 text-[14px] text-ink-secondary">
             Or call us directly at{" "}
