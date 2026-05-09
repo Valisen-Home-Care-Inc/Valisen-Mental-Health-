@@ -74,7 +74,7 @@ export default function TherapistsPage() {
             </h1>
             <p className="max-w-[600px] text-vbase leading-[1.7] text-ink-secondary">
               All Valisen therapists are Registered Psychotherapists (RP) or Registered Social
-              Workers (RSW) regulated under Ontario law. When you book with us, you're matched
+              Workers (RSW) regulated under Ontario law. When you book with us, you&apos;re matched
               with the right person for your specific needs — not just whoever is next available.
             </p>
           </div>

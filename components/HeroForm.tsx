@@ -61,7 +61,7 @@ export default function HeroForm() {
           Free Matching Intake
         </div>
         <p className="text-[13px] leading-[1.5] text-ink-secondary">
-          Fill in below — we'll be in touch within 1 business day.
+          Fill in below — we&apos;ll be in touch within 1 business day.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

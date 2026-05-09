@@ -203,7 +203,7 @@ export default function InsurancePage() {
         <div className="container-v">
           <div className="mx-auto max-w-[800px]">
             <div className="mb-12 text-center">
-              <span className="badge-outline-teal mb-5">WHAT'S COVERED</span>
+              <span className="badge-outline-teal mb-5">WHAT&apos;S COVERED</span>
               <h2 className="font-serif text-[34px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
                 What your plan likely includes
               </h2>
