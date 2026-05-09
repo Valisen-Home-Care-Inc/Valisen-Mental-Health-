@@ -27,7 +27,8 @@ const THERAPISTS = [
 function AvatarPlaceholder({ initials }: { initials: string }) {
   return (
     <div
-      className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-sage text-[22px] font-medium text-ink-secondary"
+      className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-[22px] font-semibold text-white"
+      style={{ background: "linear-gradient(135deg, #2A7F7F 0%, #8BB5A0 100%)" }}
       aria-hidden="true"
     >
       {initials}
@@ -37,7 +38,7 @@ function AvatarPlaceholder({ initials }: { initials: string }) {
 
 export default function TherapistGrid() {
   return (
-    <section className="bg-canvas pb-16 md:pb-24">
+    <section className="bg-white py-24 md:py-32">
       <div className="container-v">
         <div className="mb-10 max-w-[640px]">
           <span className="badge-outline-teal mb-5">OUR THERAPISTS</span>
@@ -55,7 +56,7 @@ export default function TherapistGrid() {
             return (
               <article
                 key={therapist.name}
-                className="rounded-card border-[0.5px] border-hairline bg-white p-7 text-center"
+                className="card-lift rounded-card border-[0.5px] border-hairline bg-white p-7 text-center"
               >
                 <AvatarPlaceholder initials={initials} />
                 <h3 className="mt-5 font-serif text-vlg font-medium text-ink">

@@ -7,7 +7,8 @@ import Logo from "./Logo";
 const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/services", label: "Services" },
-  { href: "/services#insurance", label: "Insurance" },
+  { href: "/therapists", label: "Therapists" },
+  { href: "/insurance", label: "Insurance" },
   { href: "/about", label: "About" },
 ];
 
@@ -15,7 +16,7 @@ export default function NavBar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-50 border-b-[0.5px] border-hairline-light bg-white">
+    <nav className="sticky top-0 z-50 border-b border-hairline-light bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-container items-center justify-between px-6 py-[18px] md:px-8">
         <Logo />
 

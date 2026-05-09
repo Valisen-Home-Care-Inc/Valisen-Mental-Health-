@@ -17,30 +17,53 @@
   --color-border-light: rgba(0, 0, 0, 0.06);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html,
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 @layer components {
+  /* ── Buttons ─────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center rounded-pill text-[14px] font-medium px-[26px] py-[14px] transition-colors;
+    @apply inline-flex items-center justify-center rounded-pill text-[14px] font-medium px-[26px] py-[14px] transition-all duration-200;
   }
   .btn-primary {
-    @apply btn bg-teal text-white hover:bg-teal-dark;
+    @apply btn text-white hover:-translate-y-px active:translate-y-0;
+    background: linear-gradient(135deg, #2A7F7F 0%, #185252 100%);
+    box-shadow: 0 2px 14px rgba(42, 127, 127, 0.30);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #2f8c8c 0%, #1e6060 100%);
+    box-shadow: 0 6px 24px rgba(42, 127, 127, 0.40);
+  }
+  .btn-primary:disabled {
+    opacity: 0.65;
+    transform: none;
+    cursor: not-allowed;
   }
   .btn-outline {
-    @apply btn bg-transparent text-ink border border-black/20 hover:bg-black/5;
+    @apply btn bg-transparent text-ink border border-black/20 hover:bg-black/5 hover:-translate-y-px active:translate-y-0;
   }
   .btn-dark {
-    @apply btn bg-ink !text-white hover:bg-black;
+    @apply btn !text-white hover:-translate-y-px active:translate-y-0;
     color: white !important;
+    background: #2C2C2C;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.20);
+  }
+  .btn-dark:hover {
+    background: #111111;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
   }
 
+  /* ── Badges ──────────────────────────────────────────── */
   .badge {
     @apply inline-block rounded-pill text-vxs font-medium tracking-[1.2px] px-[14px] py-[6px];
   }
@@ -54,7 +77,38 @@ body {
     @apply badge bg-teal-xlight text-teal-dark;
   }
 
+  /* ── Layout ──────────────────────────────────────────── */
   .container-v {
     @apply mx-auto w-full max-w-container px-6 md:px-12;
   }
+
+  /* ── Card hover lift ─────────────────────────────────── */
+  .card-lift {
+    @apply transition-all duration-300;
+  }
+  .card-lift:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.09);
+  }
+
+  /* ── Form input ──────────────────────────────────────── */
+  .form-input {
+    @apply w-full rounded-xl border border-black/[0.12] bg-[#FAFAF8] px-4 py-3 text-[15px] text-ink outline-none transition-all duration-200 placeholder:text-ink-hint;
+  }
+  .form-input:focus {
+    @apply border-teal bg-white;
+    box-shadow: 0 0 0 3px rgba(42, 127, 127, 0.12);
+  }
+}
+
+/* ── Input focus ring (global) ───────────────────────────── */
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-teal) !important;
+  box-shadow: 0 0 0 3px rgba(42, 127, 127, 0.14);
+  background: #ffffff;
 }

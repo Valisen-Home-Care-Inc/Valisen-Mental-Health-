@@ -22,7 +22,7 @@ const STEPS: Array<{ n: string; title: string; duration: string; body: string; s
 
 export default function HowItWorks() {
   return (
-    <section className="bg-canvas pb-16 pt-10 md:pb-24 md:pt-14">
+    <section className="bg-canvas py-24 md:py-32">
       <div className="container-v">
         <div className="mb-12 max-w-[640px]">
           <span className="badge-outline-teal mb-5">HOW IT WORKS</span>
@@ -36,9 +36,9 @@ export default function HowItWorks() {
           {STEPS.map((step) => (
             <article
               key={step.n}
-              className="rounded-card border-[0.5px] border-hairline bg-white p-7"
+              className="card-lift rounded-card border-[0.5px] border-hairline bg-white p-8"
             >
-              <div className="mb-5 font-serif text-[28px] font-medium text-teal">{step.n}</div>
+              <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-teal-xlight font-serif text-[19px] font-semibold text-teal">{step.n}</div>
               <h3 className="mb-1 font-serif text-vlg font-medium text-ink">{step.title}</h3>
               <div className="mb-4 text-vxs uppercase tracking-[0.5px] text-ink-secondary">
                 {step.duration}

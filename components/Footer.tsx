@@ -17,17 +17,23 @@ const COL_SERVICES = [
 
 const COL_COMPANY = [
   { href: "/about", label: "About Valisen" },
-  { href: "/services#insurance", label: "Insurance" },
+  { href: "/therapists", label: "Our Therapists" },
+  { href: "/insurance", label: "Insurance" },
+];
+
+const COL_LEGAL = [
+  { href: "/privacy-policy", label: "Privacy Policy" },
+  { href: "/terms", label: "Terms of Service" },
 ];
 
 export default function Footer() {
   return (
-    <footer className="border-t-[0.5px] border-hairline bg-canvas">
-      <div className="container-v py-14">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.25fr_1fr_0.75fr_1fr]">
+    <footer className="bg-[#1C1C1A]">
+      <div className="container-v py-16">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.25fr_1fr_0.75fr_0.75fr_1fr]">
           <div>
-            <Logo />
-            <p className="mt-4 max-w-[300px] text-[13px] leading-[1.6] text-ink-secondary">
+            <Logo dark />
+            <p className="mt-4 max-w-[300px] text-[13px] leading-[1.6] text-white/50">
               Ottawa therapy clinic. Registered Psychotherapists and Social Workers delivering
               in-person and virtual care across Ontario.
             </p>
@@ -35,32 +41,44 @@ export default function Footer() {
 
           <FooterCol heading="Services" links={COL_SERVICES} />
           <FooterCol heading="Company" links={COL_COMPANY} />
+          <FooterCol heading="Legal" links={COL_LEGAL} />
 
           <div>
-            <h4 className="mb-4 text-vxs uppercase tracking-[1.2px] text-ink-secondary">
+            <h4 className="mb-4 text-vxs uppercase tracking-[1.2px] text-white/40">
               Contact
             </h4>
-            <ul className="space-y-2 text-[13px] text-ink">
+            <ul className="space-y-2 text-[13px] text-white/70">
               <li>
-                <a href="tel:613-707-0333" className="no-underline hover:text-teal">
+                <a href="tel:613-707-0333" className="no-underline hover:text-teal-light">
                   613-707-0333
                 </a>
               </li>
               <li>
-                <a href="mailto:info@valisenmentalhealth.com" className="no-underline hover:text-teal">
+                <a href="mailto:info@valisenmentalhealth.com" className="no-underline hover:text-teal-light">
                   info@valisenmentalhealth.com
                 </a>
               </li>
-              <li className="text-ink-secondary">Ottawa Ontario</li>
+              <li className="text-white/40">Ottawa, Ontario</li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t-[0.5px] border-hairline pt-6 md:flex-row md:items-center">
-          <span className="text-[12px] text-ink-secondary">
-            &copy; 2026 Valisen Mental Health. All rights reserved.
-          </span>
-          <CrisisNote className="md:text-right" />
+        <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-6 md:flex-row md:items-center">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+            <span className="text-[12px] text-white/30">
+              &copy; 2026 Valisen Mental Health. All rights reserved.
+            </span>
+            <div className="flex items-center gap-4">
+              <Link href="/privacy-policy" className="text-[12px] text-white/40 hover:text-white/70 no-underline">
+                Privacy Policy
+              </Link>
+              <span className="text-white/20" aria-hidden="true">|</span>
+              <Link href="/terms" className="text-[12px] text-white/40 hover:text-white/70 no-underline">
+                Terms of Service
+              </Link>
+            </div>
+          </div>
+          <CrisisNote dark className="md:text-right" />
         </div>
       </div>
     </footer>
@@ -76,11 +94,11 @@ function FooterCol({
 }) {
   return (
     <div>
-      <h4 className="mb-4 text-vxs uppercase tracking-[1.2px] text-ink-secondary">{heading}</h4>
-      <ul className="space-y-2 text-[13px] text-ink">
+      <h4 className="mb-4 text-vxs uppercase tracking-[1.2px] text-white/40">{heading}</h4>
+      <ul className="space-y-2 text-[13px] text-white/70">
         {links.map((link) => (
           <li key={link.label}>
-            <Link href={link.href} className="no-underline hover:text-teal">
+            <Link href={link.href} className="no-underline hover:text-teal-light">
               {link.label}
             </Link>
           </li>

@@ -33,14 +33,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ["Georgia", "Times New Roman", "serif"],
-        sans: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Roboto",
-          "sans-serif",
-        ],
+        serif: ["var(--font-serif)", "Georgia", "Times New Roman", "serif"],
+        sans: ["var(--font-sans)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
       },
       fontSize: {
         vxs: ["11px", { lineHeight: "1.6" }],
@@ -72,6 +66,12 @@ const config: Config = {
       },
       maxWidth: {
         container: "1200px",
+      },
+      boxShadow: {
+        card: "0 2px 12px rgba(0,0,0,0.06)",
+        "card-hover": "0 20px 60px rgba(0,0,0,0.10)",
+        "card-lg": "0 32px 80px rgba(0,0,0,0.14)",
+        glow: "0 0 40px rgba(42, 127, 127, 0.18)",
       },
     },
   },

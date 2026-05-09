@@ -59,8 +59,8 @@ export default function SpecialtyPage({ specialty }: { specialty: SpecialtyPageD
 
 function Hero({ specialty }: { specialty: SpecialtyPageData }) {
   return (
-    <section className="bg-canvas">
-      <div className="container-v grid grid-cols-1 items-center gap-10 py-14 md:grid-cols-[1.02fr_0.98fr] md:py-20">
+    <section className="flex min-h-[88vh] flex-col justify-center bg-canvas">
+      <div className="container-v grid w-full grid-cols-1 items-center gap-12 py-20 md:grid-cols-[1.02fr_0.98fr] md:py-28">
         <div>
           <span className="badge-outline-teal mb-6">OTTAWA AND ONTARIO</span>
           <h1 className="mb-6 font-serif text-[40px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
@@ -84,7 +84,7 @@ function Hero({ specialty }: { specialty: SpecialtyPageData }) {
 
 function WhatItIs({ specialty }: { specialty: SpecialtyPageData }) {
   return (
-    <section className="bg-canvas py-16 md:py-20">
+    <section className="bg-white py-24 md:py-32">
       <div className="container-v grid grid-cols-1 gap-10 md:grid-cols-[0.9fr_1.1fr]">
         <div>
           <span className="badge-outline-teal mb-5">WHAT IT IS</span>
@@ -104,7 +104,7 @@ function WhatItIs({ specialty }: { specialty: SpecialtyPageData }) {
 
 function HowValisenHelps({ topic }: { topic: string }) {
   return (
-    <section className="bg-canvas pb-16 md:pb-24">
+    <section className="bg-canvas py-24 md:py-32">
       <div className="container-v">
         <div className="mx-auto max-w-[800px] rounded-card border-[0.5px] border-hairline bg-white p-8 text-center md:p-12">
           <span className="badge-outline-teal mb-5">HOW VALISEN HELPS</span>
@@ -125,7 +125,7 @@ function HowValisenHelps({ topic }: { topic: string }) {
 
 function WhatToExpect() {
   return (
-    <section className="bg-canvas pb-16 md:pb-24">
+    <section className="bg-white py-24 md:py-32">
       <div className="container-v">
         <div className="mb-12 max-w-[660px]">
           <span className="badge-outline-teal mb-5">WHAT TO EXPECT</span>
@@ -152,7 +152,7 @@ function WhatToExpect() {
 
 function DarkCta() {
   return (
-    <section className="bg-teal-dark py-16 md:py-20">
+    <section className="bg-teal-dark py-24 md:py-32">
       <div className="container-v text-center">
         <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-canvas md:text-v2xl">
           Take the first step
@@ -175,7 +175,7 @@ function DarkCta() {
 
 function FAQ() {
   return (
-    <section className="bg-canvas py-16 md:py-24">
+    <section className="bg-white py-24 md:py-32">
       <div className="container-v max-w-[800px]">
         <div className="mb-8 text-center">
           <span className="badge-outline-teal mb-5">FAQ</span>

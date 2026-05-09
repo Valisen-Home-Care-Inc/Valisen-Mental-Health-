@@ -40,7 +40,7 @@ export default function DarkSection({
         <path d="M20 65 Q 35 50, 55 60" stroke="#8BB5A0" strokeWidth="3" strokeLinecap="round" />
       </svg>
 
-      <div className="container-v grid grid-cols-1 items-center gap-12 py-16 md:grid-cols-2 md:py-20">
+      <div className="container-v grid grid-cols-1 items-center gap-12 py-24 md:grid-cols-2 md:py-32">
         <div>
           <span className="badge-outline-white mb-5">{badge}</span>
           <h2 className="mb-5 font-serif text-[34px] font-medium leading-[1.1] tracking-[-1px] text-canvas md:text-v2xl">

@@ -38,7 +38,7 @@ export default function FAQ() {
   }
 
   return (
-    <section className="bg-canvas py-16 md:py-24">
+    <section className="bg-white py-24 md:py-32">
       <div className="container-v max-w-[800px]">
         <div className="mb-10 text-center">
           <span className="badge-outline-teal mb-5">FAQ</span>
@@ -52,7 +52,7 @@ export default function FAQ() {
             return (
               <div
                 key={faq.question}
-                className={`rounded-card border-[0.5px] bg-white p-5 transition-colors ${
+                className={`card-lift rounded-card border-[0.5px] bg-white p-5 transition-colors ${
                   isOpen ? "border-teal" : "border-hairline"
                 }`}
               >

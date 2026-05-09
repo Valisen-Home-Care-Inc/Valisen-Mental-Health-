@@ -54,10 +54,15 @@ export default function HeroForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-card border-[0.5px] border-hairline bg-white p-6 md:p-8"
+      className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-8"
     >
-      <div className="mb-6 text-vxs font-medium uppercase tracking-[1.2px] text-teal">
-        FREE MATCHING INTAKE
+      <div className="mb-6">
+        <div className="mb-1.5 text-vxs font-semibold uppercase tracking-[1.5px] text-teal">
+          Free Matching Intake
+        </div>
+        <p className="text-[13px] leading-[1.5] text-ink-secondary">
+          Fill in below — we'll be in touch within 1 business day.
+        </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First Name">
@@ -97,28 +102,40 @@ export default function HeroForm() {
           />
         </Field>
       </div>
-      <div className="mt-5 space-y-1.5 text-center">
-        <p className="text-[13px] leading-[1.6] text-ink-secondary">
-          Sessions may be covered by Manulife, Sun Life, Canada Life, Green Shield, and more.
-        </p>
-        <p className="text-[13px] leading-[1.6] text-ink-secondary">
-          No cost to enquire. We&apos;ll be in touch within 1 business day.
-        </p>
-        <p className="text-[13px] leading-[1.6] text-ink-secondary">
-          🔒 Your information is kept strictly confidential.
-        </p>
-      </div>
-      <button type="submit" disabled={submitting} className="btn-primary mt-5 w-full">
+
+      <div className="my-5 h-px bg-black/[0.06]" />
+
+      <button type="submit" disabled={submitting} className="btn-primary w-full">
         {submitting ? "Submitting\u2026" : <>Book My Therapist <span aria-hidden="true">&rarr;</span></>}
       </button>
-      <p className="mt-3 text-center text-[13px] font-medium text-teal">
-        ✅ Currently accepting new clients — in-person and virtual.
+
+      <div className="mt-4 space-y-2.5">
+        <div className="flex items-center gap-2.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="shrink-0 text-teal" aria-hidden="true">
+            <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-[12.5px] text-ink-secondary">Your information is kept strictly confidential</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="shrink-0 text-teal" aria-hidden="true">
+            <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-[12.5px] text-ink-secondary">Currently accepting new clients — in-person and virtual</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="shrink-0 text-teal" aria-hidden="true">
+            <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+            <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+          </svg>
+          <span className="text-[12.5px] text-ink-secondary">May be covered by your extended health plan</span>
+        </div>
+      </div>
+
+      <p className="mt-3 text-center text-[11.5px] text-ink-hint">
+        <a href="/privacy-policy" className="hover:text-ink hover:underline">Privacy Policy</a>
+        {" · "}No cost to enquire
       </p>
-      <p className="mt-1.5 text-center text-[12px] text-ink-secondary">
-        <a href="/privacy-policy" className="underline hover:text-ink">
-          Privacy Policy
-        </a>
-      </p>
+
       {submitError ? (
         <p className="mt-2 text-center text-[13px] text-red-600">{submitError}</p>
       ) : null}

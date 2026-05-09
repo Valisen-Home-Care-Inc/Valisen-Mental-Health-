@@ -16,7 +16,7 @@ export default function CTASection({
   className = "",
 }: CTASectionProps) {
   return (
-    <section className={`${dark ? "bg-teal-dark" : "bg-canvas"} py-16 md:py-20 ${className}`}>
+    <section className={`${dark ? "bg-teal-dark" : "bg-canvas"} py-24 md:py-32 ${className}`}>
       <div className="container-v text-center">
         <h2
           className={`mx-auto max-w-[680px] font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] md:text-v2xl ${
