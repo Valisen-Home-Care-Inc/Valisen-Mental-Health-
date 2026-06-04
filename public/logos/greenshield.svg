@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 52" role="img" aria-label="Greenshield">
+  <!-- Shield: rounded top, pointed bottom -->
+  <path d="M22 6 L38 10 L38 26 C38 36 30 43 22 46 C14 43 6 36 6 26 L6 10 Z" fill="#009E3D"/>
+  <!-- G letterform inside shield -->
+  <path d="M15 22 C15 16 19 13 23 13 C27 13 31 16 31 20 L27 20 C27 17.5 25.5 16.5 23 16.5 C20.5 16.5 18.5 18.5 18.5 22 C18.5 25.5 20.5 27.5 23 27.5 C25 27.5 26.5 26.5 27 25 L23 25 L23 22 L30.5 22 L30.5 28.5 C29 31 26.5 31.5 23 31.5 C18.5 31.5 15 28 15 22 Z" fill="white"/>
+  <!-- Wordmark: just greenshield, no CANADA -->
+  <text x="48" y="32" font-family="Arial,Helvetica,sans-serif" font-size="19" font-weight="600" letter-spacing="-0.2" fill="#009E3D">greenshield</text>
+</svg>

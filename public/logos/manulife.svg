@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 52" role="img" aria-label="Manulife">
+  <!-- M mark: two angled peaks, no background box -->
+  <path d="M6 42 L6 14 L21 34 L36 14 L36 42" fill="none" stroke="#00A758" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- wordmark -->
+  <text x="48" y="36" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="400" letter-spacing="-0.3" fill="#00A758">manulife</text>
+</svg>

@@ -1,6 +1,13 @@
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import IntakeForm from "@/components/IntakeForm";
+import { normalizePreferredTherapist } from "@/lib/intake";
+
+type IntakePageProps = {
+  searchParams?: {
+    therapist?: string | string[];
+  };
+};
 
 export const metadata = {
   title: "Free intake - Valisen Mental Health",
@@ -8,7 +15,12 @@ export const metadata = {
     "A simple intake to help connect you with a Registered Psychotherapist or Social Worker in Ontario.",
 };
 
-export default function IntakePage() {
+export default function IntakePage({ searchParams }: IntakePageProps) {
+  const therapistParam = Array.isArray(searchParams?.therapist)
+    ? searchParams?.therapist[0]
+    : searchParams?.therapist;
+  const initialPreferredTherapist = normalizePreferredTherapist(therapistParam);
+
   return (
     <main className="min-h-screen bg-canvas">
       <NavBar />
@@ -26,7 +38,7 @@ export default function IntakePage() {
             </p>
           </div>
 
-          <IntakeForm />
+          <IntakeForm initialPreferredTherapist={initialPreferredTherapist} />
         </div>
       </section>
 

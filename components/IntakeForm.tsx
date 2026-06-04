@@ -3,6 +3,10 @@
 import { useState } from "react";
 import CrisisNote from "./CrisisNote";
 import FormConfirmation from "./FormConfirmation";
+import {
+  PREFERRED_THERAPIST_OPTIONS,
+  type PreferredTherapistValue,
+} from "@/lib/intake";
 
 type FormData = {
   firstName: string;
@@ -11,8 +15,8 @@ type FormData = {
   phone: string;
   postalCode: string;
   reason: string;
-  format: string;
-  benefits: string;
+  preferredTherapist: PreferredTherapistValue;
+  consent: boolean;
   days: string[];
   timeOfDay: string;
   notes: string;
@@ -25,23 +29,28 @@ const INITIAL: FormData = {
   phone: "",
   postalCode: "",
   reason: "",
-  format: "",
-  benefits: "",
+  preferredTherapist: "flexible",
+  consent: false,
   days: [],
   timeOfDay: "",
   notes: "",
 };
 
 const REASONS = ["Anxiety", "Depression", "Relationship issues", "Stress", "Grief", "Other"];
-const FORMATS = ["Telehealth", "In-person", "No preference"];
-const BENEFITS = ["Yes", "No", "Not sure"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TIMES = ["Morning", "Afternoon", "Evening"];
 const TOTAL_STEPS = 3;
 
-export default function IntakeForm() {
+export default function IntakeForm({
+  initialPreferredTherapist = "flexible",
+}: {
+  initialPreferredTherapist?: PreferredTherapistValue;
+}) {
   const [step, setStep] = useState(1);
-  const [data, setData] = useState<FormData>(INITIAL);
+  const [data, setData] = useState<FormData>({
+    ...INITIAL,
+    preferredTherapist: initialPreferredTherapist,
+  });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -64,7 +73,7 @@ export default function IntakeForm() {
       return Boolean(data.firstName && data.lastName && data.email && data.phone && data.postalCode);
     }
     if (step === 2) {
-      return Boolean(data.reason && data.format && data.benefits);
+      return Boolean(data.reason && data.preferredTherapist && data.consent);
     }
     return data.days.length > 0 && Boolean(data.timeOfDay);
   }
@@ -83,10 +92,13 @@ export default function IntakeForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("server error");
+      if (!res.ok) {
+        const result = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(result?.error || "Something went wrong. Please try again.");
+      }
       setSubmitted(true);
-    } catch {
-      setSubmitError("Something went wrong. Please try again.");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -157,7 +169,7 @@ export default function IntakeForm() {
           {step === 2 ? (
             <Step title="What you're looking for" subtitle="Help us understand what you need.">
               <div className="space-y-6">
-                <Field label="Reason for seeking support">
+                <Field label="What brings you to therapy">
                   <select
                     required
                     value={data.reason}
@@ -173,21 +185,56 @@ export default function IntakeForm() {
                   </select>
                 </Field>
 
-                <Field label="Preferred session format">
-                  <RadioGroup
-                    name="format"
-                    options={FORMATS}
-                    value={data.format}
-                    onChange={(value) => update("format", value)}
-                  />
+                <Field label="Preferred therapist">
+                  <select
+                    value={data.preferredTherapist}
+                    onChange={(event) =>
+                      update("preferredTherapist", event.target.value as PreferredTherapistValue)
+                    }
+                    className={inputClass}
+                  >
+                    {PREFERRED_THERAPIST_OPTIONS.map((therapist) => (
+                      <option key={therapist.value} value={therapist.value}>
+                        {therapist.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-[12.5px] leading-[1.5] text-ink-hint">
+                    You can choose a specific therapist or leave this flexible and we&apos;ll help match you.
+                  </p>
                 </Field>
 
-                <Field label="Do you have extended health benefits?">
-                  <RadioGroup
-                    name="benefits"
-                    options={BENEFITS}
-                    value={data.benefits}
-                    onChange={(value) => update("benefits", value)}
+                <div className="rounded-[12px] border border-black/10 bg-[#F7F4EF] p-4">
+                  <p className="text-[13px] leading-[1.7] text-ink">
+                    <span className="font-semibold">*</span>{" "}
+                    I am aware services are not covered by provincial health (e.g., OHIP) or
+                    disability programs, and I consent to being contacted by phone, text, or email.
+                  </p>
+                  <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-secondary">
+                    Our intake team will review fees, insurance coverage, and payment options with
+                    you.
+                  </p>
+                  <label className="mt-3 flex cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      required
+                      checked={data.consent}
+                      onChange={(e) => update("consent", e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-teal"
+                    />
+                    <span className="text-[14px] font-medium text-ink">
+                      I agree. <span className="text-[12px] font-normal text-ink-secondary">(required)</span>
+                    </span>
+                  </label>
+                </div>
+
+                <Field label="Is there anything else you would like us to know?">
+                  <textarea
+                    rows={3}
+                    value={data.notes}
+                    onChange={(event) => update("notes", event.target.value)}
+                    className={`${inputClass} resize-y`}
+                    placeholder="Optional"
                   />
                 </Field>
               </div>
@@ -222,16 +269,6 @@ export default function IntakeForm() {
                     options={TIMES}
                     value={data.timeOfDay}
                     onChange={(value) => update("timeOfDay", value)}
-                  />
-                </Field>
-
-                <Field label="Additional notes">
-                  <textarea
-                    rows={4}
-                    value={data.notes}
-                    onChange={(event) => update("notes", event.target.value)}
-                    className={`${inputClass} resize-y`}
-                    placeholder="Anything else you'd like us to know?"
                   />
                 </Field>
               </div>

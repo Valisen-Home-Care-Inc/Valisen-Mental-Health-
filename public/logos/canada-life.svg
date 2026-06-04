@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 52" role="img" aria-label="Canada Life">
+  <!-- Abstract mark: two interlocking swoosh shapes (Canada Life 2020 rebrand) -->
+  <path d="M8 38 C8 24 18 14 28 14 C22 14 16 22 16 30 C16 38 22 44 30 44 C20 44 8 42 8 38 Z" fill="#DA291C"/>
+  <path d="M20 10 C30 10 40 20 40 30 C40 22 34 16 28 16 C22 16 16 22 16 30 C16 36 20 42 26 44 C36 44 44 36 44 30 C44 18 34 8 22 8 Z" fill="#DA291C" opacity="0.7"/>
+  <!-- Wordmark -->
+  <text x="54" y="26" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="700" letter-spacing="0.5" fill="#3A3A3A">Canada Life</text>
+  <text x="54" y="43" font-family="Arial,Helvetica,sans-serif" font-size="10.5" font-weight="400" letter-spacing="0.3" fill="#777">Insurance &amp; Benefits</text>
+</svg>

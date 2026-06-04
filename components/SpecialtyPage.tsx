@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { ArrowRight, CalendarDays, CheckCircle } from "lucide-react";
+import BookingNote from "./BookingNote";
 import Footer from "./Footer";
-import HeroForm from "./HeroForm";
 import InsuranceBand from "./InsuranceBand";
 import NavBar from "./NavBar";
+import { MATCHING_CTA_LABEL, MATCHING_FORM_URL } from "@/lib/intake";
 import type { SpecialtyPageData } from "@/lib/specialties";
 
 const EXPECTATIONS = [
@@ -32,7 +34,7 @@ const FAQS = [
   {
     question: "How does matching work?",
     answer:
-      "After you book, our team reviews your needs and availability to pair you with the right therapist from our clinic.",
+      "Start with the matching intake. We use your preferences to understand what you are looking for and discuss next steps.",
   },
   {
     question: "Do I need a referral from a doctor?",
@@ -70,12 +72,12 @@ function Hero({ specialty }: { specialty: SpecialtyPageData }) {
             {specialty.subtext}
           </p>
           <p className="mt-5 max-w-[620px] text-[12px] leading-[1.6] text-ink-secondary">
-            Our Registered Psychotherapists and Social Workers deliver in-person and virtual therapy
+            Our Registered Psychotherapists and Social Workers deliver virtual therapy
             across Ontario.
           </p>
         </div>
         <div className="mx-auto w-full max-w-[520px]">
-          <HeroForm />
+          <ConsultationPanel />
         </div>
       </div>
     </section>
@@ -112,10 +114,9 @@ function HowValisenHelps({ topic }: { topic: string }) {
             Our team pairs you with the right therapist
           </h2>
           <p className="mx-auto mt-5 max-w-[650px] text-[15px] leading-[1.7] text-ink-secondary">
-            Book with Valisen and our team pairs you with one of our Registered Psychotherapists or
-            Social Workers in Ontario who has experience working with {topic}. You fill out a simple
-            form. We learn more about what matters to you and pair you with a therapist from our
-            team who fits what you need.
+            Start the matching intake with Valisen and our team can discuss your needs,
+            preferences, and whether one of our Registered Psychotherapists or Social Workers in
+            Ontario has experience working with {topic}.
           </p>
         </div>
       </div>
@@ -158,18 +159,56 @@ function DarkCta() {
           Take the first step
         </h2>
         <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.6] text-canvas/80">
-          Book directly with us and we&apos;ll pair you with one of our therapists.
+          Start the matching intake and we&apos;ll discuss next steps.
         </p>
         <div className="mt-8">
           <Link
-            href="/intake"
+            href={MATCHING_FORM_URL}
             className="btn border border-canvas/80 bg-transparent text-canvas hover:bg-canvas hover:text-ink"
           >
-            Book My Therapist <span aria-hidden="true">&rarr;</span>
+            {MATCHING_CTA_LABEL}
+            <ArrowRight size={16} className="ml-2" aria-hidden="true" />
           </Link>
+          <BookingNote dark className="mx-auto mt-4 max-w-[520px]" />
         </div>
       </div>
     </section>
+  );
+}
+
+function ConsultationPanel() {
+  return (
+    <div className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-8">
+      <div className="mb-6">
+        <div className="mb-1.5 text-vxs font-semibold uppercase tracking-[1.5px] text-teal">
+          Free Consultation
+        </div>
+        <h2 className="font-serif text-[30px] font-medium leading-[1.12] tracking-[-0.6px] text-ink">
+          Start with a short matching intake.
+        </h2>
+        <p className="mt-3 text-[14px] leading-[1.6] text-ink-secondary">
+          Share your preferences, discuss therapist fit, and explore whether Valisen is a good
+          next step.
+        </p>
+      </div>
+      <div className="space-y-3 border-y border-hairline py-5">
+        {[
+          "Free matching intake",
+          "Flexible therapist preference",
+          "No detailed clinical history needed",
+        ].map((item) => (
+          <div key={item} className="flex items-center gap-2.5">
+            <CheckCircle size={15} className="shrink-0 text-teal" aria-hidden="true" />
+            <span className="text-[13px] text-ink-secondary">{item}</span>
+          </div>
+        ))}
+      </div>
+      <Link href={MATCHING_FORM_URL} className="btn-primary mt-6 w-full justify-center">
+        <CalendarDays size={16} className="mr-2" aria-hidden="true" />
+        {MATCHING_CTA_LABEL}
+      </Link>
+      <BookingNote className="mt-4" />
+    </div>
   );
 }
 

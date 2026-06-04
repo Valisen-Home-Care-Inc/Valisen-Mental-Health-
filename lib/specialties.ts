@@ -23,7 +23,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "anxiety-therapy-ottawa",
     title: "Anxiety Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who specialises in anxiety. Short form, personal pairing, may be covered by extended health plans.",
+      "Start a free matching intake with Valisen Mental Health to discuss anxiety therapy options in Ottawa and Ontario.",
     headline: "Anxiety therapy in Ottawa, matched to you",
     subtext:
       "Living with constant worry, racing thoughts, or panic shouldn't be something you handle alone. We pair you with one of our Registered Psychotherapists in Ontario who has experience working with anxiety.",
@@ -37,7 +37,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "depression-therapy-ottawa",
     title: "Depression Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who specialises in depression. Short form, personal pairing, may be covered by insurance.",
+      "Start a free matching intake with Valisen Mental Health to discuss depression therapy options in Ottawa and Ontario.",
     headline: "Depression therapy in Ottawa, matched to you",
     subtext:
       "Depression can make even small things feel impossible. We pair you with one of our Registered Psychotherapists in Ontario who has experience working with depression - at your pace, on your terms.",
@@ -51,7 +51,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "trauma-therapy-ottawa",
     title: "Trauma Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who specialises in trauma. Compassionate intake, careful pairing, may be covered by extended health plans.",
+      "Start a free matching intake with Valisen Mental Health to discuss trauma therapy options in Ottawa and Ontario.",
     headline: "Trauma therapy in Ottawa, matched to you",
     subtext:
       "Trauma changes how the world feels. We pair you with one of our Registered Psychotherapists in Ontario who has experience working with trauma - and who will move at your pace.",
@@ -65,7 +65,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "grief-counselling-ottawa",
     title: "Grief Counselling in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who specialises in grief and loss. Short form, caring pairing, may be covered by insurance.",
+      "Start a free matching intake with Valisen Mental Health to discuss grief counselling options in Ottawa and Ontario.",
     headline: "Grief counselling in Ottawa, matched to you",
     subtext:
       "Grief doesn't follow a schedule. We pair you with one of our Registered Psychotherapists in Ontario who has experience supporting people through loss of every kind.",
@@ -79,7 +79,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "stress-therapy-ottawa",
     title: "Stress Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who can help with stress and burnout. Short form, personal pairing, may be covered by extended health plans.",
+      "Start a free matching intake with Valisen Mental Health to discuss stress and burnout therapy options in Ottawa and Ontario.",
     headline: "Stress therapy in Ottawa, matched to you",
     subtext:
       "Chronic stress wears on everything - your sleep, your body, your relationships, your sense of yourself. We pair you with one of our Registered Psychotherapists in Ontario who can help.",
@@ -93,7 +93,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "self-esteem-therapy-ottawa",
     title: "Self-Esteem Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who specialises in self-esteem and self-worth. Short form, careful pairing, may be covered by insurance.",
+      "Start a free matching intake with Valisen Mental Health to discuss self-esteem therapy options in Ottawa and Ontario.",
     headline: "Self-esteem therapy in Ottawa, matched to you",
     subtext:
       "The way you talk to yourself shapes everything else. We pair you with one of our Registered Psychotherapists in Ontario who can help you build a kinder, steadier relationship with yourself.",
@@ -107,7 +107,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "relationship-counselling-ottawa",
     title: "Relationship Counselling in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who specialises in relationship issues. Individual or couples sessions. May be covered by extended health plans.",
+      "Start a free matching intake with Valisen Mental Health to discuss relationship counselling options in Ottawa and Ontario.",
     headline: "Relationship counselling in Ottawa, matched to you",
     subtext:
       "Whether you're working through things on your own or with a partner, we pair you with one of our Registered Psychotherapists in Ontario who specialises in relationships.",
@@ -121,7 +121,7 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "life-transitions-therapy-ottawa",
     title: "Life Transitions Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Book with a Registered Psychotherapist in Ottawa who specialises in life transitions and change. Short form, personal pairing, may be covered by insurance.",
+      "Start a free matching intake with Valisen Mental Health to discuss life transitions therapy options in Ottawa and Ontario.",
     headline: "Life transitions therapy in Ottawa, matched to you",
     subtext:
       "Big changes - even good ones - can leave you unsteady. We pair you with one of our Registered Psychotherapists in Ontario who can help you find your footing.",

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import CTASection from "@/components/CTASection";
+import BookingNote from "@/components/BookingNote";
+import { MATCHING_CTA_LABEL, MATCHING_FORM_URL } from "@/lib/intake";
 
 export const metadata: Metadata = {
   title: "Insurance Coverage for Therapy in Ottawa",
@@ -16,22 +19,32 @@ export const metadata: Metadata = {
 const PROVIDERS = [
   {
     name: "Manulife",
+    logo: "/logos/manulife.png",
+    logoWidth: 110,
     desc: "Most Manulife group benefit plans include mental health coverage for Registered Psychotherapists and Registered Social Workers.",
   },
   {
     name: "Sun Life",
+    logo: "/logos/sunlife.jpg",
+    logoWidth: 100,
     desc: "Sun Life group plans typically include paramedical benefits covering Registered Psychotherapists and Social Workers.",
   },
   {
     name: "Canada Life",
+    logo: "/logos/canada-life.png",
+    logoWidth: 120,
     desc: "Canada Life group benefit plans often include mental health coverage for Registered Psychotherapists and Social Workers.",
   },
   {
     name: "Green Shield",
+    logo: "/logos/greenshield.png",
+    logoWidth: 130,
     desc: "Green Shield plans commonly include coverage for Registered Psychotherapists under their paramedical benefits.",
   },
   {
     name: "Equitable Life",
+    logo: "/logos/equitable.png",
+    logoWidth: 70,
     desc: "Equitable Life group plans may include coverage for Registered Psychotherapists and Social Workers.",
   },
 ];
@@ -44,8 +57,8 @@ const STEPS = [
   },
   {
     n: "02",
-    title: "Book with us",
-    body: "Complete our short intake form. Our team pairs you with the right therapist and helps you understand your coverage — no guesswork on your end.",
+    title: "Start the intake",
+    body: "Share a few basic details. Our team can discuss next steps and help you understand what to check with your benefits provider.",
   },
   {
     n: "03",
@@ -65,7 +78,7 @@ const FAQS = [
   },
   {
     q: "What if my plan doesn't fully cover sessions?",
-    a: "Many clients pay the difference out of pocket. We provide clear fee information before your first session so there are no surprises.",
+    a: "Some clients are responsible for the portion not reimbursed by their plan. We provide clear fee information before your first session so there are no surprises.",
   },
   {
     q: "How do I submit my receipt to insurance?",
@@ -123,13 +136,17 @@ export default function InsurancePage() {
               provide the receipts you need to claim.
             </p>
             <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-              <Link href="/intake" className="btn-primary">
-                Book My Therapist <span aria-hidden="true">&rarr;</span>
+              <Link
+                href={MATCHING_FORM_URL}
+                className="btn-primary"
+              >
+                {MATCHING_CTA_LABEL} <span aria-hidden="true">&rarr;</span>
               </Link>
               <a href="tel:613-707-0333" className="btn-outline">
                 Call 613-707-0333
               </a>
             </div>
+            <BookingNote className="mt-4 max-w-[520px]" />
           </div>
         </div>
       </section>
@@ -153,16 +170,15 @@ export default function InsurancePage() {
                 key={provider.name}
                 className="card-lift rounded-card border-[0.5px] border-hairline bg-[#FAFAF8] p-7"
               >
-                <div className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-teal-xlight">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path
-                      d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z"
-                      stroke="#2A7F7F"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                <div className="mb-5 flex h-12 items-center">
+                  <Image
+                    src={provider.logo}
+                    alt={provider.name}
+                    width={provider.logoWidth}
+                    height={40}
+                    className="h-9 w-auto object-contain"
+                    unoptimized
+                  />
                 </div>
                 <h3 className="mb-2 font-serif text-vlg font-medium text-ink">{provider.name}</h3>
                 <p className="text-[13.5px] leading-[1.65] text-ink-secondary">{provider.desc}</p>
@@ -214,7 +230,6 @@ export default function InsurancePage() {
                 { label: "Registered Social Worker (RSW) sessions", covered: true },
                 { label: "Individual therapy sessions", covered: true },
                 { label: "Couples therapy (varies by plan)", covered: true },
-                { label: "In-person sessions", covered: true },
                 { label: "Virtual/online sessions", covered: true },
               ].map((item) => (
                 <div
@@ -273,8 +288,8 @@ export default function InsurancePage() {
 
       <CTASection
         dark
-        headline="Ready to book? We'll help with insurance."
-        subtext="Complete the short intake form. Our team will confirm your coverage and pair you with the right therapist within 1 business day."
+        headline="Ready to get started?"
+        subtext="Start the intake and we will follow up to discuss next steps and general insurance questions."
       />
       <Footer />
     </main>

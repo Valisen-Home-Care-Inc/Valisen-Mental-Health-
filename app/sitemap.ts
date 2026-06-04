@@ -1,4 +1,5 @@
-﻿import type { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
+import { therapists } from "@/lib/therapists";
 
 const BASE_URL = "https://valisenmentalhealth.com";
 
@@ -30,7 +31,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
-      url: `${BASE_URL}/intake`,
+      url: `${BASE_URL}/get-matched`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.9,
@@ -70,6 +71,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: 0.9,
+    })),
+    ...therapists.map((therapist) => ({
+      url: `${BASE_URL}/therapists/${therapist.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: therapist.slug === "sarah-chen" ? 0.88 : 0.8,
     })),
   ];
 }

@@ -48,7 +48,7 @@ export default function TermsPage() {
               <p>
                 Valisen Mental Health connects clients with Registered Psychotherapists (RP) and
                 Registered Social Workers (RSW) for individual and couples therapy. Services are
-                available in-person in Ottawa and virtually for residents anywhere in Ontario.
+                available virtually for residents anywhere in Ontario.
               </p>
               <p>
                 Valisen is <strong className="text-ink">not</strong> an emergency mental health
@@ -106,16 +106,14 @@ export default function TermsPage() {
               </p>
             </Section>
 
-            <Section title="6. Fees and Payment">
+            <Section title="6. Fees and Receipts">
               <p>
                 Session fees vary by therapist and service type. Your fee will be clearly
-                communicated before your first session. By proceeding with a booking, you agree
-                to pay the applicable session fee.
+                communicated before your first session.
               </p>
               <p>
-                Payment is due at the time of service unless otherwise agreed. We provide
-                receipts suitable for insurance reimbursement purposes. Valisen does not provide
-                direct billing to insurers — clients submit receipts directly to their provider.
+                We provide receipts suitable for insurance reimbursement purposes. Valisen does not
+                provide direct billing to insurers; clients submit receipts directly to their provider.
               </p>
               <p>
                 Fees are subject to change. You will be notified of any changes with reasonable
@@ -202,7 +200,7 @@ export default function TermsPage() {
               </p>
               <p>
                 Our total liability for any claim arising from our services shall not exceed the
-                amount you paid us in the three months preceding the event giving rise to the
+                amount charged for services in the three months preceding the event giving rise to the
                 claim.
               </p>
             </Section>

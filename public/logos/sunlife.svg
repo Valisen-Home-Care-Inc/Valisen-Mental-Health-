@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 52" role="img" aria-label="Sun Life Financial">
+  <!-- Sun: filled circle with 8 diamond-tipped rays -->
+  <circle cx="26" cy="26" r="10" fill="#F0B323"/>
+  <!-- Cardinal rays -->
+  <polygon points="26,6 28.5,13 23.5,13" fill="#F0B323"/>
+  <polygon points="26,46 28.5,39 23.5,39" fill="#F0B323"/>
+  <polygon points="6,26 13,28.5 13,23.5" fill="#F0B323"/>
+  <polygon points="46,26 39,28.5 39,23.5" fill="#F0B323"/>
+  <!-- Diagonal rays -->
+  <polygon points="11.5,11.5 14,18 18,14" fill="#F0B323"/>
+  <polygon points="40.5,11.5 38,18 34,14" fill="#F0B323"/>
+  <polygon points="11.5,40.5 14,34 18,38" fill="#F0B323"/>
+  <polygon points="40.5,40.5 38,34 34,38" fill="#F0B323"/>
+  <!-- Wordmark: "Sun Life" on one line -->
+  <text x="56" y="31" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700" letter-spacing="0.2" fill="#002754">Sun Life</text>
+</svg>

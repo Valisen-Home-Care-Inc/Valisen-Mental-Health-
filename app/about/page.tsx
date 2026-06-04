@@ -1,11 +1,13 @@
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
+import BookingNote from "@/components/BookingNote";
+import { MATCHING_CTA_LABEL, MATCHING_FORM_URL } from "@/lib/intake";
 
 export const metadata = {
   title: "About - Valisen Mental Health",
   description:
-    "Valisen Mental Health is an Ottawa therapy clinic offering in-person and virtual sessions with Registered Psychotherapists and Registered Social Workers.",
+    "Valisen Mental Health is an Ottawa therapy clinic offering virtual sessions with Registered Psychotherapists and Registered Social Workers.",
 };
 
 const VALUES = [
@@ -79,8 +81,8 @@ export default function AboutPage() {
           <div className="space-y-5 text-[15px] leading-[1.7] text-canvas/85">
             <p>
               Valisen Mental Health is an Ottawa therapy clinic. Our Registered Psychotherapists
-              and Social Workers provide in-person and virtual sessions directly to clients who
-              book with us.
+              and Social Workers provide virtual sessions directly to clients who
+              start with us.
             </p>
             <p>
               You fill out a simple form. Our team reviews it, reaches out to learn more about
@@ -123,20 +125,23 @@ export default function AboutPage() {
       <section className="bg-canvas pb-16 md:pb-24">
         <div className="container-v rounded-card border-[0.5px] border-hairline bg-white px-8 py-12 text-center md:px-16 md:py-16">
           <h2 className="mx-auto max-w-[640px] font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-            Book with us today
+            Get started with Valisen
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] text-ink-secondary">
-            Share what you&apos;re looking for. We&apos;ll pair you with the right therapist from
-            our team.
+            Start the matching intake and we will follow up to discuss next steps.
           </p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-            <Link href="/intake" className="btn-primary justify-center">
-              Book My Therapist <span aria-hidden="true">&rarr;</span>
+            <Link
+              href={MATCHING_FORM_URL}
+              className="btn-primary justify-center"
+            >
+              {MATCHING_CTA_LABEL} <span aria-hidden="true">&rarr;</span>
             </Link>
             <a href="tel:613-707-0333" className="btn-outline justify-center">
               Call 613-707-0333
             </a>
           </div>
+          <BookingNote className="mx-auto mt-4 max-w-[520px]" />
         </div>
       </section>
 

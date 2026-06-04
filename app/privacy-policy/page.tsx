@@ -35,8 +35,7 @@ export default function PrivacyPolicyPage() {
                 <a href="https://valisenmentalhealth.ca" className="text-teal hover:underline">
                   valisenmentalhealth.ca
                 </a>
-                . We connect clients with Registered Psychotherapists (RP) for in-person and
-                virtual therapy services across Ontario.
+                . We connect clients with Registered Psychotherapists (RP) for virtual therapy services across Ontario.
               </p>
               <p>
                 Questions about this policy? Contact our Privacy Officer at{" "}
@@ -83,7 +82,6 @@ export default function PrivacyPolicyPage() {
                 <li>Reason for seeking therapy and general mental health concerns</li>
                 <li>Insurance provider information (if applicable)</li>
                 <li>Communication preferences</li>
-                <li>Payment information (processed through our secure payment partner — we do not store card details)</li>
               </ul>
               <h4 className="mt-4 font-semibold text-ink">b) Clinical information</h4>
               <p className="mt-2">
@@ -106,7 +104,7 @@ export default function PrivacyPolicyPage() {
                 <li>To match you with an appropriate therapist from our network</li>
                 <li>To schedule and facilitate therapy services</li>
                 <li>To communicate with you about your care</li>
-                <li>To process payments and issue receipts for insurance claims</li>
+                <li>To issue receipts for insurance claims where applicable</li>
                 <li>To comply with our legal and professional obligations</li>
                 <li>To improve our platform&apos;s services (in aggregate, de-identified form only)</li>
               </ul>
@@ -145,7 +143,7 @@ export default function PrivacyPolicyPage() {
               <ul className="ml-5 mt-3 list-disc space-y-1">
                 <li>
                   <strong className="text-ink">Service providers:</strong> Trusted third-party
-                  vendors (e.g., booking platforms, email delivery) who are contractually bound
+                  vendors (e.g., secure form processing, email delivery) who are contractually bound
                   to protect your information and use it only to provide services to us.
                 </li>
                 <li>

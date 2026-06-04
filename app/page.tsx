@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 import NavBar from "@/components/NavBar";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
@@ -7,8 +9,16 @@ import HowItWorks from "@/components/HowItWorks";
 import FAQ from "@/components/FAQ";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
+import { MATCHING_FORM_URL } from "@/lib/intake";
+import { therapists } from "@/lib/therapists";
 
-const PROVIDERS = ["Manulife", "Sun Life", "Canada Life", "Green Shield", "Equitable"];
+const PROVIDERS = [
+  { name: "Manulife",           logo: "/logos/manulife.png",    width: 130 },
+  { name: "Sun Life",           logo: "/logos/sunlife.jpg",     width: 120 },
+  { name: "Canada Life",        logo: "/logos/canada-life.png", width: 140 },
+  { name: "Green Shield",       logo: "/logos/greenshield.png", width: 160 },
+  { name: "Equitable Life",     logo: "/logos/equitable.png",   width: 80  },
+];
 
 const FAQ_SCHEMA = {
   "@context": "https://schema.org",
@@ -16,10 +26,10 @@ const FAQ_SCHEMA = {
   mainEntity: [
     {
       "@type": "Question",
-      name: "Who provides the therapy — Valisen or an outside therapist?",
+      name: "Who provides the therapy - Valisen or an outside therapist?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Our therapists work directly with Valisen Mental Health. When you book with us, you're booking with our clinic. Your therapist is part of the Valisen team and your care is managed under our roof.",
+        text: "Our therapists work directly with Valisen Mental Health. When you start with us, you are working with our clinic. Your therapist is part of the Valisen team and your care is managed under our roof.",
       },
     },
     {
@@ -27,7 +37,7 @@ const FAQ_SCHEMA = {
       name: "How much does therapy cost?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Session fees vary by therapist and service type. You'll receive a clear breakdown of fees before your first session. Many clients have their sessions fully or partially covered by extended health benefits.",
+        text: "Session fees vary by therapist and service type. You will receive a clear breakdown of fees before your first session. Many clients have their sessions fully or partially covered by extended health benefits.",
       },
     },
     {
@@ -40,10 +50,10 @@ const FAQ_SCHEMA = {
     },
     {
       "@type": "Question",
-      name: "How do I pay for sessions?",
+      name: "How do I book a consultation?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Payment is made directly to Valisen Mental Health. We will confirm accepted payment methods when we reach out after your booking.",
+        text: "Book a free 15-minute phone consultation through our online booking system or call 613-707-0333. Sessions are typically available within a few days.",
       },
     },
     {
@@ -71,115 +81,147 @@ export default function HomePage() {
       <SocialProof />
       <DarkSection />
 
-      {/* Mid-page CTA — bg-white contrasts with DarkSection above and HowItWorks canvas below */}
-      <section className="bg-white py-20 text-center md:py-28">
+      <HowItWorks />
+
+      <section className="bg-white py-24 md:py-32">
         <div className="container-v">
-          <h2 className="font-serif text-[30px] font-medium leading-[1.15] tracking-[-0.8px] text-ink md:text-[38px]">
-            Ready to book a therapist?
-          </h2>
-          <p className="mx-auto mt-4 max-w-[480px] text-[15px] leading-[1.6] text-ink-secondary">
-            Fill out the short form below or call us directly. We&apos;ll match you within one business day.
-          </p>
-          <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-            <Link href="/intake" className="btn-primary">
-              Book My Therapist <span aria-hidden="true">&rarr;</span>
-            </Link>
-            <a href="tel:613-707-0333" className="btn-outline">
-              Call 613-707-0333
-            </a>
+          <div className="grid grid-cols-1 gap-12 md:grid-cols-[1fr_1fr] md:items-start">
+            <div className="md:pt-3">
+              <span className="badge-outline-teal mb-5">OUR THERAPISTS</span>
+              <h2 className="font-serif text-[34px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
+                Therapists who{" "}
+                <span className="italic text-teal">genuinely care</span>
+              </h2>
+              <p className="mt-5 max-w-[460px] text-[15px] leading-[1.6] text-ink-secondary">
+                Review specialties, languages, and session options before starting. Our team offers
+                support in English, Mandarin, French, Hebrew, Yiddish, and ASL — virtually
+                across Ontario.
+              </p>
+              <div className="mt-8">
+                <Link href="/therapists" className="btn-primary">
+                  Meet Our Therapists
+                  <ArrowRight size={16} className="ml-2" aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Therapist portrait cards */}
+            <div className="grid grid-cols-2 gap-4">
+              {["natasha-azoulay", "wilfred-bengnwi", "tim-kahtava", "dayong-quan"]
+                .map((slug) => therapists.find((t) => t.slug === slug)!)
+                .map((therapist) => (
+                <Link
+                  key={therapist.slug}
+                  href={`/therapists/${therapist.slug}`}
+                  className="group overflow-hidden rounded-[20px] border-[0.5px] border-hairline bg-[#FAFAF8] shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl no-underline"
+                >
+                  {/* Photo / placeholder area */}
+                  <div
+                    className="relative overflow-hidden"
+                    style={{ aspectRatio: "3/4", background: "linear-gradient(150deg, #DCEAE4 0%, #B5D4D4 55%, #8BB5A0 100%)" }}
+                  >
+                    {therapist.photo ? (
+                      <Image
+                        src={therapist.photo}
+                        alt={therapist.name}
+                        fill
+                        className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+                        sizes="(max-width: 768px) 50vw, 25vw"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span
+                          className="font-serif text-[52px] font-medium leading-none select-none"
+                          style={{ color: "rgba(255,255,255,0.30)" }}
+                          aria-hidden="true"
+                        >
+                          {therapist.initials}
+                        </span>
+                      </div>
+                    )}
+                    {/* Bottom fade into card body */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#FAFAF8]/80 to-transparent" aria-hidden="true" />
+                  </div>
+
+                  {/* Info */}
+                  <div className="px-4 pb-5 pt-3.5">
+                    <p className="font-serif text-[15px] font-medium leading-tight text-ink">
+                      {therapist.name}
+                    </p>
+                    <p className="mt-0.5 text-[11.5px] leading-[1.5] text-ink-secondary">
+                      {therapist.credentialSummary}
+                    </p>
+                    <p className="mt-1.5 text-[11px] font-medium text-teal">
+                      {therapist.specialties[0]}
+                    </p>
+                    <div className="mt-2.5 flex items-center gap-1.5">
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${therapist.comingSoon ? "bg-amber-400" : "bg-emerald-500"}`} aria-hidden="true" />
+                      <span className="text-[11px] text-ink-secondary">
+                        {therapist.comingSoon ? "Coming soon" : "Accepting clients"}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* HowItWorks — bg-canvas */}
-      <HowItWorks />
+      <section id="insurance" className="overflow-hidden bg-canvas py-24 md:py-32">
+        <div className="container-v mb-12 text-center md:mb-16">
+          <span className="badge-outline-teal mb-5">COVERAGE</span>
+          <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
+            Many extended health plans{" "}
+            <span className="italic text-teal">may cover</span> your sessions
+          </h2>
+          <p className="mx-auto mt-5 max-w-[520px] text-[15px] leading-[1.6] text-ink-secondary">
+            If you have benefits through Manulife, Sun Life, Canada Life, Green Shield, or
+            Equitable, your sessions may be covered. We help you confirm coverage during intake.
+          </p>
+        </div>
 
-      {/* Therapist teaser — bg-white */}
-      <section className="bg-white py-24 md:py-32">
-        <div className="container-v">
-          <div className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_1fr] md:items-center">
-            <div>
-              <span className="badge-outline-teal mb-5">OUR THERAPISTS</span>
-              <h2 className="font-serif text-[34px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-                Registered therapists, <span className="italic text-teal">matched to you</span>
-              </h2>
-              <p className="mt-5 max-w-[480px] text-[15px] leading-[1.6] text-ink-secondary">
-                All Valisen therapists are Registered Psychotherapists (RP) or Registered Social
-                Workers (RSW) regulated under Ontario law. You&apos;re matched based on your needs
-                — not just whoever is available.
-              </p>
-              <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-                <Link href="/therapists" className="btn-primary">
-                  Meet Our Therapists &rarr;
-                </Link>
-                <Link href="/intake" className="btn-outline">
-                  Start Intake
-                </Link>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {[
-                { initials: "SM", name: "Sarah M.", role: "RP · Anxiety & Stress" },
-                { initials: "JT", name: "James T.", role: "RSW · Trauma & PTSD" },
-                { initials: "PK", name: "Priya K.", role: "RP · Couples & Relationships" },
-              ].map((t) => (
+        {/* Scrolling marquee strip */}
+        <div className="relative">
+          <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-32 bg-gradient-to-r from-canvas to-transparent" aria-hidden="true" />
+          <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-32 bg-gradient-to-l from-canvas to-transparent" aria-hidden="true" />
+          <div className="overflow-hidden border-y border-hairline-light bg-white">
+            <div className="flex animate-marquee items-stretch">
+              {[...PROVIDERS, ...PROVIDERS].map((provider, i) => (
                 <div
-                  key={t.name}
-                  className="card-lift rounded-card border-[0.5px] border-hairline bg-[#FAFAF8] p-5 text-center"
+                  key={i}
+                  className="flex shrink-0 items-center border-r border-hairline-light px-12 py-6"
                 >
-                  <div
-                    className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full text-[16px] font-semibold text-white"
-                    style={{ background: "linear-gradient(135deg, #2A7F7F 0%, #8BB5A0 100%)" }}
-                    aria-hidden="true"
-                  >
-                    {t.initials}
-                  </div>
-                  <p className="font-serif text-[15px] font-medium text-ink">{t.name}</p>
-                  <p className="mt-0.5 text-[12px] text-ink-secondary">{t.role}</p>
-                  <span className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] font-medium text-green-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" aria-hidden="true" />
-                    Accepting clients
-                  </span>
+                  <Image
+                    src={provider.logo}
+                    alt={provider.name}
+                    width={provider.width}
+                    height={36}
+                    className="h-8 w-auto object-contain"
+                    unoptimized
+                  />
                 </div>
               ))}
             </div>
           </div>
         </div>
-      </section>
 
-      {/* Insurance — bg-canvas */}
-      <section id="insurance" className="bg-canvas py-24 md:py-32">
-        <div className="container-v grid grid-cols-1 gap-10 md:grid-cols-[0.9fr_1.1fr] md:items-center">
-          <div>
-            <span className="badge-outline-teal mb-5">COVERAGE</span>
-            <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-              Many extended health plans may cover your sessions
-            </h2>
-            <p className="mt-5 max-w-[520px] text-[15px] leading-[1.6] text-ink-secondary">
-              If you have benefits through Manulife, Sun Life, Canada Life, Green Shield, or
-              Equitable, your sessions may be covered. We help you confirm this during intake.
-            </p>
-          </div>
-          <div className="rounded-card border-[0.5px] border-hairline bg-white p-8">
-            <p className="mb-5 text-[13px] font-medium uppercase tracking-[1.2px] text-ink-secondary">
-              Commonly accepted plans
-            </p>
-            <div className="flex flex-wrap gap-x-8 gap-y-4 text-[15px] font-medium text-ink">
-              {PROVIDERS.map((provider) => (
-                <span key={provider}>{provider}</span>
-              ))}
-            </div>
-          </div>
+        <div className="container-v mt-8 text-center">
+          <p className="text-[13px] text-ink-secondary">
+            Receipts for insurance reimbursement provided after each session.{" "}
+            <Link href="/insurance" className="text-teal underline underline-offset-2 hover:text-teal-dark">
+              Learn more about coverage
+            </Link>
+          </p>
         </div>
       </section>
 
-      {/* FAQ — bg-white contrasts with insurance canvas above */}
       <FAQ />
 
       <CTASection
         dark
         headline="Take the first step."
-        subtext="Book directly with us. One of our therapists will reach out within 1 business day."
+        subtext="Start the matching intake and we will follow up with next steps."
       />
       <Footer />
     </main>

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import Logo from "./Logo";
+import { MATCHING_FORM_URL } from "@/lib/intake";
+import { ChevronDown } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -12,8 +14,17 @@ const NAV_LINKS = [
   { href: "/about", label: "About" },
 ];
 
+const FAQ_CATEGORIES = [
+  { label: "Mental Health Signs", href: "/faq" },
+  { label: "Finding a Therapist", href: "/faq" },
+  { label: "Insurance & Fees", href: "/faq" },
+  { label: "The Therapy Process", href: "/faq" },
+  { label: "About Valisen", href: "/faq" },
+];
+
 export default function NavBar() {
   const [open, setOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-hairline-light bg-white/90 backdrop-blur-md">
@@ -28,9 +39,43 @@ export default function NavBar() {
               </Link>
             </li>
           ))}
+
+          {/* FAQ dropdown */}
+          <li className="group relative">
+            <Link
+              href="/faq"
+              className="flex items-center gap-1 text-inherit no-underline hover:text-teal"
+            >
+              FAQ
+              <ChevronDown size={13} className="transition-transform duration-150 group-hover:rotate-180" />
+            </Link>
+            {/* Dropdown panel */}
+            <div className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 pt-3 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+              <div className="w-52 overflow-hidden rounded-xl border border-black/8 bg-white shadow-lg">
+                {FAQ_CATEGORIES.map((cat) => (
+                  <Link
+                    key={cat.label}
+                    href={cat.href}
+                    className="block px-4 py-2.5 text-[13px] text-ink no-underline hover:bg-teal/5 hover:text-teal"
+                  >
+                    {cat.label}
+                  </Link>
+                ))}
+                <div className="border-t border-black/8">
+                  <Link
+                    href="/faq"
+                    className="flex items-center justify-between px-4 py-2.5 text-[13px] font-medium text-teal no-underline hover:bg-teal/5"
+                  >
+                    Browse all FAQs <span aria-hidden="true">&rarr;</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </li>
+
           <li>
-            <Link href="/intake" className="btn-dark">
-              Get matched <span aria-hidden="true">&rarr;</span>
+            <Link href={MATCHING_FORM_URL} className="btn-dark">
+              Get started <span aria-hidden="true">&rarr;</span>
             </Link>
           </li>
         </ul>
@@ -66,13 +111,53 @@ export default function NavBar() {
                 </Link>
               </li>
             ))}
+
+            {/* FAQ expandable in mobile */}
+            <li>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between py-2 text-left text-ink"
+                onClick={() => setFaqOpen((v) => !v)}
+              >
+                FAQ
+                <ChevronDown
+                  size={15}
+                  className={`transition-transform duration-150 ${faqOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {faqOpen && (
+                <ul className="mb-1 ml-3 flex flex-col border-l-2 border-teal/20 pl-3">
+                  {FAQ_CATEGORIES.map((cat) => (
+                    <li key={cat.label}>
+                      <Link
+                        href={cat.href}
+                        className="block py-1.5 text-[14px] text-ink-secondary no-underline"
+                        onClick={() => { setOpen(false); setFaqOpen(false); }}
+                      >
+                        {cat.label}
+                      </Link>
+                    </li>
+                  ))}
+                  <li>
+                    <Link
+                      href="/faq"
+                      className="block py-1.5 text-[14px] font-medium text-teal no-underline"
+                      onClick={() => { setOpen(false); setFaqOpen(false); }}
+                    >
+                      Browse all FAQs →
+                    </Link>
+                  </li>
+                </ul>
+              )}
+            </li>
+
             <li className="pt-2">
               <Link
-                href="/intake"
+                href={MATCHING_FORM_URL}
                 className="btn-dark w-full justify-center"
                 onClick={() => setOpen(false)}
               >
-                Get matched <span aria-hidden="true">&rarr;</span>
+                Get started <span aria-hidden="true">&rarr;</span>
               </Link>
             </li>
           </ul>

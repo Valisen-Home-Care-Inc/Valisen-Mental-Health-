@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | Valisen Mental Health Ottawa",
   },
   description:
-    "Valisen Mental Health is an Ottawa therapy clinic with Registered Psychotherapists and Social Workers. Book in-person or virtual therapy across Ontario — usually matched within days.",
+    "Valisen Mental Health is an Ottawa therapy clinic with Registered Psychotherapists and Social Workers. Get matched for virtual therapy across Ontario.",
   keywords: [
     "therapy Ottawa",
     "therapist Ottawa",
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     siteName: "Valisen Mental Health",
     title: "Valisen Mental Health — Ottawa Therapy Clinic",
     description:
-      "Book with a Registered Psychotherapist or Social Worker in Ottawa. In-person and virtual therapy across Ontario, matched to you within days.",
+      "Get matched with a Registered Psychotherapist or Social Worker in Ottawa. Virtual therapy across Ontario.",
     images: [
       {
         url: "/og-image.jpg",
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Valisen Mental Health — Ottawa Therapy Clinic",
     description:
-      "Book with a Registered Psychotherapist in Ottawa. In-person and virtual therapy across Ontario.",
+      "Get matched with a Registered Psychotherapist in Ottawa. Virtual therapy across Ontario.",
     images: ["/og-image.jpg"],
   },
   alternates: {
@@ -86,11 +86,20 @@ const SCHEMA = {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": ["MedicalClinic", "LocalBusiness"],
+      "@type": ["Organization", "MedicalClinic", "LocalBusiness"],
       "@id": "https://valisenmentalhealth.com/#organization",
       name: "Valisen Mental Health",
       url: "https://valisenmentalhealth.com",
-      logo: "https://valisenmentalhealth.com/valisen-logo.png",
+      logo: {
+        "@type": "ImageObject",
+        "@id": "https://valisenmentalhealth.com/#logo",
+        url: "https://valisenmentalhealth.com/valisen-logo.png",
+        contentUrl: "https://valisenmentalhealth.com/valisen-logo.png",
+        width: 512,
+        height: 512,
+        caption: "Valisen Mental Health",
+      },
+      image: "https://valisenmentalhealth.com/valisen-logo.png",
       telephone: "613-707-0333",
       email: "info@valisenmentalhealth.com",
       address: {
@@ -120,7 +129,7 @@ const SCHEMA = {
         { "@type": "MedicalTherapy", name: "Virtual Therapy Ontario" },
       ],
       description:
-        "Valisen Mental Health is an Ottawa therapy clinic offering in-person and virtual sessions with Registered Psychotherapists and Registered Social Workers across Ontario.",
+        "Valisen Mental Health is an Ottawa therapy clinic offering virtual sessions with Registered Psychotherapists and Registered Social Workers across Ontario.",
       priceRange: "$$",
       openingHours: "Mo-Fr 09:00-19:00",
     },

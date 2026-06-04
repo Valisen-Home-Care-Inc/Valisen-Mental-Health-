@@ -16,6 +16,8 @@ export default function ServiceCard({
   href,
   linkLabel = "Learn more",
 }: ServiceCardProps) {
+  const isExternal = href.startsWith("http");
+
   return (
     <article className="flex h-full flex-col rounded-card border-[0.5px] border-hairline bg-white p-7">
       <div className="mb-6 grid h-12 w-12 place-items-center rounded-full bg-teal-xlight text-teal">
@@ -23,13 +25,25 @@ export default function ServiceCard({
       </div>
       <h3 className="mb-3 font-serif text-vxl font-medium text-ink">{title}</h3>
       <p className="mb-6 flex-1 text-[14px] leading-[1.6] text-ink-secondary">{description}</p>
-      <Link
-        href={href}
-        className="inline-flex items-center gap-2 text-[14px] font-medium text-teal no-underline hover:text-teal-dark"
-      >
-        {linkLabel}
-        <span aria-hidden="true">&rarr;</span>
-      </Link>
+      {isExternal ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-[14px] font-medium text-teal no-underline hover:text-teal-dark"
+        >
+          {linkLabel}
+          <span aria-hidden="true">&rarr;</span>
+        </a>
+      ) : (
+        <Link
+          href={href}
+          className="inline-flex items-center gap-2 text-[14px] font-medium text-teal no-underline hover:text-teal-dark"
+        >
+          {linkLabel}
+          <span aria-hidden="true">&rarr;</span>
+        </Link>
+      )}
     </article>
   );
 }

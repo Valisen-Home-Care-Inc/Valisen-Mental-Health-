@@ -35,7 +35,7 @@ export default function Footer() {
             <Logo dark />
             <p className="mt-4 max-w-[300px] text-[13px] leading-[1.6] text-white/50">
               Ottawa therapy clinic. Registered Psychotherapists and Social Workers delivering
-              in-person and virtual care across Ontario.
+              virtual care across Ontario.
             </p>
           </div>
 

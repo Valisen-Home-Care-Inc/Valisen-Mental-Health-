@@ -6,7 +6,7 @@ const FAQS = [
   {
     question: "Who provides the therapy — Valisen or an outside therapist?",
     answer:
-      "Our therapists work directly with Valisen Mental Health. When you book with us, you're booking with our clinic. Your therapist is part of the Valisen team and your care is managed under our roof.",
+      "Our therapists work directly with Valisen Mental Health. When you start with us, you are working with our clinic. Your therapist is part of the Valisen team and your care is managed under our roof.",
   },
   {
     question: "How much does therapy cost?",
@@ -19,9 +19,9 @@ const FAQS = [
       "Many plans through Manulife, Sun Life, Canada Life, Green Shield, and Equitable Life cover sessions with Registered Psychotherapists and Registered Social Workers. We recommend checking your plan's mental health coverage. Receipts for insurance purposes are provided after each session.",
   },
   {
-    question: "How do I pay for sessions?",
+    question: "How do I get started with therapy?",
     answer:
-      "Payment is made directly to Valisen Mental Health. We will confirm accepted payment methods when we reach out after your booking.",
+      "Book a free 15-minute phone consultation through our online booking system or call 613-707-0333. Sessions are typically available within a few days of your first contact.",
   },
   {
     question: "What if I want to switch therapists?",

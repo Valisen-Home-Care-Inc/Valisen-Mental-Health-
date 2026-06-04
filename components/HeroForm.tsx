@@ -38,10 +38,13 @@ export default function HeroForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("server error");
+      if (!res.ok) {
+        const result = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(result?.error || "Something went wrong. Please try again.");
+      }
       setSubmitted(true);
-    } catch {
-      setSubmitError("Something went wrong. Please try again.");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +109,7 @@ export default function HeroForm() {
       <div className="my-5 h-px bg-black/[0.06]" />
 
       <button type="submit" disabled={submitting} className="btn-primary w-full">
-        {submitting ? "Submitting\u2026" : <>Book My Therapist <span aria-hidden="true">&rarr;</span></>}
+        {submitting ? "Submitting\u2026" : <>Submit Inquiry <span aria-hidden="true">&rarr;</span></>}
       </button>
 
       <div className="mt-4 space-y-2.5">
@@ -120,7 +123,7 @@ export default function HeroForm() {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="shrink-0 text-teal" aria-hidden="true">
             <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span className="text-[12.5px] text-ink-secondary">Currently accepting new clients — in-person and virtual</span>
+          <span className="text-[12.5px] text-ink-secondary">Currently accepting new clients — virtual sessions available</span>
         </div>
         <div className="flex items-center gap-2.5">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="shrink-0 text-teal" aria-hidden="true">
