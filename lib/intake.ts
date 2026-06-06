@@ -51,6 +51,12 @@ export function isSpecificTherapistSlug(
   return value !== "flexible";
 }
 
-export function getTherapistIntakeUrl(_slug: string): string {
-  return JANE_BOOKING_URL;
+const THERAPIST_JANE_URLS: Record<string, string> = {
+  "natasha-azoulay": "https://valisenmentalhealth.janeapp.com/#/staff_member/4",
+  "tim-kahtava": "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
+  "wilfred-bengnwi": "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
+};
+
+export function getTherapistIntakeUrl(slug: string): string {
+  return THERAPIST_JANE_URLS[slug] ?? JANE_BOOKING_URL;
 }
