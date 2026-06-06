@@ -316,7 +316,7 @@ export const therapists: Therapist[] = [
   {
     slug: "tim-kahtava",
     name: "Tim Kahtava",
-    credentials: "Registered Psychotherapist, Ontario RP #005895",
+    credentials: "Registered Psychotherapist",
     credentialSummary: "Registered Psychotherapist",
     initials: "TK",
     photo: "/tim-kahtava.jpg",
@@ -404,7 +404,7 @@ export const therapists: Therapist[] = [
       tags: ["CBT", "DBT", "EMDR", "Solution-focused therapy"],
     },
     credentialsList: [
-      { label: "Registration", value: "Registered Psychotherapist in Ontario, registration #005895" },
+      { label: "Registration", value: "Registered Psychotherapist in Ontario" },
       { label: "Experience", value: "20+ years supporting individuals, couples, and families" },
       { label: "Clinical Background", value: "Private psychotherapy experience from 2020 to present" },
       { label: "Prior Role", value: "Former director and therapist with Northshore Counselling Centre, 1997 to 2020" },

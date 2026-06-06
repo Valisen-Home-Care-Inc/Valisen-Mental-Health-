@@ -75,7 +75,7 @@ export default function NavBar() {
 
           <li>
             <Link href={MATCHING_FORM_URL} className="btn-dark">
-              Get started <span aria-hidden="true">&rarr;</span>
+              Book now <span aria-hidden="true">&rarr;</span>
             </Link>
           </li>
         </ul>
@@ -157,7 +157,7 @@ export default function NavBar() {
                 className="btn-dark w-full justify-center"
                 onClick={() => setOpen(false)}
               >
-                Get started <span aria-hidden="true">&rarr;</span>
+                Book now <span aria-hidden="true">&rarr;</span>
               </Link>
             </li>
           </ul>
