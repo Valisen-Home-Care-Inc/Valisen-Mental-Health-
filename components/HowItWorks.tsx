@@ -16,7 +16,7 @@ const STEPS: Array<{ n: string; title: string; duration: string; body: string; s
     n: "03",
     title: "We handle the rest",
     duration: "INSURANCE & ADMIN",
-    body: "We direct-bill most major insurance providers including PSHCP. If you self-pay, receipts are provided for reimbursement. Our team manages all the administrative side so you can focus on your care.",
+    body: "After each session, you'll receive an official receipt to submit to your insurance provider for reimbursement. We keep your documentation clear and organized so the process is as straightforward as possible.",
   },
 ];
 
