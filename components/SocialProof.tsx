@@ -12,7 +12,7 @@ export default function SocialProof() {
             ))}
           </div>
           <span className="text-[13px] font-semibold text-ink">5.0</span>
-          <span className="text-[13px] text-ink-secondary">· Trusted by Ottawa residents</span>
+          <span className="text-[13px] text-ink-secondary">· Trusted by Ontario residents</span>
         </div>
         <div className="hidden h-4 w-px bg-black/[0.09] sm:block" aria-hidden="true" />
         <div className="flex items-center gap-2 text-[13px] text-ink-secondary">

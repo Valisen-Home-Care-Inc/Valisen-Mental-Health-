@@ -38,7 +38,7 @@ const VALUES = [
   },
   {
     title: "Responsiveness",
-    body: "When you've decided to ask for help, the next step should feel supported. We focus on finding a thoughtful match for your needs.",
+    body: "When you've decided to ask for help, the next step should feel clear. Browse our therapist profiles, choose who feels right, and book directly — no intake or referral required.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="2" />
@@ -58,11 +58,11 @@ export default function AboutPage() {
         <div className="container-v max-w-[820px]">
           <span className="badge-outline-teal mb-5">OUR MISSION</span>
           <h1 className="font-serif text-[40px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
-            Making therapy <span className="italic text-teal">actually accessible</span> in Ottawa
+            Making therapy <span className="italic text-teal">actually accessible</span> in Ottawa and Ontario
           </h1>
           <p className="mt-6 max-w-[680px] text-vlg leading-[1.6] text-ink-secondary">
             Valisen exists because finding the right therapist in Ontario can feel complicated.
-            We&apos;re here to make it easier — as a clinic, we handle the pairing, the admin,
+            We&apos;re here to make it easier — as a clinic, we keep the process clear
             and help make sure your insurance does the heavy lifting.
           </p>
         </div>
@@ -81,16 +81,15 @@ export default function AboutPage() {
           <div className="space-y-5 text-[15px] leading-[1.7] text-canvas/85">
             <p>
               Valisen Mental Health is an Ottawa therapy clinic. Our Registered Psychotherapists
-              and Social Workers provide virtual sessions directly to clients who
-              start with us.
+              and Social Workers provide virtual sessions directly to clients across Ontario.
             </p>
             <p>
-              You fill out a simple form. Our team reviews it, reaches out to learn more about
-              what you need, and pairs you with one of our therapists who fits. Your care is
-              managed under our roof from day one.
+              Browse our therapist profiles, choose who feels right for you, and book directly
+              through Jane. Your care is provided by a regulated clinician on our team from
+              day one.
             </p>
             <p>
-              That&apos;s how we keep things simple - and how we help make sure your insurance may
+              That&apos;s how we keep things simple — and how we help make sure your insurance may
               cover your sessions the way it should.
             </p>
           </div>
@@ -125,10 +124,10 @@ export default function AboutPage() {
       <section className="bg-canvas pb-16 md:pb-24">
         <div className="container-v rounded-card border-[0.5px] border-hairline bg-white px-8 py-12 text-center md:px-16 md:py-16">
           <h2 className="mx-auto max-w-[640px] font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-            Get started with Valisen
+            Book with Valisen
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] text-ink-secondary">
-            Start the matching intake and we will follow up to discuss next steps.
+            Book directly through Jane or call us if you would like help choosing a therapist.
           </p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link

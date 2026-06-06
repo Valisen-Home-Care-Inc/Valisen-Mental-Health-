@@ -7,7 +7,7 @@ import Footer from "@/components/Footer";
 import { ChevronDown, ChevronRight, Brain, Heart, Users, DollarSign, Calendar } from "lucide-react";
 import { MATCHING_FORM_URL } from "@/lib/intake";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// --- Types -------------------------------------------------------------------
 
 type FAQItem = {
   question: string;
@@ -23,7 +23,7 @@ type FAQCategory = {
   faqs: FAQItem[];
 };
 
-// ─── FAQ Content ─────────────────────────────────────────────────────────────
+// --- FAQ Content -------------------------------------------------------------
 
 const CATEGORIES: FAQCategory[] = [
   {
@@ -156,7 +156,7 @@ const CATEGORIES: FAQCategory[] = [
         slug: "dont-know-what-i-need",
         question: "What if I don't know what kind of therapy I need?",
         shortAnswer:
-          "Not knowing what you need is the most common starting point — you don't need a diagnosis, a clear goal, or any knowledge of therapy modalities. Your therapist will help clarify what to focus on as you go. A free 15-minute consultation is enough to start the process.",
+          "Not knowing what you need is the most common starting point — you don't need a diagnosis, a clear goal, or any knowledge of therapy modalities. Your therapist will help clarify what to focus on as you go. A free 20-minute consultation is enough to start the process.",
       },
     ],
   },
@@ -176,13 +176,13 @@ const CATEGORIES: FAQCategory[] = [
         slug: "how-to-book",
         question: "How do I book a consultation or my first session?",
         shortAnswer:
-          "Book a free 15-minute phone consultation directly through our online booking system — no referral needed. During that call we'll identify the right therapist for your situation and answer any questions. Sessions are typically available within a few days of your inquiry.",
+          "Browse our therapist profiles, choose who feels right for you, and book a free 20-minute consultation directly with them through Jane — no referral or intake form needed. Sessions are typically available within a few days.",
       },
       {
         slug: "languages-offered",
         question: "Do you offer therapy in languages other than English?",
         shortAnswer:
-          "Our team currently offers therapy in English, French, Mandarin, Hebrew, Yiddish, and American Sign Language (ASL). Language access significantly affects the depth and safety of therapy — especially for early-life experiences. Mention your language preference when booking and we'll match you with the right therapist.",
+          "Our team currently offers therapy in English, French, Mandarin, Hebrew, Yiddish, and American Sign Language (ASL). Language access significantly affects the depth and safety of therapy — especially for early-life experiences. Filter by language on our therapists page to find the right fit.",
       },
       {
         slug: "therapist-credentials",
@@ -194,7 +194,7 @@ const CATEGORIES: FAQCategory[] = [
   },
 ];
 
-// ─── Schema (JSON-LD) ─────────────────────────────────────────────────────────
+// --- Schema (JSON-LD) ---------------------------------------------------------
 
 const FAQ_SCHEMA = {
   "@context": "https://schema.org",
@@ -211,7 +211,7 @@ const FAQ_SCHEMA = {
   ),
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// --- Component ---------------------------------------------------------------
 
 export default function FAQPage() {
   const [activeCategory, setActiveCategory] = useState<string>(CATEGORIES[0].id);
@@ -231,7 +231,7 @@ export default function FAQPage() {
       />
       <NavBar />
 
-      {/* ── Hero ── */}
+      {/* -- Hero -- */}
       <section className="relative overflow-hidden bg-canvas py-24 md:py-32">
         <div
           className="pointer-events-none absolute -right-60 -top-40 h-[600px] w-[600px] rounded-full bg-teal/[0.07] blur-[130px]"
@@ -250,7 +250,7 @@ export default function FAQPage() {
         </div>
       </section>
 
-      {/* ── Category tabs + accordion ── */}
+      {/* -- Category tabs + accordion -- */}
       <section className="bg-white pb-32 pt-0">
         <div className="container-v max-w-[900px]">
           {/* Category nav */}
@@ -337,7 +337,7 @@ export default function FAQPage() {
                         href={`/faq/${faq.slug}`}
                         className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-teal underline underline-offset-2 hover:text-teal-dark"
                       >
-                        Read the full answer →
+                        Read the full answer ?
                       </Link>
                     </div>
                   )}
@@ -348,7 +348,7 @@ export default function FAQPage() {
         </div>
       </section>
 
-      {/* ── In-depth articles ── */}
+      {/* -- In-depth articles -- */}
       <section className="bg-canvas py-16">
         <div className="container-v max-w-[900px]">
           <div className="mb-8">
@@ -391,7 +391,7 @@ export default function FAQPage() {
         </div>
       </section>
 
-      {/* ── CTA strip ── */}
+      {/* -- CTA strip -- */}
       <section className="bg-teal-dark py-20">
         <div className="container-v max-w-[700px] text-center">
           <span className="badge-outline-white mb-5">READY TO START?</span>
@@ -399,12 +399,12 @@ export default function FAQPage() {
             Still have questions? Let&apos;s talk.
           </h2>
           <p className="mx-auto mt-4 max-w-[500px] text-[15px] leading-[1.7] text-white/75">
-            Book a free 15-minute phone consultation. No pressure, no commitment — just a real
+            Book a free 20-minute phone consultation. No pressure, no commitment — just a real
             conversation about how we can help.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href={MATCHING_FORM_URL} className="btn-primary">
-              Get started
+              Book now
             </Link>
             <a
               href="tel:613-707-0333"

@@ -4,11 +4,6 @@ import { useState } from "react";
 
 const FAQS = [
   {
-    question: "Who provides the therapy — Valisen or an outside therapist?",
-    answer:
-      "Our therapists work directly with Valisen Mental Health. When you start with us, you are working with our clinic. Your therapist is part of the Valisen team and your care is managed under our roof.",
-  },
-  {
     question: "How much does therapy cost?",
     answer:
       "Session fees vary by therapist and service type. You'll receive a clear breakdown of fees before your first session. Many clients have their sessions fully or partially covered by extended health benefits.",
@@ -21,7 +16,7 @@ const FAQS = [
   {
     question: "How do I get started with therapy?",
     answer:
-      "Book a free 15-minute phone consultation through our online booking system or call 613-707-0333. Sessions are typically available within a few days of your first contact.",
+      "Book a free 20-minute phone consultation through our online booking system or call 613-707-0333. Sessions are typically available within a few days of your first contact.",
   },
   {
     question: "What if I want to switch therapists?",

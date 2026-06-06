@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | Valisen Mental Health Ottawa",
   },
   description:
-    "Valisen Mental Health is an Ottawa therapy clinic with Registered Psychotherapists and Social Workers. Get matched for virtual therapy across Ontario.",
+    "Valisen Mental Health is an Ottawa therapy clinic with Registered Psychotherapists and Social Workers offering virtual therapy across Ontario.",
   keywords: [
     "therapy Ottawa",
     "therapist Ottawa",
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     siteName: "Valisen Mental Health",
     title: "Valisen Mental Health — Ottawa Therapy Clinic",
     description:
-      "Get matched with a Registered Psychotherapist or Social Worker in Ottawa. Virtual therapy across Ontario.",
+      "Book with a Registered Psychotherapist or Social Worker in Ottawa. Virtual therapy across Ontario.",
     images: [
       {
         url: "/og-image.jpg",
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Valisen Mental Health — Ottawa Therapy Clinic",
     description:
-      "Get matched with a Registered Psychotherapist in Ottawa. Virtual therapy across Ontario.",
+      "Book with a Registered Psychotherapist in Ottawa. Virtual therapy across Ontario.",
     images: ["/og-image.jpg"],
   },
   alternates: {

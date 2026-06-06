@@ -43,7 +43,7 @@ const SERVICES = [
   {
     title: "Couples Therapy",
     description:
-      "Sessions for two - for partners working on communication, repair, or major life transitions. We connect you with a therapist trained in relational work.",
+      "Sessions for two - for partners working on communication, repair, or major life transitions. Browse our therapists who specialise in relational work and book directly with the one who feels right.",
     href: MATCHING_FORM_URL,
     linkLabel: MATCHING_CTA_LABEL,
     icon: (
@@ -119,14 +119,13 @@ export default function ServicesPage() {
 
       <section className="bg-canvas py-16 md:py-24">
         <div className="container-v max-w-[820px] text-center">
-          <span className="badge-outline-teal mb-5">THERAPY MATCHING</span>
+          <span className="badge-outline-teal mb-5">INDIVIDUAL &amp; COUPLES</span>
           <h1 className="font-serif text-[40px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
             Therapy that <span className="italic text-teal">fits your life</span>
           </h1>
           <p className="mx-auto mt-5 max-w-[620px] text-vbase leading-[1.6] text-ink-secondary">
-            We don&apos;t deliver sessions ourselves - we connect you with Registered
-            Psychotherapists and Social Workers across Ottawa and Ontario. Many extended health
-            plans may cover the session cost.
+            All of our therapists are Registered Psychotherapists or Registered Social Workers
+            practicing across Ontario. Your extended health plan may cover more than you think.
           </p>
         </div>
       </section>
@@ -144,13 +143,13 @@ export default function ServicesPage() {
       <section className="bg-canvas pb-16 md:pb-24">
         <div className="container-v">
           <div className="mb-10 max-w-[700px]">
-            <span className="badge-outline-teal mb-5">AREAS WE MATCH FOR</span>
+            <span className="badge-outline-teal mb-5">AREAS WE SPECIALISE IN</span>
             <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
               Specialised therapy support
             </h2>
             <p className="mt-4 text-[15px] leading-[1.6] text-ink-secondary">
-              We connect you with therapists who have experience across a range of areas. Browse
-              below to learn more about each.
+              Our therapists have experience across a range of areas. Browse below to learn more
+              about each.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -211,7 +210,7 @@ export default function ServicesPage() {
             Find a therapist who fits
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-[1.6] text-canvas/75">
-            Share what you&apos;re looking for. We handle the matching.
+            Book directly through Jane or call us if you would like help choosing a therapist.
           </p>
           <div className="mt-8">
             <Link

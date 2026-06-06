@@ -303,12 +303,12 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "How Valisen makes the process easier",
         paragraphs: [
-          "Rather than scrolling through directories and reading profiles of strangers, Valisen offers a free 15-minute phone consultation that gives you a direct sense of whether the fit is right before you commit to a full session. All of our therapists are regulated, experienced in evidence-based approaches, and chosen not just for clinical skill but for their ability to build genuine, warm therapeutic relationships.",
+          "Rather than scrolling through directories and reading profiles of strangers, Valisen offers a free 20-minute phone consultation that gives you a direct sense of whether the fit is right before you commit to a full session. All of our therapists are regulated, experienced in evidence-based approaches, and chosen not just for clinical skill but for their ability to build genuine, warm therapeutic relationships.",
           "If after a session or two the fit does not feel right, tell us — we can transition you to another member of our team without you losing your history or starting over on a new platform.",
         ],
         internalLinks: [
           { href: "/therapists", label: "Meet our therapists" },
-          { href: "/book-consultation", label: "Book a free 15-minute consultation" },
+          { href: "/book-consultation", label: "Book a free 20-minute consultation" },
         ],
       },
     ],
@@ -680,7 +680,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "What a consultation call does",
         paragraphs: [
-          "A free 15-minute consultation call is not a clinical assessment — it is a brief, low-pressure conversation about what has brought you to therapy, what you are looking for, and whether we can help. You can share as little or as much as feels comfortable. Based on that conversation, we can recommend which therapist on our team is best positioned for your situation, and explain what early sessions might look like.",
+          "A free 20-minute consultation call is not a clinical assessment — it is a brief, low-pressure conversation about what has brought you to therapy, what you are looking for, and whether we can help. You can share as little or as much as feels comfortable. Based on that conversation, we can recommend which therapist on our team is best positioned for your situation, and explain what early sessions might look like.",
         ],
       },
       {
@@ -690,7 +690,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
           "Many people find that within two or three sessions, something clarifies — a thread emerges that they did not know was there. That is often where the meaningful work begins.",
         ],
         internalLinks: [
-          { href: "/book-consultation", label: "Book a free 15-minute consultation call" },
+          { href: "/book-consultation", label: "Book a free 20-minute consultation call" },
         ],
       },
     ],
@@ -736,15 +736,15 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
     categorySlug: "about-valisen",
     metaTitle: "How to Book Therapy at Valisen | Ottawa Mental Health",
     metaDescription:
-      "Booking at Valisen is straightforward — start with a free 15-minute phone consultation, or book directly online. Here's exactly how the process works.",
+      "Booking at Valisen is straightforward — start with a free 20-minute phone consultation, or book directly online. Here's exactly how the process works.",
     updatedDate: "2026-05-01",
     intro:
       "Starting therapy should not be complicated. Here is exactly how the process works at Valisen.",
     sections: [
       {
-        h2: "Step 1: Free 15-minute consultation",
+        h2: "Step 1: Free 20-minute consultation",
         paragraphs: [
-          "The simplest starting point is to book a free 15-minute phone consultation. During that call, you can share (briefly) what has brought you to therapy, ask questions about our team and approach, and get a sense of whether Valisen is the right fit. There is no obligation to continue, and you do not need to prepare anything specific.",
+          "The simplest starting point is to book a free 20-minute phone consultation. During that call, you can share (briefly) what has brought you to therapy, ask questions about our team and approach, and get a sense of whether Valisen is the right fit. There is no obligation to continue, and you do not need to prepare anything specific.",
           "You can book this call directly through our online booking system — no referral required. Sessions are typically available within a few days of your inquiry.",
         ],
       },
@@ -1085,12 +1085,12 @@ export default function FAQEntryPage({ params }: { params: { slug: string } }) {
               Still have questions? Let&apos;s talk.
             </h2>
             <p className="mx-auto mt-4 max-w-[480px] text-[15px] leading-[1.7] text-white/75">
-              Book a free 15-minute phone consultation. No pressure, no commitment — just a real
+              Book a free 20-minute phone consultation. No pressure, no commitment — just a real
               conversation about how we can help.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link href={MATCHING_FORM_URL} className="btn-primary">
-                Get started
+                Book now
               </Link>
               <a
                 href="tel:613-707-0333"

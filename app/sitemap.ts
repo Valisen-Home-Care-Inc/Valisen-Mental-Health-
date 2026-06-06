@@ -14,6 +14,35 @@ const SPECIALTY_SLUGS = [
   "life-transitions-therapy-ottawa",
 ];
 
+const FAQ_SLUGS = [
+  // Understanding your symptoms
+  "am-i-depressed",
+  "do-i-have-anxiety",
+  "stress-vs-anxiety",
+  "am-i-burnt-out",
+  "trauma-signs",
+  "is-my-grief-normal",
+  // Finding a therapist
+  "how-to-find-therapist",
+  "rp-vs-rsw",
+  "first-therapy-session",
+  "therapy-approaches",
+  // Cost & insurance
+  "therapy-cost-ottawa",
+  "does-insurance-cover-therapy",
+  "which-plans-cover-rps",
+  "tax-deductible-therapy",
+  // About sessions
+  "how-often-therapy",
+  "how-long-therapy",
+  "dont-know-what-i-need",
+  // About Valisen
+  "what-is-valisen",
+  "how-to-book",
+  "languages-offered",
+  "therapist-credentials",
+];
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
@@ -26,12 +55,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE_URL}/services`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.9,
-    },
-    {
-      url: `${BASE_URL}/get-matched`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.9,
@@ -55,6 +78,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
+      url: `${BASE_URL}/faq`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    {
       url: `${BASE_URL}/privacy-policy`,
       lastModified: now,
       changeFrequency: "yearly",
@@ -71,6 +100,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: 0.9,
+    })),
+    ...FAQ_SLUGS.map((slug) => ({
+      url: `${BASE_URL}/faq/${slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.75,
     })),
     ...therapists.map((therapist) => ({
       url: `${BASE_URL}/therapists/${therapist.slug}`,

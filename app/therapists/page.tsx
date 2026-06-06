@@ -81,7 +81,7 @@ export default function TherapistsPage() {
           <TrustItem
             icon={<ShieldCheck size={20} aria-hidden="true" />}
             title="Ontario regulated"
-            body="Profiles clearly show each therapist's supported title, credentials, session fee, and matching path."
+            body="Profiles clearly show each therapist's credentials, specialties, session fee, and how to book directly."
           />
           <TrustItem
             icon={<Languages size={20} aria-hidden="true" />}
@@ -116,8 +116,8 @@ export default function TherapistsPage() {
         dark
         href={MATCHING_FORM_URL}
         buttonLabel={MATCHING_CTA_LABEL}
-        headline="Not sure which therapist is the right fit?"
-        subtext="Start the matching intake and we will help you explore next steps."
+        headline="Ready to get started?"
+        subtext="Browse our therapists above, choose who feels right, and book directly through Jane. Or call us at 613-707-0333 if you'd like help deciding."
       />
       <Footer />
     </main>

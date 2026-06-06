@@ -29,14 +29,13 @@ export default function DarkSection({
   headline = (
     <>
       You&apos;ve decided to get help.
-      <br className="hidden md:block" /> We&apos;ll handle the rest.
+      <br className="hidden md:block" /> Start whenever you&apos;re ready.
     </>
   ),
   body = (
     <>
-      Starting therapy should feel clear, not complicated. Book a free 15-minute phone
-      call and we&apos;ll connect you with the right therapist — no lengthy questionnaires,
-      no confusing search process.
+      Browse our therapist profiles, choose who feels right for you, and book a free
+      20-minute consultation directly with them — no waitlists, no referrals needed.
     </>
   ),
   showMatchCard = true,
@@ -106,7 +105,7 @@ function ConsultationCard() {
           <h3 className="font-serif text-[30px] font-medium leading-[1.12] tracking-[-0.5px] text-canvas">
             Book your free
             <br />
-            15-minute call.
+            20-minute call.
           </h3>
         </div>
 

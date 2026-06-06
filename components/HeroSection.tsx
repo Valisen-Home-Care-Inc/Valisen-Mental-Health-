@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle, Phone } from "lucide-react";
 import BookingNote from "@/components/BookingNote";
-import { MATCHING_CTA_LABEL, MATCHING_FORM_URL } from "@/lib/intake";
+
+const JANE_URL = "https://valisenmentalhealth.janeapp.com/";
 
 export default function HeroSection() {
   return (
@@ -27,7 +27,7 @@ export default function HeroSection() {
 
           <p className="max-w-[560px] text-vbase leading-[1.6] text-ink-secondary">
             Valisen Mental Health is an Ontario therapy clinic based in Ottawa. Start with a free
-            15-minute phone consultation and explore support from one of our Registered
+            20-minute phone consultation and explore support from one of our Registered
             Psychotherapists or Social Workers, virtually anywhere in Ontario.
           </p>
           <p className="mt-5 text-[14px] text-ink-secondary">
@@ -77,20 +77,20 @@ function FreeConsultationCard() {
     <div className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-8">
       <div className="mb-6">
         <div className="mb-1.5 text-vxs font-semibold uppercase tracking-[1.5px] text-teal">
-          Free 15-Minute Phone Consultation
+          Free 20-minute Phone Consultation
         </div>
         <h2 className="font-serif text-[30px] font-medium leading-[1.12] tracking-[-0.6px] text-ink">
           Start with a short call.
         </h2>
         <p className="mt-3 text-[14px] leading-[1.6] text-ink-secondary">
-          Share a few basics with Valisen Mental Health and we&apos;ll follow up to discuss fit,
-          questions, and next steps.
+          Browse our therapists, choose who feels right for you, and book a free consultation
+          directly with them — no referrals, no waitlists.
         </p>
       </div>
 
       <div className="space-y-3 border-y border-hairline py-5">
         {[
-          "15-minute phone consultation",
+          "20-minute phone consultation",
           "No cost to start the consultation process",
           "Available for new clients exploring therapist fit",
         ].map((item) => (
@@ -102,14 +102,16 @@ function FreeConsultationCard() {
       </div>
 
       <div className="mt-6 flex flex-col gap-3">
-        <Link
-          href={MATCHING_FORM_URL}
+        <a
+          href={JANE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           className="btn-primary w-full justify-center"
         >
           <CalendarDays size={16} className="mr-2" aria-hidden="true" />
-          {MATCHING_CTA_LABEL}
+          Book now
           <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-        </Link>
+        </a>
         <a href="tel:613-707-0333" className="btn-outline w-full justify-center">
           <Phone size={16} className="mr-2" aria-hidden="true" />
           Call 613-707-0333

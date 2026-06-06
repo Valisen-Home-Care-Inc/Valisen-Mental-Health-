@@ -57,8 +57,8 @@ const STEPS = [
   },
   {
     n: "02",
-    title: "Start the intake",
-    body: "Share a few basic details. Our team can discuss next steps and help you understand what to check with your benefits provider.",
+    title: "Book online",
+    body: "Book through Jane or call our team to discuss next steps and what to check with your benefits provider.",
   },
   {
     n: "03",
@@ -289,7 +289,7 @@ export default function InsurancePage() {
       <CTASection
         dark
         headline="Ready to get started?"
-        subtext="Start the intake and we will follow up to discuss next steps and general insurance questions."
+        subtext="Book directly through Jane or call us if you have general insurance questions."
       />
       <Footer />
     </main>

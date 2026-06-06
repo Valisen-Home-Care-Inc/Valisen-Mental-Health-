@@ -1,22 +1,22 @@
 const STEPS: Array<{ n: string; title: string; duration: string; body: string; subLine?: string }> = [
   {
     n: "01",
-    title: "Fill out the form",
-    duration: "SHARE WHAT YOU NEED",
-    body: "Tell us a bit about yourself and what you're looking for. No clinical questionnaires.",
+    title: "Browse our therapists",
+    duration: "FIND YOUR FIT",
+    body: "Read through our therapist profiles, their approaches, and specializations. Take your time — finding the right fit is the most important step.",
   },
   {
     n: "02",
-    title: "We learn more",
-    duration: "A SUPPORTED CONVERSATION",
-    body: "Our team reviews your needs and confirms which of our therapists is the right fit for you.",
-    subLine: "Usually a quick call or message — takes about 10 minutes.",
+    title: "Book in minutes",
+    duration: "SPEEDY BOOKING",
+    body: "No waitlists, no back-and-forth. Pick your therapist, choose a time, and you're booked. Most clients see a therapist within the same week.",
+    subLine: "New clients can start with a free 20-minute consultation.",
   },
   {
     n: "03",
-    title: "Get paired",
-    duration: "CAREFUL MATCHING",
-    body: "We pair you with one of our therapists — a Registered Psychotherapist or Social Worker who fits what you're looking for.",
+    title: "We handle the rest",
+    duration: "INSURANCE & ADMIN",
+    body: "We direct-bill most major insurance providers including PSHCP. If you self-pay, receipts are provided for reimbursement. Our team manages all the administrative side so you can focus on your care.",
   },
 ];
 

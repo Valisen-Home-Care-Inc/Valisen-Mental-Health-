@@ -1,8 +1,9 @@
-export const MATCHING_FORM_URL = "/get-matched";
-export const MATCHING_CTA_LABEL = "Get started";
+export const JANE_BOOKING_URL = "https://valisenmentalhealth.janeapp.com/";
+export const MATCHING_FORM_URL = JANE_BOOKING_URL;
+export const MATCHING_CTA_LABEL = "Book now";
 export const CONSULTATION_CTA_LABEL = "Book a Free Consultation";
 export const INTAKE_NOTE =
-  "Use the matching intake for basic contact details and preferences only. Valisen will follow up before any clinical details are discussed.";
+  "Book directly through Jane or call Valisen if you need help choosing a therapist.";
 
 export const SPECIFIC_THERAPIST_VALUES = [
   "dayong-quan",
@@ -51,5 +52,5 @@ export function isSpecificTherapistSlug(
 }
 
 export function getTherapistIntakeUrl(_slug: string): string {
-  return "https://valisenmentalhealth.janeapp.com";
+  return JANE_BOOKING_URL;
 }

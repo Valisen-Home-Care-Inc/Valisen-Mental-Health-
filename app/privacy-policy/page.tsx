@@ -30,12 +30,12 @@ export default function PrivacyPolicyPage() {
             <Section title="1. Who We Are">
               <p>
                 Valisen Mental Health (&ldquo;Valisen&rdquo;, &ldquo;we&rdquo;, &ldquo;our&rdquo;,
-                or &ldquo;us&rdquo;) is a mental health coordination and referral platform based
-                in Ottawa, Ontario, Canada, operating at{" "}
+                or &ldquo;us&rdquo;) is a therapy clinic based in Ottawa, Ontario, Canada,
+                operating at{" "}
                 <a href="https://valisenmentalhealth.ca" className="text-teal hover:underline">
                   valisenmentalhealth.ca
                 </a>
-                . We connect clients with Registered Psychotherapists (RP) for virtual therapy services across Ontario.
+                . Our Registered Psychotherapists and Registered Social Workers provide virtual therapy services directly to clients across Ontario.
               </p>
               <p>
                 Questions about this policy? Contact our Privacy Officer at{" "}
@@ -52,8 +52,7 @@ export default function PrivacyPolicyPage() {
 
             <Section title="2. Legislation That Governs Us">
               <p>
-                As a mental health coordination platform operating in Ontario, we comply with the
-                following legislation:
+                As a therapy clinic operating in Ontario, we comply with the following legislation:
               </p>
               <ul className="ml-5 mt-3 list-disc space-y-1">
                 <li>
@@ -85,11 +84,10 @@ export default function PrivacyPolicyPage() {
               </ul>
               <h4 className="mt-4 font-semibold text-ink">b) Clinical information</h4>
               <p className="mt-2">
-                Session notes and treatment records are maintained exclusively by your assigned
-                Registered Psychotherapist, who operates as an independent contractor. Valisen
-                does not hold, access, or store clinical records. Any clinical information you
-                share during the intake process is used solely to match you with an appropriate
-                therapist and is not retained beyond that purpose.
+                Session notes and treatment records are maintained exclusively by your
+                Registered Psychotherapist. Valisen does not hold, access, or store clinical
+                records. Any clinical information you share is used solely to facilitate your
+                care and is not retained beyond that purpose.
               </p>
               <h4 className="mt-4 font-semibold text-ink">c) Technical information</h4>
               <ul className="ml-5 mt-2 list-disc space-y-1">
@@ -101,7 +99,7 @@ export default function PrivacyPolicyPage() {
             <Section title="4. How We Use Your Information">
               <p>We use your personal information only for the purposes for which it was collected:</p>
               <ul className="ml-5 mt-3 list-disc space-y-1">
-                <li>To match you with an appropriate therapist from our network</li>
+                <li>To facilitate and support your therapy care</li>
                 <li>To schedule and facilitate therapy services</li>
                 <li>To communicate with you about your care</li>
                 <li>To issue receipts for insurance claims where applicable</li>

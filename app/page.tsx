@@ -9,7 +9,6 @@ import HowItWorks from "@/components/HowItWorks";
 import FAQ from "@/components/FAQ";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
-import { MATCHING_FORM_URL } from "@/lib/intake";
 import { therapists } from "@/lib/therapists";
 
 const PROVIDERS = [
@@ -24,14 +23,6 @@ const FAQ_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
   mainEntity: [
-    {
-      "@type": "Question",
-      name: "Who provides the therapy - Valisen or an outside therapist?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Our therapists work directly with Valisen Mental Health. When you start with us, you are working with our clinic. Your therapist is part of the Valisen team and your care is managed under our roof.",
-      },
-    },
     {
       "@type": "Question",
       name: "How much does therapy cost?",
@@ -53,7 +44,7 @@ const FAQ_SCHEMA = {
       name: "How do I book a consultation?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Book a free 15-minute phone consultation through our online booking system or call 613-707-0333. Sessions are typically available within a few days.",
+        text: "Book a free 20-minute phone consultation through our online booking system or call 613-707-0333. Sessions are typically available within a few days.",
       },
     },
     {
@@ -221,7 +212,7 @@ export default function HomePage() {
       <CTASection
         dark
         headline="Take the first step."
-        subtext="Start the matching intake and we will follow up with next steps."
+        subtext="Book directly through Jane or call us if you would like help choosing a therapist."
       />
       <Footer />
     </main>

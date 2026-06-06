@@ -23,10 +23,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "anxiety-therapy-ottawa",
     title: "Anxiety Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss anxiety therapy options in Ottawa and Ontario.",
-    headline: "Anxiety therapy in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss anxiety therapy options in Ontario.",
+    headline: "Anxiety therapy in Ottawa",
     subtext:
-      "Living with constant worry, racing thoughts, or panic shouldn't be something you handle alone. We pair you with one of our Registered Psychotherapists in Ontario who has experience working with anxiety.",
+      "Living with constant worry, racing thoughts, or panic shouldn't be something you handle alone. Browse our therapists who have experience with anxiety and book a free 20-minute consultation directly with them.",
     topic: "anxiety",
     whatItIs: [
       "Anxiety shows up differently for everyone. For some it's a constant low-level hum of worry. For others it's panic that comes out of nowhere. It can affect sleep, work, relationships, and the everyday choices that used to feel easy.",
@@ -37,10 +37,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "depression-therapy-ottawa",
     title: "Depression Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss depression therapy options in Ottawa and Ontario.",
-    headline: "Depression therapy in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss depression therapy options in Ontario.",
+    headline: "Depression therapy in Ottawa",
     subtext:
-      "Depression can make even small things feel impossible. We pair you with one of our Registered Psychotherapists in Ontario who has experience working with depression - at your pace, on your terms.",
+      "Depression can make even small things feel impossible. Browse our therapists who have experience with depression and book a free consultation directly with them — at your pace, on your terms.",
     topic: "depression",
     whatItIs: [
       "Depression isn't just sadness. It's the heaviness that sits on everything - the loss of interest in things you used to love, the difficulty getting out of bed, the sense that nothing quite reaches you anymore. It's exhausting, and it doesn't always have an obvious cause.",
@@ -51,10 +51,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "trauma-therapy-ottawa",
     title: "Trauma Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss trauma therapy options in Ottawa and Ontario.",
-    headline: "Trauma therapy in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss trauma therapy options in Ontario.",
+    headline: "Trauma therapy in Ottawa",
     subtext:
-      "Trauma changes how the world feels. We pair you with one of our Registered Psychotherapists in Ontario who has experience working with trauma - and who will move at your pace.",
+      "Trauma changes how the world feels. Browse our therapists who have experience with trauma and book a free consultation directly with them — they will move at your pace.",
     topic: "trauma",
     whatItIs: [
       "Trauma can come from a single event or from ongoing difficult experiences. It can show up as flashbacks or numbness, hypervigilance or avoidance, or as a sense that your body still remembers something your mind has tried to set aside.",
@@ -65,10 +65,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "grief-counselling-ottawa",
     title: "Grief Counselling in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss grief counselling options in Ottawa and Ontario.",
-    headline: "Grief counselling in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss grief counselling options in Ontario.",
+    headline: "Grief counselling in Ottawa",
     subtext:
-      "Grief doesn't follow a schedule. We pair you with one of our Registered Psychotherapists in Ontario who has experience supporting people through loss of every kind.",
+      "Grief doesn't follow a schedule. Browse our therapists who have experience supporting people through loss of every kind and book a free consultation directly with them.",
     topic: "grief and loss",
     whatItIs: [
       "Grief is one of the most universal human experiences and one of the loneliest. It can come after the loss of a person, a relationship, a role, or a future you were counting on. There's no right way to grieve, and your experience deserves room to be understood.",
@@ -79,10 +79,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "stress-therapy-ottawa",
     title: "Stress Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss stress and burnout therapy options in Ottawa and Ontario.",
-    headline: "Stress therapy in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss stress and burnout therapy options in Ontario.",
+    headline: "Stress therapy in Ottawa",
     subtext:
-      "Chronic stress wears on everything - your sleep, your body, your relationships, your sense of yourself. We pair you with one of our Registered Psychotherapists in Ontario who can help.",
+      "Chronic stress wears on everything — your sleep, your body, your relationships, your sense of yourself. Browse our therapists who can help and book a free consultation directly with them.",
     topic: "stress and burnout",
     whatItIs: [
       "Stress is supposed to come and go. When it doesn't - when the pressure keeps building - it changes how you function. You might feel exhausted but unable to rest, snappy without knowing why, or stuck in a loop of overthinking that won't let up.",
@@ -93,10 +93,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "self-esteem-therapy-ottawa",
     title: "Self-Esteem Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss self-esteem therapy options in Ottawa and Ontario.",
-    headline: "Self-esteem therapy in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss self-esteem therapy options in Ontario.",
+    headline: "Self-esteem therapy in Ottawa",
     subtext:
-      "The way you talk to yourself shapes everything else. We pair you with one of our Registered Psychotherapists in Ontario who can help you build a kinder, steadier relationship with yourself.",
+      "The way you talk to yourself shapes everything else. Browse our therapists who can help you build a kinder, steadier relationship with yourself and book a free consultation directly with them.",
     topic: "self-esteem and self-worth",
     whatItIs: [
       "Low self-esteem is rarely about not being good enough. It's usually about messages you absorbed somewhere along the way that taught you to doubt yourself. Those messages can quietly run the show - affecting how you show up at work, in relationships, and in the choices you make about your own life.",
@@ -107,10 +107,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "relationship-counselling-ottawa",
     title: "Relationship Counselling in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss relationship counselling options in Ottawa and Ontario.",
-    headline: "Relationship counselling in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss relationship counselling options in Ontario.",
+    headline: "Relationship counselling in Ottawa",
     subtext:
-      "Whether you're working through things on your own or with a partner, we pair you with one of our Registered Psychotherapists in Ontario who specialises in relationships.",
+      "Whether you're working through things on your own or with a partner, browse our therapists who specialise in relationships and book a free consultation directly with them.",
     topic: "relationship issues",
     whatItIs: [
       "Relationships are some of the most important parts of our lives - and some of the hardest to navigate. Conflict, disconnection, communication breakdowns, betrayal, or just slowly drifting apart can leave you feeling stuck and unsure what to do next.",
@@ -121,10 +121,10 @@ export const SPECIALTIES: SpecialtyPageData[] = [
     slug: "life-transitions-therapy-ottawa",
     title: "Life Transitions Therapy in Ottawa | Valisen Mental Health",
     metaDescription:
-      "Start a free matching intake with Valisen Mental Health to discuss life transitions therapy options in Ottawa and Ontario.",
-    headline: "Life transitions therapy in Ottawa, matched to you",
+      "Book online with Valisen Mental Health to discuss life transitions therapy options in Ontario.",
+    headline: "Life transitions therapy in Ottawa",
     subtext:
-      "Big changes - even good ones - can leave you unsteady. We pair you with one of our Registered Psychotherapists in Ontario who can help you find your footing.",
+      "Big changes — even good ones — can leave you unsteady. Browse our therapists who can help you find your footing and book a free consultation directly with them.",
     topic: "life transitions and change",
     whatItIs: [
       "Career changes, becoming a parent, moving cities, ending a relationship, grief, retirement - life transitions reshape who you are and how you see your future. Even transitions you chose can come with grief, anxiety, and a sense of being between two versions of yourself.",

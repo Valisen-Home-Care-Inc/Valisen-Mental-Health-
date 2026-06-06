@@ -65,13 +65,13 @@ function standardLogistics(sessionFormat = "Virtual therapy available across Ont
     { label: "Session Fee", value: SESSION_RATE },
     {
       label: "Free Consultation",
-      value: "Start with the matching intake and Valisen will follow up about next steps",
+      value: "Book directly through Jane or call Valisen if you need help choosing a therapist",
     },
     { label: "Session Format", value: sessionFormat },
     { label: "Session Length", value: "50 minutes" },
     { label: "Availability", value: "Accepting new clients" },
     { label: "Receipts", value: "Receipts provided for insurance reimbursement where applicable" },
-    { label: "Next Step", value: "Use the button below to start the matching intake." },
+    { label: "Next Step", value: "Use the button below to book through Jane." },
     { label: "Province Eligibility", value: "Ontario residents" },
   ];
 }

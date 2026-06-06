@@ -39,7 +39,7 @@ export default function TherapistProfile({ therapist }: { therapist: Therapist }
           href="#"
           buttonLabel="Coming Soon — Accepting Clients Shortly"
           headline="Dayong will be accepting new clients soon."
-          subtext="Join the waitlist through the intake form and we will be in touch as soon as he is available."
+          subtext="Please check back soon or call Valisen if you would like help choosing another therapist."
         />
       ) : (
         <CTASection
@@ -47,7 +47,7 @@ export default function TherapistProfile({ therapist }: { therapist: Therapist }
           href={intakeHref}
           buttonLabel={CONSULTATION_CTA_LABEL}
           headline="Not sure if this therapist is the right fit?"
-          subtext="Start the matching intake and we will follow up to explore next steps."
+          subtext="Book directly through Jane or call us if you would like help choosing a therapist."
         />
       )}
       <Footer />
@@ -247,7 +247,7 @@ function CredentialsAndLogistics({
   intakeHref,
 }: {
   therapist: Therapist;
-  intakeHref: string;
+  intakeHref?: string;
 }) {
   return (
     <section className="bg-canvas py-20 md:py-28">

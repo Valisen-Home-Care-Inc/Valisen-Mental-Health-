@@ -29,12 +29,12 @@ const FAQS = [
   {
     question: "How much does therapy cost?",
     answer:
-      "Session costs vary by therapist. Many extended health plans may cover your sessions in full or in part. We help you understand coverage during intake.",
+      "Session costs vary by therapist. Many extended health plans may cover your sessions in full or in part. Check your plan for eligible provider types and annual limits.",
   },
   {
-    question: "How does matching work?",
+    question: "How do I book a session?",
     answer:
-      "Start with the matching intake. We use your preferences to understand what you are looking for and discuss next steps.",
+      "Browse our therapist profiles, choose who feels right for you, and book directly through Jane. You can also call Valisen if you would like help deciding who may be a good fit.",
   },
   {
     question: "Do I need a referral from a doctor?",
@@ -111,12 +111,12 @@ function HowValisenHelps({ topic }: { topic: string }) {
         <div className="mx-auto max-w-[800px] rounded-card border-[0.5px] border-hairline bg-white p-8 text-center md:p-12">
           <span className="badge-outline-teal mb-5">HOW VALISEN HELPS</span>
           <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-            Our team pairs you with the right therapist
+            Browse and book directly
           </h2>
           <p className="mx-auto mt-5 max-w-[650px] text-[15px] leading-[1.7] text-ink-secondary">
-            Start the matching intake with Valisen and our team can discuss your needs,
-            preferences, and whether one of our Registered Psychotherapists or Social Workers in
-            Ontario has experience working with {topic}.
+            Review our therapist profiles to find someone with experience in {topic}. Choose who
+            feels right for you and book a free 20-minute consultation directly with them through
+            Jane — no referral or intake form needed.
           </p>
         </div>
       </div>
@@ -159,7 +159,7 @@ function DarkCta() {
           Take the first step
         </h2>
         <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.6] text-canvas/80">
-          Start the matching intake and we&apos;ll discuss next steps.
+          Book directly through Jane or call us if you would like help choosing a therapist.
         </p>
         <div className="mt-8">
           <Link
@@ -184,16 +184,16 @@ function ConsultationPanel() {
           Free Consultation
         </div>
         <h2 className="font-serif text-[30px] font-medium leading-[1.12] tracking-[-0.6px] text-ink">
-          Start with a short matching intake.
+          Book your first appointment online.
         </h2>
         <p className="mt-3 text-[14px] leading-[1.6] text-ink-secondary">
-          Share your preferences, discuss therapist fit, and explore whether Valisen is a good
-          next step.
+          Choose a therapist through Jane or call Valisen if you would like support deciding who
+          may be a good fit.
         </p>
       </div>
       <div className="space-y-3 border-y border-hairline py-5">
         {[
-          "Free matching intake",
+          "Direct Jane booking",
           "Flexible therapist preference",
           "No detailed clinical history needed",
         ].map((item) => (
