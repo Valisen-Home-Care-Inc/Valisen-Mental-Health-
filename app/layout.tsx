@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -150,6 +151,18 @@ export default function RootLayout({
         />
       </head>
       <body>{children}</body>
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=AW-18124413697"
+        strategy="afterInteractive"
+      />
+      <Script id="google-ads-tag" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'AW-18124413697');
+        `}
+      </Script>
     </html>
   );
 }
