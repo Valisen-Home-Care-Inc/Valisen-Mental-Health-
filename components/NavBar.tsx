@@ -73,10 +73,32 @@ export default function NavBar() {
             </div>
           </li>
 
-          <li>
-            <Link href={MATCHING_FORM_URL} className="btn-dark">
-              Book now <span aria-hidden="true">&rarr;</span>
+          {/* Book now dropdown */}
+          <li className="group relative">
+            <Link href={MATCHING_FORM_URL} className="btn-dark gap-1.5">
+              Book now
+              <ChevronDown size={14} className="transition-transform duration-150 group-hover:rotate-180" />
             </Link>
+            {/* Dropdown panel */}
+            <div className="pointer-events-none absolute right-0 top-full pt-3 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+              <div className="w-72 rounded-xl border border-black/8 bg-white p-3 shadow-lg">
+                <Link
+                  href={MATCHING_FORM_URL}
+                  className="btn-dark w-full justify-center"
+                >
+                  Book Now
+                </Link>
+                <p className="mt-3 px-1 text-[13px] leading-[1.5] text-ink-secondary">
+                  Not sure who to book with?{" "}
+                  <Link
+                    href="/consultation"
+                    className="font-semibold text-teal no-underline hover:underline"
+                  >
+                    Fill out our Request form
+                  </Link>
+                </p>
+              </div>
+            </div>
           </li>
         </ul>
 
@@ -157,8 +179,18 @@ export default function NavBar() {
                 className="btn-dark w-full justify-center"
                 onClick={() => setOpen(false)}
               >
-                Book now <span aria-hidden="true">&rarr;</span>
+                Book Now
               </Link>
+              <p className="mt-2 px-1 text-center text-[13px] leading-[1.5] text-ink-secondary">
+                Not sure who to book with?{" "}
+                <Link
+                  href="/consultation"
+                  className="font-semibold text-teal no-underline"
+                  onClick={() => setOpen(false)}
+                >
+                  Fill out our Request form
+                </Link>
+              </p>
             </li>
           </ul>
         </div>
