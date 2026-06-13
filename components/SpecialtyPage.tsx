@@ -39,7 +39,7 @@ const FAQS = [
   {
     question: "Do I need a referral from a doctor?",
     answer:
-      "No. You can self-refer to a Registered Psychotherapist or Social Worker in Ontario. No doctor referral required.",
+      "No. You can self-refer to a Registered Psychotherapist in Ontario. No doctor referral required.",
   },
 ];
 
@@ -72,7 +72,7 @@ function Hero({ specialty }: { specialty: SpecialtyPageData }) {
             {specialty.subtext}
           </p>
           <p className="mt-5 max-w-[620px] text-[12px] leading-[1.6] text-ink-secondary">
-            Our Registered Psychotherapists and Social Workers deliver virtual therapy
+            Our Registered Psychotherapists deliver virtual therapy
             across Ontario.
           </p>
         </div>

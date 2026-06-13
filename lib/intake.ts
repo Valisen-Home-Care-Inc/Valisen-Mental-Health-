@@ -9,7 +9,6 @@ export const SPECIFIC_THERAPIST_VALUES = [
   "dayong-quan",
   "wilfred-bengnwi",
   "tim-kahtava",
-  "natasha-azoulay",
 ] as const;
 
 export type SpecificTherapistSlug = (typeof SPECIFIC_THERAPIST_VALUES)[number];
@@ -22,7 +21,6 @@ const PREFERRED_THERAPIST_LABELS = {
   "dayong-quan": "Dayong Quan",
   "wilfred-bengnwi": "Wilfred Bengnwi",
   "tim-kahtava": "Tim Kahtava",
-  "natasha-azoulay": "Natasha Azoulay",
 } satisfies Record<PreferredTherapistValue, string>;
 
 export const PREFERRED_THERAPIST_OPTIONS: Array<{
@@ -52,7 +50,6 @@ export function isSpecificTherapistSlug(
 }
 
 const THERAPIST_JANE_URLS: Record<string, string> = {
-  "natasha-azoulay": "https://valisenmentalhealth.janeapp.com/#/staff_member/4",
   "tim-kahtava": "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
   "wilfred-bengnwi": "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
 };

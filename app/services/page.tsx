@@ -18,14 +18,14 @@ import { MATCHING_CTA_LABEL, MATCHING_FORM_URL } from "@/lib/intake";
 export const metadata = {
   title: "Services - Valisen Mental Health",
   description:
-    "Valisen connects Ontario residents with Registered Psychotherapists and Registered Social Workers for individual and couples therapy.",
+    "Valisen connects Ontario residents with Registered Psychotherapists for individual and couples therapy.",
 };
 
 const SERVICES = [
   {
     title: "Individual Therapy",
     description:
-      "One-on-one sessions with a Registered Psychotherapist or Social Worker, focused on what you're working through right now.",
+      "One-on-one sessions with a Registered Psychotherapist, focused on what you're working through right now.",
     href: MATCHING_FORM_URL,
     linkLabel: MATCHING_CTA_LABEL,
     icon: (
@@ -124,7 +124,7 @@ export default function ServicesPage() {
             Therapy that <span className="italic text-teal">fits your life</span>
           </h1>
           <p className="mx-auto mt-5 max-w-[620px] text-vbase leading-[1.6] text-ink-secondary">
-            All of our therapists are Registered Psychotherapists or Registered Social Workers
+            All of our therapists are Registered Psychotherapists
             practicing across Ontario. Your extended health plan may cover more than you think.
           </p>
         </div>

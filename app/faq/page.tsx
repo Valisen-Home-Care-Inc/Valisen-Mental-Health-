@@ -124,7 +124,7 @@ const CATEGORIES: FAQCategory[] = [
         slug: "which-plans-cover-rps",
         question: "Which major insurance plans cover Registered Psychotherapists?",
         shortAnswer:
-          "Manulife, Sun Life, Canada Life, Greenshield, and Equitable Life all include RP and RSW coverage across most standard plan tiers. Coverage varies by your specific plan design, not just the insurer. All Valisen therapists are registered as either RPs or RSWs.",
+          "Manulife, Sun Life, Canada Life, Greenshield, and Equitable Life all include RP and RSW coverage across most standard plan tiers. Coverage varies by your specific plan design, not just the insurer. All Valisen therapists are Registered Psychotherapists (RP).",
       },
       {
         slug: "tax-deductible-therapy",
@@ -182,13 +182,13 @@ const CATEGORIES: FAQCategory[] = [
         slug: "languages-offered",
         question: "Do you offer therapy in languages other than English?",
         shortAnswer:
-          "Our team currently offers therapy in English, French, Mandarin, Hebrew, Yiddish, and American Sign Language (ASL). Language access significantly affects the depth and safety of therapy — especially for early-life experiences. Filter by language on our therapists page to find the right fit.",
+          "Our team currently offers therapy in English and Mandarin. Language access significantly affects the depth and safety of therapy — especially for early-life experiences. Filter by language on our therapists page to find the right fit.",
       },
       {
         slug: "therapist-credentials",
         question: "Are your therapists licensed and regulated in Ontario?",
         shortAnswer:
-          "Yes. All Valisen therapists are registered as either Registered Psychotherapists (RP) with CRPO or Registered Social Workers (RSW) with OCSWSSW — both regulated designations requiring graduate-level training and professional accountability. You can verify any therapist's registration through their college's public registry.",
+          "Yes. All Valisen therapists are Registered Psychotherapists (RP) with CRPO — a regulated designation requiring graduate-level training and professional accountability. You can verify any therapist's registration through the college's public registry.",
       },
     ],
   },

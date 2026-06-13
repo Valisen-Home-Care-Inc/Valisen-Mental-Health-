@@ -344,7 +344,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
         h2: "Which should you choose?",
         paragraphs: [
           "For clinical purposes, the distinction matters less than the individual therapist's training, specialization, and the fit between you. Both designations are held to legally enforceable professional standards. The main practical difference is insurance eligibility: check your benefits plan to confirm which designations your plan covers before booking.",
-          "All Valisen therapists are registered as either RPs or RSWs and can confirm their designation and registration number upon request.",
+          "All Valisen therapists are Registered Psychotherapists (RP) and can confirm their designation and registration number upon request.",
         ],
         internalLinks: [
           { href: "/insurance", label: "Insurance and coverage at Valisen" },
@@ -538,7 +538,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "What Valisen therapists are registered as",
         paragraphs: [
-          "All Valisen therapists are registered as either Registered Psychotherapists (RP) with CRPO or Registered Social Workers (RSW) with OCSWSSW. We can provide the full registration details of any therapist on your request, and we are happy to help you work through your benefits questions during your initial consultation.",
+          "All Valisen therapists are Registered Psychotherapists (RP) with CRPO. We can provide the full registration details of any therapist on your request, and we are happy to help you work through your benefits questions during your initial consultation.",
         ],
         internalLinks: [
           { href: "/insurance", label: "Insurance at Valisen — full details" },
@@ -718,7 +718,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "Our team",
         paragraphs: [
-          "All Valisen therapists are registered as either Registered Psychotherapists (RP) with the College of Registered Psychotherapists of Ontario or Registered Social Workers (RSW) with the Ontario College of Social Workers and Social Service Workers. Our team is intentionally small — we prioritize quality and clinical fit over volume.",
+          "All Valisen therapists are Registered Psychotherapists (RP) with the College of Registered Psychotherapists of Ontario. Our team is intentionally small — we prioritize quality and clinical fit over volume.",
           "Sessions with Valisen therapists are covered by most major Canadian insurance benefit plans that include mental health coverage. We provide itemized receipts for every session.",
         ],
         internalLinks: [
@@ -772,24 +772,24 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
     question: "Do you offer therapy in languages other than English?",
     category: "About Valisen",
     categorySlug: "about-valisen",
-    metaTitle: "Therapy in French, Mandarin & More | Valisen Ottawa",
+    metaTitle: "Therapy in English & Mandarin | Valisen Ottawa",
     metaDescription:
-      "Valisen Mental Health offers therapy in English, French, Mandarin, Hebrew, Yiddish, and American Sign Language (ASL) — because language access matters deeply in therapy.",
-    updatedDate: "2026-05-01",
+      "Valisen Mental Health offers therapy in English and Mandarin — because the language you work in shapes the depth and safety of therapy.",
+    updatedDate: "2026-06-08",
     intro:
-      "The language in which therapy happens is not a neutral detail. The depth of emotional access, the precision of self-expression, and the safety of the therapeutic relationship are all meaningfully affected by whether you are working in your first language. Valisen is committed to making care accessible across the language spectrum.",
+      "The language in which therapy happens is not a neutral detail. The depth of emotional access, the precision of self-expression, and the safety of the therapeutic relationship are all meaningfully affected by whether you are working in your first language. At Valisen, therapy is available in both English and Mandarin.",
     sections: [
       {
         h2: "Languages currently available",
         paragraphs: [
-          "Our team currently offers therapy in English, French, Mandarin, Hebrew, Yiddish, and American Sign Language (ASL). Language availability varies by therapist — when booking, please indicate your language preference so we can ensure you are matched with the appropriate therapist.",
+          "Our team currently offers therapy in English and Mandarin. For Mandarin-speaking clients, sessions are available with a bilingual Registered Psychotherapist. When booking, please indicate your language preference so we can match you with the right therapist.",
         ],
       },
       {
         h2: "Why it matters",
         paragraphs: [
           "Many people who are fluent or highly proficient in English still find that certain experiences, emotions, or memories are encoded in their first language. This is especially true for childhood experiences, intergenerational patterns, and identity-related material. Working in the language that holds those experiences can make the therapeutic process significantly more effective.",
-          "For clients who communicate primarily in ASL or who are hard of hearing, working with a therapist who is fluent in ASL means no interpreters, no communication barriers, and a therapy space that is fully accessible.",
+          "For Mandarin-speaking clients, working in Mandarin can make it easier to describe family dynamics, migration and cultural adjustment, and personal concerns without translating every detail first.",
         ],
         internalLinks: [
           { href: "/therapists", label: "Meet our therapists and see language options" },
@@ -805,7 +805,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
     categorySlug: "about-valisen",
     metaTitle: "Are Valisen Therapists Licensed in Ontario? | Credentials Explained",
     metaDescription:
-      "All Valisen therapists are registered with a regulated college in Ontario — either CRPO or OCSWSSW. Learn what regulated means and how to verify your therapist's credentials.",
+      "All Valisen therapists are Registered Psychotherapists with the College of Registered Psychotherapists of Ontario (CRPO). Learn what regulated means and how to verify your therapist's credentials.",
     updatedDate: "2026-05-01",
     intro:
       "Credential transparency matters. In Ontario, anyone can call themselves a \"counsellor\" or \"life coach\" without any regulated training. Understanding what makes a therapist regulated — and how to verify it — protects you as a client.",
@@ -820,7 +820,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "Valisen therapist designations",
         paragraphs: [
-          "All Valisen therapists are credentialed members of one of two regulated colleges: the College of Registered Psychotherapists of Ontario (CRPO), as Registered Psychotherapists (RP), or the Ontario College of Social Workers and Social Service Workers (OCSWSSW), as Registered Social Workers (RSW). Both designations require graduate-level training and maintain active registration in good standing.",
+          "All Valisen therapists are credentialed members of the College of Registered Psychotherapists of Ontario (CRPO), as Registered Psychotherapists (RP). This designation requires graduate-level training and active registration in good standing.",
         ],
       },
       {

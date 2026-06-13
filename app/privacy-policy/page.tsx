@@ -35,7 +35,7 @@ export default function PrivacyPolicyPage() {
                 <a href="https://valisenmentalhealth.ca" className="text-teal hover:underline">
                   valisenmentalhealth.ca
                 </a>
-                . Our Registered Psychotherapists and Registered Social Workers provide virtual therapy services directly to clients across Ontario.
+                . Our Registered Psychotherapists provide virtual therapy services directly to clients across Ontario.
               </p>
               <p>
                 Questions about this policy? Contact our Privacy Officer at{" "}

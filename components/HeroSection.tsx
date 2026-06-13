@@ -28,7 +28,7 @@ export default function HeroSection() {
           <p className="max-w-[560px] text-vbase leading-[1.6] text-ink-secondary">
             Valisen Mental Health is an Ontario therapy clinic based in Ottawa. Start with a free
             20-minute phone consultation and explore support from one of our Registered
-            Psychotherapists or Social Workers, virtually anywhere in Ontario.
+            Psychotherapists, virtually anywhere in Ontario.
           </p>
           <p className="mt-5 text-[14px] text-ink-secondary">
             Or call us directly at{" "}
@@ -59,7 +59,7 @@ export default function HeroSection() {
                   <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
-              <span>Registered Psychotherapists and Registered Social Workers</span>
+              <span>Registered Psychotherapists</span>
             </li>
           </ul>
         </div>

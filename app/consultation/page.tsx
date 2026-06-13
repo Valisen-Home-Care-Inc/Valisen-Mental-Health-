@@ -364,7 +364,6 @@ export default function ConsultationPage() {
                         onChange={(e) => set("preferredTherapist", e.target.value)}
                       >
                         <option value="">No Preference</option>
-                        <option value="natasha-azoulay">Natasha Azoulay</option>
                         <option value="wilfred-bengnwi">Wilfred Bengnwi</option>
                         <option value="tim-kahtava">Tim Kahtava</option>
                         <option value="dayong-quan">Dayong Quan</option>

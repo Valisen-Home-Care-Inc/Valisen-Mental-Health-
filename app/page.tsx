@@ -85,8 +85,7 @@ export default function HomePage() {
               </h2>
               <p className="mt-5 max-w-[460px] text-[15px] leading-[1.6] text-ink-secondary">
                 Review specialties, languages, and session options before starting. Our team offers
-                support in English, Mandarin, French, Hebrew, Yiddish, and ASL — virtually
-                across Ontario.
+                support in English and Mandarin — virtually across Ontario.
               </p>
               <div className="mt-8">
                 <Link href="/therapists" className="btn-primary">
@@ -97,8 +96,8 @@ export default function HomePage() {
             </div>
 
             {/* Therapist portrait cards */}
-            <div className="grid grid-cols-2 gap-4">
-              {["natasha-azoulay", "wilfred-bengnwi", "tim-kahtava", "dayong-quan"]
+            <div className="grid grid-cols-3 gap-3">
+              {["wilfred-bengnwi", "tim-kahtava", "dayong-quan"]
                 .map((slug) => therapists.find((t) => t.slug === slug)!)
                 .map((therapist) => (
                 <Link
@@ -117,7 +116,7 @@ export default function HomePage() {
                         alt={therapist.name}
                         fill
                         className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                        sizes="(max-width: 768px) 50vw, 25vw"
+                        sizes="(max-width: 768px) 33vw, 16vw"
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">

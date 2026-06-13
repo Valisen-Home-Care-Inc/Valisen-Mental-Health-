@@ -7,7 +7,7 @@ import { MATCHING_CTA_LABEL, MATCHING_FORM_URL } from "@/lib/intake";
 export const metadata = {
   title: "About - Valisen Mental Health",
   description:
-    "Valisen Mental Health is an Ottawa therapy clinic offering virtual sessions with Registered Psychotherapists and Registered Social Workers.",
+    "Valisen Mental Health is an Ottawa therapy clinic offering virtual sessions with Registered Psychotherapists.",
 };
 
 const VALUES = [
@@ -23,7 +23,7 @@ const VALUES = [
   },
   {
     title: "Trust",
-    body: "Our therapists are Registered Psychotherapists and Registered Social Workers — regulated professionals who are accountable to their college.",
+    body: "Our therapists are Registered Psychotherapists — regulated professionals who are accountable to their college.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
@@ -81,7 +81,7 @@ export default function AboutPage() {
           <div className="space-y-5 text-[15px] leading-[1.7] text-canvas/85">
             <p>
               Valisen Mental Health is an Ottawa therapy clinic. Our Registered Psychotherapists
-              and Social Workers provide virtual sessions directly to clients across Ontario.
+              provide virtual sessions directly to clients across Ontario.
             </p>
             <p>
               Browse our therapist profiles, choose who feels right for you, and book directly

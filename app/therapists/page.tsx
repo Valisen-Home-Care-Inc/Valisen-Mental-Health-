@@ -46,11 +46,11 @@ export default function TherapistsPage() {
             <div className="mt-7 flex flex-wrap gap-2">
               <Badge variant="status">
                 <CheckCircle size={12} className="mr-1" aria-hidden="true" />
-                3 therapists accepting clients
+                2 therapists accepting clients
               </Badge>
               <Badge variant="language">
                 <Languages size={13} className="mr-1" aria-hidden="true" />
-                English, Mandarin, French, Hebrew, Yiddish, and ASL
+                English and Mandarin
               </Badge>
               <Badge variant="session">
                 <MapPin size={13} className="mr-1" aria-hidden="true" />
@@ -101,7 +101,7 @@ export default function TherapistsPage() {
           <div className="mb-10 max-w-[680px]">
             <span className="badge-outline-teal mb-5">CURRENTLY ACCEPTING CLIENTS</span>
             <h2 className="font-serif text-[34px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-              A focused team of four therapists
+              A focused team of three therapists
             </h2>
             <p className="mt-4 text-[15px] leading-[1.7] text-ink-secondary">
               Review each therapist&apos;s specialties, languages, session format, and therapeutic
