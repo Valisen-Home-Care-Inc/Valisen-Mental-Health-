@@ -84,9 +84,9 @@ export const therapists: Therapist[] = [
     credentialSummary: "Registered Psychotherapist",
     initials: "DQ",
     photo: "/dayong-quan.jpg",
-    comingSoon: true,
-    availability: "Coming soon",
-    acceptingNewClients: false,
+    comingSoon: false,
+    availability: "Accepting new clients",
+    acceptingNewClients: true,
     rate: SESSION_RATE,
     primaryConcerns: "Anxiety, Stress, Life Transitions, and Cultural Adjustment",
     headline:
