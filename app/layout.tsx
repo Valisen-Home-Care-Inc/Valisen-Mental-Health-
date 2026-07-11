@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: "%s | Valisen Mental Health Ottawa",
   },
   description:
-    "Valisen Mental Health is an Ottawa therapy clinic with Registered Psychotherapists offering virtual therapy across Ontario.",
+    "Valisen Mental Health is an Ottawa therapy clinic with Registered Psychotherapists and Registered Social Workers offering virtual therapy across Ontario.",
   keywords: [
     "therapy Ottawa",
     "therapist Ottawa",
@@ -130,7 +130,7 @@ const SCHEMA = {
         { "@type": "MedicalTherapy", name: "Virtual Therapy Ontario" },
       ],
       description:
-        "Valisen Mental Health is an Ottawa therapy clinic offering virtual sessions with Registered Psychotherapists across Ontario.",
+        "Valisen Mental Health is an Ottawa therapy clinic offering virtual sessions with Registered Psychotherapists and Registered Social Workers across Ontario.",
       priceRange: "$$",
       openingHours: "Mo-Fr 09:00-19:00",
     },

@@ -9,6 +9,7 @@ export const SPECIFIC_THERAPIST_VALUES = [
   "dayong-quan",
   "wilfred-bengnwi",
   "tim-kahtava",
+  "ryann-simpson",
 ] as const;
 
 export type SpecificTherapistSlug = (typeof SPECIFIC_THERAPIST_VALUES)[number];
@@ -21,6 +22,7 @@ const PREFERRED_THERAPIST_LABELS = {
   "dayong-quan": "Dayong Quan",
   "wilfred-bengnwi": "Wilfred Bengnwi",
   "tim-kahtava": "Tim Kahtava",
+  "ryann-simpson": "Ryann Simpson",
 } satisfies Record<PreferredTherapistValue, string>;
 
 export const PREFERRED_THERAPIST_OPTIONS: Array<{

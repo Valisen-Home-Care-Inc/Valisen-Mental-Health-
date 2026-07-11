@@ -344,7 +344,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
         h2: "Which should you choose?",
         paragraphs: [
           "For clinical purposes, the distinction matters less than the individual therapist's training, specialization, and the fit between you. Both designations are held to legally enforceable professional standards. The main practical difference is insurance eligibility: check your benefits plan to confirm which designations your plan covers before booking.",
-          "All Valisen therapists are Registered Psychotherapists (RP) and can confirm their designation and registration number upon request.",
+          "Valisen's team includes both Registered Psychotherapists (RP) and Registered Social Workers (RSW), and any therapist can confirm their designation and registration number upon request.",
         ],
         internalLinks: [
           { href: "/insurance", label: "Insurance and coverage at Valisen" },
@@ -538,7 +538,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "What Valisen therapists are registered as",
         paragraphs: [
-          "All Valisen therapists are Registered Psychotherapists (RP) with CRPO. We can provide the full registration details of any therapist on your request, and we are happy to help you work through your benefits questions during your initial consultation.",
+          "Valisen's team includes Registered Psychotherapists (RP) with CRPO and Registered Social Workers (RSW) with OCSWSSW. We can provide the full registration details of any therapist on your request, and we are happy to help you work through your benefits questions during your initial consultation.",
         ],
         internalLinks: [
           { href: "/insurance", label: "Insurance at Valisen — full details" },
@@ -718,7 +718,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "Our team",
         paragraphs: [
-          "All Valisen therapists are Registered Psychotherapists (RP) with the College of Registered Psychotherapists of Ontario. Our team is intentionally small — we prioritize quality and clinical fit over volume.",
+          "Valisen's team includes Registered Psychotherapists (RP) with the College of Registered Psychotherapists of Ontario and Registered Social Workers (RSW) with the Ontario College of Social Workers and Social Service Workers. Our team is intentionally small — we prioritize quality and clinical fit over volume.",
           "Sessions with Valisen therapists are covered by most major Canadian insurance benefit plans that include mental health coverage. We provide itemized receipts for every session.",
         ],
         internalLinks: [
@@ -805,7 +805,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
     categorySlug: "about-valisen",
     metaTitle: "Are Valisen Therapists Licensed in Ontario? | Credentials Explained",
     metaDescription:
-      "All Valisen therapists are Registered Psychotherapists with the College of Registered Psychotherapists of Ontario (CRPO). Learn what regulated means and how to verify your therapist's credentials.",
+      "Valisen therapists are Registered Psychotherapists with the College of Registered Psychotherapists of Ontario (CRPO) or Registered Social Workers with OCSWSSW. Learn what regulated means and how to verify your therapist's credentials.",
     updatedDate: "2026-05-01",
     intro:
       "Credential transparency matters. In Ontario, anyone can call themselves a \"counsellor\" or \"life coach\" without any regulated training. Understanding what makes a therapist regulated — and how to verify it — protects you as a client.",
@@ -820,7 +820,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
       {
         h2: "Valisen therapist designations",
         paragraphs: [
-          "All Valisen therapists are credentialed members of the College of Registered Psychotherapists of Ontario (CRPO), as Registered Psychotherapists (RP). This designation requires graduate-level training and active registration in good standing.",
+          "Valisen therapists are credentialed members of either the College of Registered Psychotherapists of Ontario (CRPO), as Registered Psychotherapists (RP), or the Ontario College of Social Workers and Social Service Workers (OCSWSSW), as Registered Social Workers (RSW). Both designations require graduate-level training and active registration in good standing.",
         ],
       },
       {

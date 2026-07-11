@@ -96,8 +96,8 @@ export default function HomePage() {
             </div>
 
             {/* Therapist portrait cards */}
-            <div className="grid grid-cols-3 gap-3">
-              {["wilfred-bengnwi", "tim-kahtava", "dayong-quan"]
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {["wilfred-bengnwi", "tim-kahtava", "dayong-quan", "ryann-simpson"]
                 .map((slug) => therapists.find((t) => t.slug === slug)!)
                 .map((therapist) => (
                 <Link
@@ -116,7 +116,7 @@ export default function HomePage() {
                         alt={therapist.name}
                         fill
                         className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                        sizes="(max-width: 768px) 33vw, 16vw"
+                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 25vw, 12vw"
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">

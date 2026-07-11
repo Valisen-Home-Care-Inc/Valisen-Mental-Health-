@@ -14,6 +14,7 @@ const THERAPIST_EMAILS: Record<SpecificTherapistSlug, string | undefined> = {
   "dayong-quan": process.env.DAYONG_QUAN_EMAIL,
   "wilfred-bengnwi": process.env.WILFRED_BENGNWI_EMAIL,
   "tim-kahtava": process.env.TIM_KAHTAVA_EMAIL,
+  "ryann-simpson": process.env.RYANN_SIMPSON_EMAIL,
 };
 
 const ALLOW_SELF_SIGNED_SMTP_CERT =

@@ -332,7 +332,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
     ],
     reframe:
       "Here's the hopeful part: anxiety is one of the most workable things people bring to therapy. Small shifts tend to add up faster than you'd expect.",
-    therapistSlugs: ["dayong-quan", "tim-kahtava"],
+    therapistSlugs: ["dayong-quan", "tim-kahtava", "ryann-simpson"],
     servicePath: "/anxiety-therapy-ottawa",
     serviceLabel: "Explore anxiety therapy",
   },
@@ -378,7 +378,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
     ],
     reframe:
       "Burnout responds to change. Running on empty can feel permanent from the inside, but with the right support it isn't.",
-    therapistSlugs: ["dayong-quan", "tim-kahtava"],
+    therapistSlugs: ["dayong-quan", "tim-kahtava", "ryann-simpson"],
     servicePath: "/stress-therapy-ottawa",
     serviceLabel: "Explore stress & burnout therapy",
   },
@@ -401,7 +401,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
     ],
     reframe:
       "Relationship patterns can shift, often faster than people expect once someone helps you see them clearly.",
-    therapistSlugs: ["wilfred-bengnwi", "tim-kahtava"],
+    therapistSlugs: ["wilfred-bengnwi", "tim-kahtava", "ryann-simpson"],
     servicePath: "/relationship-counselling-ottawa",
     serviceLabel: "Explore relationship counselling",
   },
@@ -424,7 +424,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
     ],
     reframe:
       "When everything feels knotted together, having someone help you find the first thread to pull is the whole point of therapy.",
-    therapistSlugs: ["tim-kahtava", "wilfred-bengnwi", "dayong-quan"],
+    therapistSlugs: ["tim-kahtava", "wilfred-bengnwi", "dayong-quan", "ryann-simpson"],
     servicePath: "/therapists",
     serviceLabel: "Browse all therapists",
   },
@@ -447,7 +447,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
     ],
     reframe:
       "Therapy isn't only for the hard moments. A lot of people use it to stay well, not just to recover.",
-    therapistSlugs: ["tim-kahtava", "dayong-quan"],
+    therapistSlugs: ["tim-kahtava", "dayong-quan", "ryann-simpson"],
     servicePath: "/consultation",
     serviceLabel: "Book a free consultation",
   },

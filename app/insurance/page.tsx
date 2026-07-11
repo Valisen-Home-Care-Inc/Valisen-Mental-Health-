@@ -90,7 +90,7 @@ const FAQS = [
   },
   {
     q: "What types of therapists are covered by insurance?",
-    a: "Most extended health plans in Ontario cover Registered Psychotherapists (RP) and Registered Social Workers (RSW). All Valisen therapists are Registered Psychotherapists (RP).",
+    a: "Most extended health plans in Ontario cover Registered Psychotherapists (RP) and Registered Social Workers (RSW). Valisen's team includes both — check your specific plan for eligible provider types.",
   },
 ];
 
@@ -226,7 +226,7 @@ export default function InsurancePage() {
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {[
-                { label: "Registered Psychotherapist (RP) sessions", covered: true },
+                { label: "Registered Psychotherapist (RP) & Social Worker (RSW) sessions", covered: true },
                 { label: "Individual therapy sessions", covered: true },
                 { label: "Couples therapy (varies by plan)", covered: true },
                 { label: "Virtual/online sessions", covered: true },

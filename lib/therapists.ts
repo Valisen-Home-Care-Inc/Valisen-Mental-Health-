@@ -426,6 +426,125 @@ export const therapists: Therapist[] = [
       ],
     },
   },
+  {
+    slug: "ryann-simpson",
+    name: "Ryann Simpson",
+    credentials: "Registered Social Worker (RSW)",
+    credentialSummary: "Registered Social Worker",
+    initials: "RS",
+    photo: "/ryann-simpson.png",
+    comingSoon: false,
+    availability: "Accepting new clients",
+    acceptingNewClients: true,
+    rate: SESSION_RATE,
+    primaryConcerns: "Anxiety, Perfectionism, People-Pleasing, ADHD, and Self-Esteem",
+    headline:
+      "Virtual & Telephone Therapy for Anxiety, Perfectionism, People-Pleasing, ADHD, and Self-Esteem",
+    cardStatement:
+      "Ryann is a Registered Social Worker offering virtual and telephone therapy to individual adults and couples in Ontario. She works with clients navigating anxiety, relationship challenges, people-pleasing, perfectionism, ADHD, self-esteem concerns, and major life transitions, with a focus on real insight, practical tools, and understanding the patterns that shape you.",
+    specialties: [
+      "Anxiety",
+      "Relationship challenges",
+      "People-pleasing",
+      "Perfectionism",
+      "ADHD",
+      "Self-esteem",
+      "Life transitions",
+      "Stress & burnout",
+    ],
+    languages: ["English"],
+    sessionTypes: ["Virtual therapy", "Telephone therapy", "Ontario"],
+    featuredHero: {
+      badge: "Anxiety, ADHD & perfectionism",
+      headline: "Therapy for Anxiety, Perfectionism, People-Pleasing, and ADHD",
+      description:
+        "Virtual and telephone therapy for individual adults and couples navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and major life transitions.",
+      ctaLabel: "View Ryann's profile",
+    },
+    intro: [
+      "Ryann Simpson is a Registered Social Worker (RSW) who offers virtual and telephone therapy to individual adults (18+) and couples in Ontario. She's drawn to exploring how we process, what shapes us, and the behavioural patterns that quietly run the show — approaching each client with curiosity and a genuine desire to understand what resonates for them.",
+      "Ryann believes therapy should offer more than a good listener — it should provide real insight, tools, and strategies you can actually use. Many of the clients she works with want a connection that feels right, and to leave sessions with something tangible: understanding why a pattern keeps repeating, or a clear next step toward where they want to be.",
+      "She often works with people who describe themselves as self-aware, intuitive, intellectual, and emotionally attuned — people who may seem to have things together on the outside while struggling internally with anxiety, overwhelm, and self-criticism, and who want to understand what's really shaping their habits, decisions, and relationships.",
+    ],
+    areasOfSupport: [
+      {
+        title: "Anxiety",
+        description:
+          "Support for anxiety and overwhelm, including the internal struggle that can sit underneath a put-together exterior.",
+      },
+      {
+        title: "Relationship Challenges",
+        description:
+          "Support for individuals and couples working through relationship patterns and communication difficulties.",
+      },
+      {
+        title: "People-Pleasing",
+        description:
+          "Understanding the patterns behind people-pleasing and learning to build relationships that feel more authentic.",
+      },
+      {
+        title: "Perfectionism",
+        description:
+          "Support for perfectionism and the self-criticism that often comes with it.",
+      },
+      {
+        title: "ADHD",
+        description:
+          "Support for ADHD and the day-to-day patterns it shapes, including executive functioning.",
+      },
+      {
+        title: "Self-Esteem",
+        description:
+          "Building a steadier, more self-aware relationship with yourself.",
+      },
+      {
+        title: "Life Transitions",
+        description:
+          "Support through major life transitions and the uncertainty that can come with change.",
+      },
+      {
+        title: "Stress & Burnout",
+        description:
+          "Support for stress and burnout, and rebuilding sustainable ways of coping.",
+      },
+      {
+        title: "Boundaries & Communication",
+        description:
+          "Developing boundaries and communication skills that support healthier relationships.",
+      },
+      {
+        title: "Executive Functioning & Overthinking",
+        description:
+          "Practical support for executive functioning difficulties and patterns of overthinking.",
+      },
+    ],
+    therapyStyle: {
+      summary: "Curious, insight-driven, and focused on what resonates for you.",
+      paragraphs: [
+        "Ryann approaches clients with curiosity, a desire to understand, and a focus on what resonates for them. She believes therapy should offer more than a good listener — it should also provide real insight, tools, and strategies you can work with.",
+        "Clients often want a connection that feels right, and to be able to take something away — whether that's understanding why you keep repeating the same pattern, or learning how to take tangible steps toward where you want to be. She often works with deep thinkers and feelers, including those who consider themselves highly sensitive persons.",
+      ],
+      tags: ["Insight-focused", "Curiosity-driven", "Individual & couples therapy", "Works with HSPs & deep feelers"],
+    },
+    credentialsList: [
+      { label: "Registration", value: "Registered Social Worker (RSW)" },
+      { label: "Client Population", value: "Individual adults (18+) and couples" },
+    ],
+    logistics: standardLogistics("Virtual and telephone therapy available across Ontario"),
+    seo: {
+      title: "Ryann Simpson | RSW Therapist for Anxiety, ADHD & Perfectionism in Ontario",
+      description:
+        "Ryann Simpson, RSW, offers virtual and telephone therapy for individual adults and couples in Ontario navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and life transitions. Sessions are $180/hour.",
+      keywords: [
+        "RSW therapist Ontario",
+        "ADHD therapist Ontario",
+        "perfectionism therapy Ontario",
+        "people pleasing therapy Ontario",
+        "highly sensitive person therapist Ontario",
+        "telephone therapy Ontario",
+      ],
+    },
+  },
 ];
 
 export function getTherapistBySlug(slug: string) {

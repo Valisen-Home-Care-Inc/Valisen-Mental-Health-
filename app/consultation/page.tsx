@@ -14,7 +14,6 @@ type FormData = {
   phone: string;
   therapyType: string;
   preferredTherapist: string;
-  preferredLocation: string;
   additionalInfo: string;
   consent: boolean;
   /* honeypot */
@@ -30,7 +29,6 @@ const INITIAL: FormData = {
   phone: "",
   therapyType: "",
   preferredTherapist: "",
-  preferredLocation: "",
   additionalInfo: "",
   consent: false,
   website: "",
@@ -146,12 +144,7 @@ export default function ConsultationPage() {
           phone: data.phone.trim() || undefined,
           reason: data.therapyType,
           preferredTherapist: data.preferredTherapist || "flexible",
-          notes: [
-            data.preferredLocation ? `Preferred location: ${data.preferredLocation}` : "",
-            data.additionalInfo.trim() ? data.additionalInfo.trim() : "",
-          ]
-            .filter(Boolean)
-            .join("\n\n") || undefined,
+          notes: data.additionalInfo.trim() || undefined,
           consent: data.consent,
         }),
       });
@@ -367,26 +360,7 @@ export default function ConsultationPage() {
                         <option value="wilfred-bengnwi">Wilfred Bengnwi</option>
                         <option value="tim-kahtava">Tim Kahtava</option>
                         <option value="dayong-quan">Dayong Quan</option>
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-ink-hint">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Field>
-
-                  {/* Preferred location */}
-                  <Field label="Preferred Location" full>
-                    <div className="relative">
-                      <select
-                        className={selectClass}
-                        value={data.preferredLocation}
-                        onChange={(e) => set("preferredLocation", e.target.value)}
-                      >
-                        <option value="">No Preference</option>
-                        <option value="Virtual (Online)">Virtual (Online)</option>
-                        <option value="In-Person – Ottawa">In-Person – Ottawa</option>
+                        <option value="ryann-simpson">Ryann Simpson</option>
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-ink-hint">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">

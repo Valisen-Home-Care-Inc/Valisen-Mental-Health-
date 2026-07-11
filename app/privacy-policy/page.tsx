@@ -35,7 +35,7 @@ export default function PrivacyPolicyPage() {
                 <a href="https://valisenmentalhealth.ca" className="text-teal hover:underline">
                   valisenmentalhealth.ca
                 </a>
-                . Our Registered Psychotherapists provide virtual therapy services directly to clients across Ontario.
+                . Our Registered Psychotherapists and Registered Social Workers provide virtual therapy services directly to clients across Ontario.
               </p>
               <p>
                 Questions about this policy? Contact our Privacy Officer at{" "}
@@ -67,8 +67,8 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>
                   <strong className="text-ink">Regulated Health Professions Act (RHPA), 1991</strong>{" "}
-                  — Governs the professional obligations of the Registered Psychotherapists in our
-                  network.
+                  — Governs the professional obligations of the Registered Psychotherapists and
+                  Registered Social Workers in our network.
                 </li>
               </ul>
             </Section>
@@ -85,7 +85,7 @@ export default function PrivacyPolicyPage() {
               <h4 className="mt-4 font-semibold text-ink">b) Clinical information</h4>
               <p className="mt-2">
                 Session notes and treatment records are maintained exclusively by your
-                Registered Psychotherapist. Valisen does not hold, access, or store clinical
+                therapist. Valisen does not hold, access, or store clinical
                 records. Any clinical information you share is used solely to facilitate your
                 care and is not retained beyond that purpose.
               </p>
@@ -168,8 +168,9 @@ export default function PrivacyPolicyPage() {
               </p>
               <p className="mt-3">
                 Clinical records — including session notes, treatment plans, and progress records
-                — are held exclusively by your assigned Registered Psychotherapist in accordance
-                with CRPO standards, which require retention for a minimum of{" "}
+                — are held exclusively by your assigned therapist in accordance with their
+                regulatory college's standards (CRPO for Registered Psychotherapists, OCSWSSW for
+                Registered Social Workers), which require retention for a minimum of{" "}
                 <strong className="text-ink">10 years</strong> from the date of last service, or
                 until a minor client turns 18 plus 10 years, whichever is longer. For questions
                 about your clinical records, contact your therapist directly.
@@ -243,8 +244,8 @@ export default function PrivacyPolicyPage() {
 
             <Section title="11. Mandatory Reporting Obligations">
               <p>
-                The Registered Psychotherapists in our network are subject to mandatory reporting
-                obligations under Ontario law, including:
+                The Registered Psychotherapists and Registered Social Workers in our network are
+                subject to mandatory reporting obligations under Ontario law, including:
               </p>
               <ul className="ml-5 mt-3 list-disc space-y-1">
                 <li>

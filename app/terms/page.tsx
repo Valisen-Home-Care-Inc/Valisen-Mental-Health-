@@ -47,7 +47,7 @@ export default function TermsPage() {
             <Section title="2. Nature of Services">
               <p>
                 Valisen Mental Health connects clients with Registered Psychotherapists (RP)
-                for individual and couples therapy. Services are
+                and Registered Social Workers (RSW) for individual and couples therapy. Services are
                 available virtually for residents anywhere in Ontario.
               </p>
               <p>
