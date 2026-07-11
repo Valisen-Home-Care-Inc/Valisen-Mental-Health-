@@ -217,8 +217,8 @@ function SafetyInterstitial({
         Please reach out to someone who can help today
       </h2>
       <p className="mt-4 text-[15px] leading-[1.7] text-ink-secondary">
-        This quiz is an educational tool and cannot provide emergency support. If you're thinking
-        about hurting yourself, you don't have to sit with that alone — free, confidential help is
+        This quiz is an educational tool and cannot provide emergency support. If you&apos;re thinking
+        about hurting yourself, you don&apos;t have to sit with that alone — free, confidential help is
         available around the clock.
       </p>
 

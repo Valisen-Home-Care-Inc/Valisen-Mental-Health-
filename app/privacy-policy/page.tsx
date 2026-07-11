@@ -169,7 +169,7 @@ export default function PrivacyPolicyPage() {
               <p className="mt-3">
                 Clinical records — including session notes, treatment plans, and progress records
                 — are held exclusively by your assigned therapist in accordance with their
-                regulatory college's standards (CRPO for Registered Psychotherapists, OCSWSSW for
+                regulatory college&apos;s standards (CRPO for Registered Psychotherapists, OCSWSSW for
                 Registered Social Workers), which require retention for a minimum of{" "}
                 <strong className="text-ink">10 years</strong> from the date of last service, or
                 until a minor client turns 18 plus 10 years, whichever is longer. For questions
