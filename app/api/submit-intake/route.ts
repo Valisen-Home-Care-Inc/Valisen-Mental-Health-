@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
       days,
       timeOfDay,
       notes,
+      source,
     } = body as {
       firstName: string;
       lastName: string;
@@ -77,7 +78,11 @@ export async function POST(req: NextRequest) {
       days?: string[];
       timeOfDay?: string;
       notes?: string;
+      /** Optional origin tag. "quiz" submissions are emailed only — not written to the Sheet. */
+      source?: string;
     };
+
+    const skipSheet = source === "quiz";
 
     if (!firstName || !lastName || !email) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -186,7 +191,9 @@ Valisen Mental Health`;
     ]);
     let savedToSheet = false;
 
-    if (missingSheetEnv.length > 0) {
+    if (skipSheet) {
+      // Quiz submissions are intentionally email-only and never written to the Sheet.
+    } else if (missingSheetEnv.length > 0) {
       console.warn("submit-intake: skipping spreadsheet append, missing variables:", missingSheetEnv);
     } else {
       try {
