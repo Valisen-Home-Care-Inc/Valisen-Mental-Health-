@@ -54,6 +54,7 @@ export function isSpecificTherapistSlug(
 const THERAPIST_JANE_URLS: Record<string, string> = {
   "tim-kahtava": "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
   "wilfred-bengnwi": "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
+  "ryann-simpson": "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
 };
 
 export function getTherapistIntakeUrl(slug: string): string {
