@@ -19,7 +19,7 @@ export default function SocialProof() {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z" stroke="#2A7F7F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Regulated therapists (RP &amp; RSW)
+          Regulated therapists (RP and RSW)
         </div>
         <div className="hidden h-4 w-px bg-black/[0.09] sm:block" aria-hidden="true" />
         <div className="flex items-center gap-2 text-[13px] text-ink-secondary">

@@ -13,7 +13,7 @@ const TRUST_ITEMS = [
   },
   {
     icon: <ShieldCheck size={15} aria-hidden="true" />,
-    text: "Insurance accepted — Manulife, Sun Life, Canada Life & more",
+    text: "Insurance accepted — Manulife, Sun Life, Canada Life and more",
   },
 ];
 

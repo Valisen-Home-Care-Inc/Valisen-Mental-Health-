@@ -104,7 +104,7 @@ const CATEGORIES: FAQCategory[] = [
   },
   {
     id: "cost-insurance",
-    label: "Cost & Insurance",
+    label: "Cost and Insurance",
     icon: <DollarSign size={18} />,
     description: "Understanding fees, coverage, and what your benefits include",
     faqs: [

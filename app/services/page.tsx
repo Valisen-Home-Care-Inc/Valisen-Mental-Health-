@@ -119,7 +119,7 @@ export default function ServicesPage() {
 
       <section className="bg-canvas py-16 md:py-24">
         <div className="container-v max-w-[820px] text-center">
-          <span className="badge-outline-teal mb-5">INDIVIDUAL &amp; COUPLES</span>
+          <span className="badge-outline-teal mb-5">INDIVIDUAL AND COUPLES</span>
           <h1 className="font-serif text-[40px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
             Therapy that <span className="italic text-teal">fits your life</span>
           </h1>

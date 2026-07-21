@@ -17,7 +17,7 @@ const NAV_LINKS = [
 const FAQ_CATEGORIES = [
   { label: "Mental Health Signs", href: "/faq" },
   { label: "Finding a Therapist", href: "/faq" },
-  { label: "Insurance & Fees", href: "/faq" },
+  { label: "Insurance and Fees", href: "/faq" },
   { label: "The Therapy Process", href: "/faq" },
   { label: "About Valisen", href: "/faq" },
 ];

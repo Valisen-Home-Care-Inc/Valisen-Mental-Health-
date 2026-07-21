@@ -22,10 +22,10 @@ export const DIMENSIONS: Dimension[] = ["worry", "mood", "stress", "relationship
 
 /** Human-friendly names for the results "snapshot". */
 export const DIMENSION_LABELS: Record<Dimension, string> = {
-  worry: "Worry & tension",
-  mood: "Mood & motivation",
-  stress: "Stress & exhaustion",
-  relationships: "Relationships & connection",
+  worry: "Worry and tension",
+  mood: "Mood and motivation",
+  stress: "Stress and exhaustion",
+  relationships: "Relationships and connection",
 };
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -315,7 +315,7 @@ export type ResultContent = {
 export const RESULTS: Record<ResultKey, ResultContent> = {
   worry: {
     key: "worry",
-    leadLabel: "Anxiety & worry",
+    leadLabel: "Anxiety and worry",
     badge: "The worried mind",
     heading: "Worry and tension seem to be taking up the most space",
     summary:
@@ -338,7 +338,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
   },
   mood: {
     key: "mood",
-    leadLabel: "Low mood & motivation",
+    leadLabel: "Low mood and motivation",
     badge: "The heavy stretch",
     heading: "Low mood and lost motivation seem to be weighing heaviest",
     summary:
@@ -361,7 +361,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
   },
   stress: {
     key: "stress",
-    leadLabel: "Stress & burnout",
+    leadLabel: "Stress and burnout",
     badge: "Running on empty",
     heading: "Stress and exhaustion seem to be at the centre of it",
     summary:
@@ -380,11 +380,11 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
       "Burnout responds to change. Running on empty can feel permanent from the inside, but with the right support it isn't.",
     therapistSlugs: ["dayong-quan", "tim-kahtava", "ryann-simpson"],
     servicePath: "/stress-therapy-ottawa",
-    serviceLabel: "Explore stress & burnout therapy",
+    serviceLabel: "Explore stress and burnout therapy",
   },
   relationships: {
     key: "relationships",
-    leadLabel: "Relationships & connection",
+    leadLabel: "Relationships and connection",
     badge: "The disconnect",
     heading: "Strain in your relationships seems to be weighing heaviest",
     summary:

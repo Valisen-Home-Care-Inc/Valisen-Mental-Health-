@@ -13,7 +13,7 @@ import { SESSION_RATE, therapists } from "@/lib/therapists";
 export const metadata: Metadata = {
   title: "Meet Our Therapists - Valisen Mental Health",
   description:
-    "Browse Valisen Mental Health therapists in Ottawa and Ontario. Registered Psychotherapists and Registered Social Workers offering virtual support, including therapy available in English and Mandarin.",
+    "Browse Valisen Mental Health therapists. Registered Psychotherapists and Registered Social Workers offering virtual support, including therapy available in Arabic, French, English, and Mandarin.",
   alternates: {
     canonical: "https://valisenmentalhealth.com/therapists",
   },
@@ -33,22 +33,22 @@ export const metadata: Metadata = {
  */
 const FIT_PATHS: { title: string; description: string; slugs: string[] }[] = [
   {
-    title: "Anxiety, stress & depression",
+    title: "Anxiety, stress and depression",
     description: "Worry, panic, burnout, low mood, or overthinking that's getting hard to manage.",
     slugs: ["dayong-quan", "tim-kahtava", "ryann-simpson"],
   },
   {
-    title: "Couples & relationships",
+    title: "Couples and relationships",
     description: "Conflict, communication breakdowns, trust repair, and attachment injuries.",
     slugs: ["wilfred-bengnwi", "tim-kahtava", "ryann-simpson"],
   },
   {
-    title: "ADHD, perfectionism & people-pleasing",
+    title: "ADHD, perfectionism and people-pleasing",
     description: "Overthinking, self-criticism, and patterns that are hard to name on your own.",
     slugs: ["ryann-simpson"],
   },
   {
-    title: "Trauma & EMDR",
+    title: "Trauma and EMDR",
     description: "Trauma-informed therapy, including EMDR, for experiences that still feel close.",
     slugs: ["tim-kahtava", "wilfred-bengnwi"],
   },
@@ -125,7 +125,7 @@ export default function TherapistsPage() {
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle size={13} className="text-teal" aria-hidden="true" />
-                English &amp; 普通话
+                Arabic · French · English · Mandarin
               </li>
             </ul>
           </div>
@@ -143,10 +143,10 @@ export default function TherapistsPage() {
       {/* ── Stat band ────────────────────────────────────────── */}
       <section aria-label="Clinic at a glance" className="border-y border-hairline bg-white">
         <dl className="container-v grid grid-cols-2 gap-y-8 py-10 md:grid-cols-4 md:gap-y-0">
-          <StatCell value={String(therapists.length)} label="Regulated therapists — RP & RSW" />
+          <StatCell value={String(therapists.length)} label="Regulated therapists — RP and RSW" />
           <StatCell value="25+" label="Years of combined clinical experience" />
-          <StatCell value="2" label="Languages — English & Mandarin" />
-          <StatCell value={SESSION_RATE.split("/")[0]} label="Per session, receipts for insurance" last />
+          <StatCell value="4" label="Languages — Arabic, French, English and Mandarin" />
+          <StatCell value="Starting at $150" label="Per session, receipts for insurance" last />
         </dl>
       </section>
 

@@ -57,7 +57,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
           "Another useful signal is what happens when circumstances briefly improve. In a normal low mood, a nice evening out, a piece of good news, or a connection with a friend can genuinely lift things. In clinical depression, even positive events tend not to shift the underlying heaviness for long — or at all.",
         ],
         callout:
-          "If you have had recurring thoughts of death or suicide, please reach out for support immediately. You can call or text the 988 Suicide & Crisis Lifeline (Canada and US) at 988, or go to your nearest emergency department.",
+          "If you have had recurring thoughts of death or suicide, please reach out for support immediately. You can call or text the 988 Suicide and Crisis Lifeline (Canada and US) at 988, or go to your nearest emergency department.",
       },
       {
         h2: "Common types of depression",
@@ -434,7 +434,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
 
   "therapy-cost-ottawa": {
     question: "How much does therapy cost in Ottawa?",
-    category: "Cost & Insurance",
+    category: "Cost and Insurance",
     categorySlug: "cost-insurance",
     metaTitle: "How Much Does Therapy Cost in Ottawa in 2026? | Valisen",
     metaDescription:
@@ -474,7 +474,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
 
   "does-insurance-cover-therapy": {
     question: "Does insurance cover therapy in Canada?",
-    category: "Cost & Insurance",
+    category: "Cost and Insurance",
     categorySlug: "cost-insurance",
     metaTitle: "Does Insurance Cover Therapy in Canada? | Valisen Ottawa",
     metaDescription:
@@ -512,7 +512,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
 
   "which-plans-cover-rps": {
     question: "Which major insurance plans cover Registered Psychotherapists?",
-    category: "Cost & Insurance",
+    category: "Cost and Insurance",
     categorySlug: "cost-insurance",
     metaTitle: "Which Insurance Plans Cover Registered Psychotherapists? | Valisen",
     metaDescription:
@@ -551,7 +551,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
 
   "tax-deductible-therapy": {
     question: "Can I claim therapy costs on my taxes in Canada?",
-    category: "Cost & Insurance",
+    category: "Cost and Insurance",
     categorySlug: "cost-insurance",
     metaTitle: "Is Therapy Tax Deductible in Canada? | Valisen Ottawa",
     metaDescription:
@@ -772,7 +772,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
     question: "Do you offer therapy in languages other than English?",
     category: "About Valisen",
     categorySlug: "about-valisen",
-    metaTitle: "Therapy in English & Mandarin | Valisen Ottawa",
+    metaTitle: "Therapy in English and Mandarin | Valisen Ottawa",
     metaDescription:
       "Valisen Mental Health offers therapy in English and Mandarin — because the language you work in shapes the depth and safety of therapy.",
     updatedDate: "2026-06-08",
@@ -843,7 +843,7 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
 const CATEGORY_LABELS: Record<string, string> = {
   "mental-health-signs": "Mental Health Signs",
   "finding-a-therapist": "Finding a Therapist",
-  "cost-insurance": "Cost & Insurance",
+  "cost-insurance": "Cost and Insurance",
   sessions: "About Sessions",
   "about-valisen": "About Valisen",
 };

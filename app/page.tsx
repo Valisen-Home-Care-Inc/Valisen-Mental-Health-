@@ -175,21 +175,29 @@ export default function HomePage() {
         <div className="relative">
           <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-32 bg-gradient-to-r from-canvas to-transparent" aria-hidden="true" />
           <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-32 bg-gradient-to-l from-canvas to-transparent" aria-hidden="true" />
-          <div className="overflow-hidden border-y border-hairline-light bg-white">
-            <div className="flex animate-marquee items-stretch">
-              {[...PROVIDERS, ...PROVIDERS].map((provider, i) => (
+          <div className="h-20 overflow-hidden border-y border-hairline-light bg-white">
+            <div className="flex h-full w-max animate-marquee items-stretch">
+              {[0, 1].map((copyIndex) => (
                 <div
-                  key={i}
-                  className="flex shrink-0 items-center border-r border-hairline-light px-12 py-6"
+                  key={copyIndex}
+                  className="flex h-full min-w-[100vw] shrink-0 items-stretch justify-around"
+                  aria-hidden={copyIndex === 1 ? "true" : undefined}
                 >
-                  <Image
-                    src={provider.logo}
-                    alt={provider.name}
-                    width={provider.width}
-                    height={36}
-                    className="h-8 w-auto object-contain"
-                    unoptimized
-                  />
+                  {PROVIDERS.map((provider) => (
+                    <div
+                      key={`${copyIndex}-${provider.name}`}
+                      className="flex h-full shrink-0 items-center justify-center border-r border-hairline-light px-12"
+                    >
+                      <Image
+                        src={provider.logo}
+                        alt={copyIndex === 0 ? provider.name : ""}
+                        width={provider.width}
+                        height={40}
+                        className="h-10 w-auto object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

@@ -51,7 +51,7 @@ export default function HeroSection() {
                   <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
-              <span>Insurance accepted — Manulife, Sun Life, Canada Life &amp; more</span>
+              <span>Insurance accepted — Manulife, Sun Life, Canada Life and more</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="mt-[2px] shrink-0 text-teal" aria-hidden="true">
@@ -59,7 +59,7 @@ export default function HeroSection() {
                   <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
-              <span>Registered Psychotherapists & Social Workers</span>
+              <span>Registered Psychotherapists and Social Workers</span>
             </li>
           </ul>
         </div>

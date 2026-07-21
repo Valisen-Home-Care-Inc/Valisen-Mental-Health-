@@ -337,7 +337,7 @@ export default function ConsultationPage() {
                         <option value="Individual Therapy">Individual Therapy</option>
                         <option value="Couples Therapy">Couples Therapy</option>
                         <option value="Family Therapy">Family Therapy</option>
-                        <option value="Child & Youth Therapy">Child &amp; Youth Therapy</option>
+                        <option value="Child and Youth Therapy">Child and Youth Therapy</option>
                         <option value="Not Sure">Not Sure</option>
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-ink-hint">

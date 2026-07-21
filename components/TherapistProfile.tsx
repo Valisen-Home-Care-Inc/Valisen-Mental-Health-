@@ -124,7 +124,15 @@ function Hero({ therapist, intakeHref }: { therapist: Therapist; intakeHref: str
             <ProfilePortrait therapist={therapist} />
             <div className="mt-5 grid grid-cols-2 gap-3">
               <Fact icon={<ShieldCheck size={17} aria-hidden="true" />} label="Credential" value={therapist.credentialSummary} />
-              <Fact icon={<MapPin size={17} aria-hidden="true" />} label="Eligible in" value="Ontario" />
+              <Fact
+                icon={<MapPin size={17} aria-hidden="true" />}
+                label="Eligible in"
+                value={
+                  therapist.slug === "ryann-simpson"
+                    ? "Ontario and Saskatchewan"
+                    : "Ontario"
+                }
+              />
             </div>
           </div>
         </div>

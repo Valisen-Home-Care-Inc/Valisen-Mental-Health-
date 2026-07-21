@@ -15,7 +15,7 @@ const STEPS: Array<{ n: string; title: string; duration: string; body: string; s
   {
     n: "03",
     title: "We handle the rest",
-    duration: "INSURANCE & ADMIN",
+    duration: "INSURANCE AND ADMIN",
     body: "After each session, you'll receive an official receipt to submit to your insurance provider for reimbursement. We keep your documentation clear and organized so the process is as straightforward as possible.",
   },
 ];

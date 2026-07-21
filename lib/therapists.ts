@@ -60,7 +60,10 @@ export type Therapist = {
   };
 };
 
-function standardLogistics(sessionFormat = "Virtual therapy available across Ontario"): DetailItem[] {
+function standardLogistics(
+  sessionFormat = "Virtual therapy available across Ontario",
+  provinceEligibility = "Ontario residents",
+): DetailItem[] {
   return [
     { label: "Session Fee", value: SESSION_RATE },
     {
@@ -72,9 +75,16 @@ function standardLogistics(sessionFormat = "Virtual therapy available across Ont
     { label: "Availability", value: "Accepting new clients" },
     { label: "Receipts", value: "Receipts provided for insurance reimbursement where applicable" },
     { label: "Next Step", value: "Use the button below to book through Jane." },
-    { label: "Province Eligibility", value: "Ontario residents" },
+    { label: "Province Eligibility", value: provinceEligibility },
   ];
 }
+
+const THERAPIST_DISPLAY_ORDER = [
+  "ryann-simpson",
+  "wilfred-bengnwi",
+  "tim-kahtava",
+  "dayong-quan",
+];
 
 export const therapists: Therapist[] = [
   {
@@ -90,13 +100,13 @@ export const therapists: Therapist[] = [
     rate: SESSION_RATE,
     primaryConcerns: "Anxiety, Stress, Life Transitions, and Cultural Adjustment",
     headline:
-      "Mandarin & English Therapy for Anxiety, Stress, Life Transitions, Addiction, and Cultural Adjustment",
+      "Mandarin and English Therapy for Anxiety, Stress, Life Transitions, Addiction, and Cultural Adjustment",
     cardStatement:
       "Dayong provides therapy in English and Mandarin, supporting clients with anxiety, stress, depression, addiction-related concerns, cultural adjustment, and life transitions. His background includes counselling psychology, addiction and mental health, autism and behaviour science, and extensive mindfulness and meditation experience.",
     specialties: [
       "Anxiety",
       "Depression",
-      "Stress & burnout",
+      "Stress and burnout",
       "Addiction and mental health",
       "Mindfulness-based therapy",
       "Life transitions",
@@ -108,7 +118,7 @@ export const therapists: Therapist[] = [
     featureLabel: "Mandarin-speaking therapist",
     featuredHero: {
       badge: "Mandarin-speaking therapist",
-      headline: "Mandarin & English Therapy for Anxiety, Stress, and Life Transitions",
+      headline: "Mandarin and English Therapy for Anxiety, Stress, and Life Transitions",
       description:
         "Therapy available in English and Mandarin for adults navigating anxiety, burnout, addiction-related concerns, cultural adjustment, and major transitions.",
       secondaryLine: "提供普通话心理咨询服务",
@@ -131,7 +141,7 @@ export const therapists: Therapist[] = [
           "Therapy for low mood, emotional heaviness, loss of motivation, and difficulty reconnecting with routines or relationships.",
       },
       {
-        title: "Stress & Burnout",
+        title: "Stress and Burnout",
         description:
           "Support for exhaustion, pressure, work strain, and the feeling that your usual coping strategies are no longer enough.",
       },
@@ -172,8 +182,8 @@ export const therapists: Therapist[] = [
     credentialsList: [
       { label: "Registration", value: "Registered Psychotherapist" },
       { label: "Degree", value: "Master of Arts in Counseling Psychology, Yorkville University" },
-      { label: "Graduate Certificate", value: "Addictions & Mental Health with Honours, Humber College" },
-      { label: "Graduate Certificate", value: "Autism & Behaviour Science, St. Clair College" },
+      { label: "Graduate Certificate", value: "Addictions and Mental Health with Honours, Humber College" },
+      { label: "Graduate Certificate", value: "Autism and Behaviour Science, St. Clair College" },
       { label: "Graduate Degree", value: "Master of Science in Psychology, East China Normal University" },
       { label: "Additional Qualification", value: "Professional Qualification for Counselling in China" },
       { label: "Clinical Background", value: "Private, EAP, and community mental health psychotherapy experience" },
@@ -229,7 +239,7 @@ export const therapists: Therapist[] = [
     languages: ["English"],
     sessionTypes: ["Virtual therapy", "Ontario"],
     featuredHero: {
-      badge: "Couples & relationship therapy",
+      badge: "Couples and relationship therapy",
       headline: "Therapy for Couples, Relationship Repair, and Trauma",
       description:
         "Support for couples and individuals navigating relationship distress, emotional infidelity, attachment injuries, trauma, and major life transitions.",
@@ -295,13 +305,13 @@ export const therapists: Therapist[] = [
       { label: "Practice Status", value: "Qualified Independent Practitioner" },
       { label: "Clinical Experience", value: "5+ years of clinical experience; 4+ years specializing in couples therapy" },
       { label: "Leadership Experience", value: "Former Assistant Clinical Director and former Clinical Director in mental health and addiction recovery settings" },
-      { label: "Degree", value: "Master of Arts in Spiritual Care & Psychotherapy, Wilfrid Laurier University" },
+      { label: "Degree", value: "Master of Arts in Spiritual Care and Psychotherapy, Wilfrid Laurier University" },
       { label: "Doctoral Degree", value: "PhD in Public Administration" },
       { label: "Undergraduate Degree", value: "Bachelor of Science Honours in Molecular Medicine" },
     ],
     logistics: standardLogistics(),
     seo: {
-      title: "Wilfred Bengnwi | Couples Therapist & Registered Psychotherapist",
+      title: "Wilfred Bengnwi | Couples Therapist and Registered Psychotherapist",
       description:
         "Wilfred Bengnwi, RP, M.A., PhD, provides therapy for couples, relationship repair, emotional infidelity recovery, trauma, attachment injuries, youth and adult mental health. Sessions are $180/hour.",
       keywords: [
@@ -439,9 +449,9 @@ export const therapists: Therapist[] = [
     rate: SESSION_RATE,
     primaryConcerns: "Anxiety, Perfectionism, People-Pleasing, ADHD, and Self-Esteem",
     headline:
-      "Virtual & Telephone Therapy for Anxiety, Perfectionism, People-Pleasing, ADHD, and Self-Esteem",
+      "Virtual and Telephone Therapy for Anxiety, Perfectionism, People-Pleasing, ADHD, and Self-Esteem",
     cardStatement:
-      "Ryann is a Registered Social Worker offering virtual and telephone therapy to individual adults and couples in Ontario. She works with clients navigating anxiety, relationship challenges, people-pleasing, perfectionism, ADHD, self-esteem concerns, and major life transitions, with a focus on real insight, practical tools, and understanding the patterns that shape you.",
+      "Ryann is a Registered Social Worker offering virtual and telephone therapy to individual adults and couples in Ontario and Saskatchewan. She works with clients navigating anxiety, relationship challenges, people-pleasing, perfectionism, ADHD, self-esteem concerns, and major life transitions, with a focus on real insight, practical tools, and understanding the patterns that shape you.",
     specialties: [
       "Anxiety",
       "Relationship challenges",
@@ -450,19 +460,19 @@ export const therapists: Therapist[] = [
       "ADHD",
       "Self-esteem",
       "Life transitions",
-      "Stress & burnout",
+      "Stress and burnout",
     ],
     languages: ["English"],
-    sessionTypes: ["Virtual therapy", "Telephone therapy", "Ontario"],
+    sessionTypes: ["Virtual therapy", "Telephone therapy", "Ontario and Saskatchewan"],
     featuredHero: {
-      badge: "Anxiety, ADHD & perfectionism",
+      badge: "Anxiety, ADHD and perfectionism",
       headline: "Therapy for Anxiety, Perfectionism, People-Pleasing, and ADHD",
       description:
-        "Virtual and telephone therapy for individual adults and couples navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and major life transitions.",
+        "Virtual and telephone therapy in Ontario and Saskatchewan for individual adults and couples navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and major life transitions.",
       ctaLabel: "View Ryann's profile",
     },
     intro: [
-      "Ryann Simpson is a Registered Social Worker (RSW) who offers virtual and telephone therapy to individual adults (18+) and couples in Ontario. She's drawn to exploring how we process, what shapes us, and the behavioural patterns that quietly run the show — approaching each client with curiosity and a genuine desire to understand what resonates for them.",
+      "Ryann Simpson is a Registered Social Worker (RSW) who offers virtual and telephone therapy to individual adults (18+) and couples in Ontario and Saskatchewan. She's drawn to exploring how we process, what shapes us, and the behavioural patterns that quietly run the show — approaching each client with curiosity and a genuine desire to understand what resonates for them.",
       "Ryann believes therapy should offer more than a good listener — it should provide real insight, tools, and strategies you can actually use. Many of the clients she works with want a connection that feels right, and to leave sessions with something tangible: understanding why a pattern keeps repeating, or a clear next step toward where they want to be.",
       "She often works with people who describe themselves as self-aware, intuitive, intellectual, and emotionally attuned — people who may seem to have things together on the outside while struggling internally with anxiety, overwhelm, and self-criticism, and who want to understand what's really shaping their habits, decisions, and relationships.",
     ],
@@ -503,17 +513,17 @@ export const therapists: Therapist[] = [
           "Support through major life transitions and the uncertainty that can come with change.",
       },
       {
-        title: "Stress & Burnout",
+        title: "Stress and Burnout",
         description:
           "Support for stress and burnout, and rebuilding sustainable ways of coping.",
       },
       {
-        title: "Boundaries & Communication",
+        title: "Boundaries and Communication",
         description:
           "Developing boundaries and communication skills that support healthier relationships.",
       },
       {
-        title: "Executive Functioning & Overthinking",
+        title: "Executive Functioning and Overthinking",
         description:
           "Practical support for executive functioning difficulties and patterns of overthinking.",
       },
@@ -524,19 +534,23 @@ export const therapists: Therapist[] = [
         "Ryann approaches clients with curiosity, a desire to understand, and a focus on what resonates for them. She believes therapy should offer more than a good listener — it should also provide real insight, tools, and strategies you can work with.",
         "Clients often want a connection that feels right, and to be able to take something away — whether that's understanding why you keep repeating the same pattern, or learning how to take tangible steps toward where you want to be. She often works with deep thinkers and feelers, including those who consider themselves highly sensitive persons.",
       ],
-      tags: ["Insight-focused", "Curiosity-driven", "Individual & couples therapy", "Works with HSPs & deep feelers"],
+      tags: ["Insight-focused", "Curiosity-driven", "Individual and couples therapy", "Works with HSPs and deep feelers"],
     },
     credentialsList: [
       { label: "Registration", value: "Registered Social Worker (RSW)" },
       { label: "Client Population", value: "Individual adults (18+) and couples" },
     ],
-    logistics: standardLogistics("Virtual and telephone therapy available across Ontario"),
+    logistics: standardLogistics(
+      "Virtual and telephone therapy available across Ontario and Saskatchewan",
+      "Ontario and Saskatchewan residents",
+    ),
     seo: {
-      title: "Ryann Simpson | RSW Therapist for Anxiety, ADHD & Perfectionism in Ontario",
+      title: "Ryann Simpson | RSW Therapist in Ontario and Saskatchewan",
       description:
-        "Ryann Simpson, RSW, offers virtual and telephone therapy for individual adults and couples in Ontario navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and life transitions. Sessions are $180/hour.",
+        "Ryann Simpson, RSW, offers virtual and telephone therapy for individual adults and couples in Ontario and Saskatchewan navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and life transitions. Sessions are $180/hour.",
       keywords: [
         "RSW therapist Ontario",
+        "RSW therapist Saskatchewan",
         "ADHD therapist Ontario",
         "perfectionism therapy Ontario",
         "people pleasing therapy Ontario",
@@ -545,7 +559,10 @@ export const therapists: Therapist[] = [
       ],
     },
   },
-];
+].sort(
+  (a, b) =>
+    THERAPIST_DISPLAY_ORDER.indexOf(a.slug) - THERAPIST_DISPLAY_ORDER.indexOf(b.slug),
+);
 
 export function getTherapistBySlug(slug: string) {
   return therapists.find((therapist) => therapist.slug === slug);
