@@ -674,7 +674,9 @@ export const therapists: Therapist[] = [
       ],
     },
   },
-].sort(
+];
+
+therapists.sort(
   (a, b) =>
     THERAPIST_DISPLAY_ORDER.indexOf(a.slug) - THERAPIST_DISPLAY_ORDER.indexOf(b.slug),
 );
