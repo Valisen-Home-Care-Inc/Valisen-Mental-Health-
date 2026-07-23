@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node .screenshot-tmp.js)"
+      "Bash(node .screenshot-tmp.js)",
+      "Bash(npx next *)"
     ]
   }
 }

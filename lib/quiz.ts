@@ -10,7 +10,20 @@
  * - It does not reuse or rename PHQ-9 / GAD-7 or any validated screener.
  * - The wording of results, the safety question, and the scoring thresholds
  *   below are flagged for clinical review before launch (see 🔬 markers).
+ *
+ * SCORE DIRECTION: the overall Check-In Score runs 20–98 where HIGHER means
+ * steadier (fewer reported concerns) and LOWER means more strain. Dimension
+ * averages run 0–3 where HIGHER means the concern is MORE present.
  */
+
+/**
+ * Version identifiers recorded with every consented submission so a lead
+ * can always be traced back to the exact questions and scoring rules that
+ * produced it. Bump QUIZ_VERSION when questions change; bump
+ * SCORING_VERSION when thresholds, weights, or bands change.
+ */
+export const QUIZ_VERSION = "4.0.0";
+export const SCORING_VERSION = "1.0.0";
 
 /* ────────────────────────────────────────────────────────────────────────
  * 1. Concern dimensions the quiz can reflect back
@@ -49,10 +62,14 @@ export const MAX_SCALE_VALUE = 3;
 /* ────────────────────────────────────────────────────────────────────────
  * 3. Questions (one per screen)
  * kind:
- *   "intro"     – warm opener, not scored
- *   "scored"    – contributes to one or more dimensions
- *   "context"   – duration / impact, used only for the result note
- *   "safety"    – 🔬 gentle safety check, NOT scored, NOT tracked
+ *   "intro"      – warm opener, not scored
+ *   "scored"     – contributes to one or more dimensions
+ *   "context"    – duration / impact, used only for the result note
+ *   "preference" – therapist-gender matching preference —
+ *                  never scored, used only for matching
+ *   "multi"      – optional multi-select of specific concerns — never
+ *                  scored, used only for matching
+ *   "safety"     – 🔬 gentle safety check, NOT scored, NOT tracked
  * ──────────────────────────────────────────────────────────────────────── */
 export type Question =
   | {
@@ -65,7 +82,14 @@ export type Question =
     }
   | {
       id: string;
-      kind: "intro" | "context";
+      kind: "intro" | "context" | "preference";
+      text: string;
+      helper?: string;
+      options: { label: string; value: string }[];
+    }
+  | {
+      id: string;
+      kind: "multi";
       text: string;
       helper?: string;
       options: { label: string; value: string }[];
@@ -142,6 +166,40 @@ export const QUESTIONS: Question[] = [
       { label: "A great deal", value: "severe" },
     ],
   },
+  /* ── Matching preferences — never scored, used only to suggest a therapist.
+   * Concern option values must be valid ConcernTags (lib/therapists.ts). ── */
+  {
+    id: "concerns",
+    kind: "multi",
+    text: "Is there anything specific you'd like support with?",
+    helper: "Optional — choose any that apply, or skip",
+    options: [
+      { label: "Anxiety or worry", value: "anxiety" },
+      { label: "Low mood or depression", value: "depression" },
+      { label: "Stress or burnout", value: "stress-burnout" },
+      { label: "Relationship difficulties", value: "relationship-challenges" },
+      { label: "Couples or partner work", value: "couples-therapy" },
+      { label: "Trauma or difficult past experiences", value: "trauma" },
+      { label: "ADHD or focus", value: "adhd" },
+      { label: "Perfectionism or people-pleasing", value: "perfectionism-people-pleasing" },
+      { label: "Self-esteem", value: "self-esteem" },
+      { label: "Alcohol, substances, or other addictive patterns", value: "addiction" },
+      { label: "Cultural adjustment or immigration stress", value: "cultural-adjustment" },
+      { label: "A major life change or transition", value: "life-transitions" },
+      { label: "Grief or loss", value: "grief" },
+    ],
+  },
+  {
+    id: "gender_preference",
+    kind: "preference",
+    text: "Do you have a preference for your therapist?",
+    helper: "Totally optional — many people don't",
+    options: [
+      { label: "I'd prefer to work with a woman", value: "woman" },
+      { label: "I'd prefer to work with a man", value: "man" },
+      { label: "No preference", value: "no-preference" },
+    ],
+  },
   /* 🔬 Safety check — reviewed handling, never scored, never sent to analytics. */
   {
     id: "safety",
@@ -215,7 +273,7 @@ export function scoreBandFor(score: number | null): string {
   return "Running low — support could really help";
 }
 
-export type Answers = Record<string, number | string | null | undefined>;
+export type Answers = Record<string, number | string | string[] | null | undefined>;
 
 /**
  * Qualitative band for the results "snapshot".

@@ -13,7 +13,10 @@ export type QuizEvent =
   | "quiz_started"
   | "quiz_progressed"
   | "quiz_completed"
+  | "results_access_submitted"
   | "results_viewed"
+  | "recommended_therapist_displayed"
+  | "therapist_contact_requested"
   | "consultation_clicked"
   | "therapist_directory_clicked"
   | "booking_clicked";

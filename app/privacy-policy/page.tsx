@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 const EFFECTIVE_DATE = "May 9, 2026";
+const LAST_UPDATED = "July 22, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -22,7 +23,7 @@ export default function PrivacyPolicyPage() {
             Privacy Policy
           </h1>
           <p className="mt-3 text-[13px] text-ink-secondary">
-            Effective date: {EFFECTIVE_DATE} &nbsp;·&nbsp; Last updated: {EFFECTIVE_DATE}
+            Effective date: {EFFECTIVE_DATE} &nbsp;·&nbsp; Last updated: {LAST_UPDATED}
           </p>
 
           <div className="prose-valisen mt-10 space-y-10 text-[15px] leading-[1.75] text-ink-secondary">
@@ -77,8 +78,17 @@ export default function PrivacyPolicyPage() {
               <p>We collect the following categories of personal information:</p>
               <h4 className="mt-4 font-semibold text-ink">a) Information you provide directly</h4>
               <ul className="ml-5 mt-2 list-disc space-y-1">
-                <li>Name, phone number, and email address (intake form)</li>
+                <li>Name, phone number, and email address (intake and quiz results-access forms)</li>
                 <li>Reason for seeking therapy and general mental health concerns</li>
+                <li>
+                  Answers you choose to submit through our educational self-reflection quiz,
+                  together with the result category and therapist recommendation generated from
+                  those answers. The quiz safety-check response is not stored.
+                </li>
+                <li>
+                  Records of privacy acknowledgements and optional therapist-contact requests,
+                  including the wording presented and the date and time of the action
+                </li>
                 <li>Insurance provider information (if applicable)</li>
                 <li>Communication preferences</li>
               </ul>
@@ -87,7 +97,8 @@ export default function PrivacyPolicyPage() {
                 Session notes and treatment records are maintained exclusively by your
                 therapist. Valisen does not hold, access, or store clinical
                 records. Any clinical information you share is used solely to facilitate your
-                care and is not retained beyond that purpose.
+                care and is not retained beyond that purpose. Quiz answers and generated quiz
+                results are administrative lead records, not clinical records or a diagnosis.
               </p>
               <h4 className="mt-4 font-semibold text-ink">c) Technical information</h4>
               <ul className="ml-5 mt-2 list-disc space-y-1">
@@ -102,6 +113,10 @@ export default function PrivacyPolicyPage() {
                 <li>To facilitate and support your therapy care</li>
                 <li>To schedule and facilitate therapy services</li>
                 <li>To communicate with you about your care</li>
+                <li>
+                  To save and display quiz results, generate a therapist recommendation, and send
+                  an administrative results summary to Valisen&apos;s authorized internal inbox
+                </li>
                 <li>To issue receipts for insurance claims where applicable</li>
                 <li>To comply with our legal and professional obligations</li>
                 <li>To improve our platform&apos;s services (in aggregate, de-identified form only)</li>
@@ -118,6 +133,20 @@ export default function PrivacyPolicyPage() {
                 We obtain your consent before collecting personal information. By submitting our
                 intake form, you consent to the collection and use of your information as
                 described in this policy.
+              </p>
+              <p className="mt-3">
+                The quiz results-access form requires a privacy acknowledgement before the quiz
+                submission is saved and results are displayed. That acknowledgement does not
+                authorize Valisen or a therapist to contact you. A therapist-contact request is a
+                separate, voluntary action on the results page and is recorded only when you
+                deliberately select its consent button.
+              </p>
+              <p className="mt-3">
+                When the results-access form is submitted, an administrative copy of the result
+                summary is delivered to Valisen&apos;s authorized internal inbox for secure record
+                handling. That internal notice is clearly marked as{" "}
+                <strong className="text-ink">not a request for therapist contact</strong> and does
+                not authorize follow-up.
               </p>
               <p className="mt-3">
                 You may withdraw consent at any time by contacting us at{" "}
@@ -162,8 +191,9 @@ export default function PrivacyPolicyPage() {
 
             <Section title="7. Retention of Records">
               <p>
-                Valisen retains administrative intake records (name, contact information,
-                insurance details, and matching information) for a minimum of{" "}
+                Valisen retains administrative intake and quiz lead records (name, contact
+                information, insurance details when applicable, submitted quiz data, matching
+                information, and consent records) for a minimum of{" "}
                 <strong className="text-ink">7 years</strong> for tax and regulatory purposes.
               </p>
               <p className="mt-3">

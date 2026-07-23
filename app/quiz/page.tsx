@@ -6,7 +6,7 @@ import QuizFlow from "@/components/quiz/QuizFlow";
 export const metadata: Metadata = {
   title: "Why haven't I been feeling like myself? | Self-Reflection Quiz",
   description:
-    "A short, private self-reflection on worry, mood, stress, and connection. Educational only — not a diagnosis. About 3 minutes, no email required to see your result.",
+    "A short self-reflection on worry, mood, stress, and connection, followed by a personalized snapshot and therapist recommendation. Educational only — not a diagnosis.",
   alternates: {
     canonical: "https://valisenmentalhealth.com/quiz",
   },
@@ -23,8 +23,8 @@ export default function QuizPage() {
       <NavBar />
 
       <section className="bg-canvas py-12 md:py-16">
-        <div className="container-v max-w-[640px]">
-          <div className="mb-8 text-center">
+        <div className="container-v max-w-[1080px]">
+          <div className="mx-auto mb-8 max-w-[600px] text-center">
             <span className="badge-outline-teal mb-5">TAKE THE 3-MINUTE QUIZ</span>
             <h1 className="font-serif text-[34px] font-medium leading-[1.08] tracking-[-1px] text-ink md:text-[46px]">
               How have you{" "}

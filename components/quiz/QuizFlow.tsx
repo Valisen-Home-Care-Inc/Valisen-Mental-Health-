@@ -1,41 +1,84 @@
 "use client";
 
+/**
+ * Quiz orchestrator.
+ *
+ * Flow: questions (one per screen) → optional safety interstitial →
+ * required results-access form → persisted server result → results.
+ *
+ * Contact details and shareable quiz answers are saved before results are
+ * revealed. This access step is not therapist-contact consent; that remains
+ * a separate, deliberate action on the results page. The safety answer never
+ * leaves the browser.
+ */
+
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight, ArrowLeft, CalendarDays, RotateCcw, Phone, Lock } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Phone } from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
 import {
   QUESTIONS,
   TOTAL_QUESTIONS,
-  DIMENSION_LABELS,
-  bandFor,
-  scoreBandFor,
-  scoreQuiz,
-  getResultContent,
+  QUIZ_VERSION,
   type Answers,
   type Question,
   type QuizOutcome,
 } from "@/lib/quiz";
-import { getTherapistBySlug } from "@/lib/therapists";
-import { getTherapistIntakeUrl, JANE_BOOKING_URL } from "@/lib/intake";
+import { type MatchResult } from "@/lib/matching";
 import { trackQuizEvent } from "@/lib/analytics";
+import ResultsAccessForm, {
+  type ResultsAccessDetails,
+} from "@/components/quiz/ResultsAccessForm";
+import ResultsReveal from "@/components/quiz/ResultsReveal";
 
-type Phase = "quiz" | "safety" | "gate" | "result";
+type Phase = "quiz" | "safety" | "access" | "preparing" | "result";
 
 const ADVANCE_DELAY = 260;
+/** Length of the calming "preparing your results" transition (skipped under reduced motion). */
+const PREPARING_DELAY = 1150;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function makeClientSubmissionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `sub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Answers with the safety response removed — the only shape that may leave the device. */
+function withoutSafety(answers: Answers): Answers {
+  const { safety: _safety, ...rest } = answers;
+  return rest;
+}
 
 export default function QuizFlow() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [phase, setPhase] = useState<Phase>("quiz");
   const [outcome, setOutcome] = useState<QuizOutcome | null>(null);
+  const [match, setMatch] = useState<MatchResult | null>(null);
+  const [safetyFlagged, setSafetyFlagged] = useState(false);
+  const [referenceId, setReferenceId] = useState<string | null>(null);
+  const [submissionToken, setSubmissionToken] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState("");
+
   const startedRef = useRef(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const prepTimer = useRef<ReturnType<typeof setTimeout>>();
+  /** Stable across retries so a delayed response cannot create a duplicate lead. */
+  const accessSubmissionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     trackQuizEvent("quiz_page_viewed");
-    return () => clearTimeout(advanceTimer.current);
+    return () => {
+      clearTimeout(advanceTimer.current);
+      clearTimeout(prepTimer.current);
+    };
   }, []);
 
   const question = QUESTIONS[index];
@@ -43,28 +86,12 @@ export default function QuizFlow() {
   const progress = Math.round((index / (TOTAL_QUESTIONS - 1)) * 100);
 
   function finish(finalAnswers: Answers) {
-    setOutcome(scoreQuiz(finalAnswers));
-    setPhase("gate"); // results are shown only after the form is completed
+    setAnswers(finalAnswers);
+    setPhase("access");
     trackQuizEvent("quiz_completed");
   }
 
-  function handleSelect(q: Question, value: number | string | null) {
-    const next: Answers = { ...answers, [q.id]: value };
-    setAnswers(next);
-
-    if (!startedRef.current) {
-      startedRef.current = true;
-      trackQuizEvent("quiz_started");
-    }
-
-    // Safety question: a concerning answer opens the support screen immediately.
-    // It is never scored and never sent to analytics.
-    if (q.kind === "safety" && q.concerningValues.includes(String(value))) {
-      clearTimeout(advanceTimer.current);
-      setPhase("safety");
-      return;
-    }
-
+  function advance(next: Answers) {
     clearTimeout(advanceTimer.current);
     advanceTimer.current = setTimeout(() => {
       if (isLast) {
@@ -77,6 +104,49 @@ export default function QuizFlow() {
     }, ADVANCE_DELAY);
   }
 
+  function handleSelect(q: Question, value: number | string | null) {
+    const next: Answers = { ...answers, [q.id]: value };
+    setAnswers(next);
+
+    if (!startedRef.current) {
+      startedRef.current = true;
+      trackQuizEvent("quiz_started");
+    }
+
+    // Safety question: a concerning answer opens the support screen
+    // immediately. It is never scored, never sent to analytics, and never
+    // leaves the device.
+    if (q.kind === "safety") {
+      if (q.concerningValues.includes(String(value))) {
+        clearTimeout(advanceTimer.current);
+        setSafetyFlagged(true);
+        setPhase("safety");
+        return;
+      }
+      setSafetyFlagged(false);
+    }
+
+    advance(next);
+  }
+
+  function toggleMultiValue(q: Extract<Question, { kind: "multi" }>, value: string) {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      trackQuizEvent("quiz_started");
+    }
+    setAnswers((current) => {
+      const existing = Array.isArray(current[q.id]) ? (current[q.id] as string[]) : [];
+      const next = existing.includes(value)
+        ? existing.filter((v) => v !== value)
+        : [...existing, value];
+      return { ...current, [q.id]: next };
+    });
+  }
+
+  function continueFromMulti() {
+    advance(answers);
+  }
+
   function goBack() {
     clearTimeout(advanceTimer.current);
     setIndex((i) => Math.max(0, i - 1));
@@ -84,44 +154,136 @@ export default function QuizFlow() {
 
   function restart() {
     clearTimeout(advanceTimer.current);
+    clearTimeout(prepTimer.current);
     setAnswers({});
     setIndex(0);
     setOutcome(null);
+    setMatch(null);
+    setSafetyFlagged(false);
+    setReferenceId(null);
+    setSubmissionToken(null);
+    setFirstName("");
+    accessSubmissionIdRef.current = null;
     setPhase("quiz");
     startedRef.current = false;
     trackQuizEvent("quiz_page_viewed");
   }
 
-  if (phase === "result" && outcome) {
-    return <QuizResult outcome={outcome} onRestart={restart} />;
+  async function handleResultsAccess(details: ResultsAccessDetails) {
+    const clientSubmissionId =
+      accessSubmissionIdRef.current ?? (accessSubmissionIdRef.current = makeClientSubmissionId());
+    const shareableAnswers = withoutSafety(answers);
+    const res = await fetch("/api/quiz-lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientSubmissionId,
+        quizVersion: QUIZ_VERSION,
+        firstName: details.firstName,
+        email: details.email,
+        phone: details.phone,
+        privacyAcknowledged: details.privacyAcknowledged,
+        answers: shareableAnswers,
+        website: details.website,
+      }),
+    });
+    const body = (await res.json().catch(() => null)) as
+      | {
+          ok?: boolean;
+          referenceId?: string;
+          submissionToken?: string;
+          outcome?: QuizOutcome;
+          match?: MatchResult;
+          resultsEmailSent?: boolean;
+          error?: string;
+        }
+      | null;
+
+    if (
+      !res.ok ||
+      !body?.ok ||
+      !body.referenceId ||
+      !body.submissionToken ||
+      !body.outcome ||
+      !body.match ||
+      body.resultsEmailSent !== true
+    ) {
+      throw new Error(
+        body?.error ||
+          "We couldn’t save and deliver your results summary. Please try again.",
+      );
+    }
+
+    setOutcome(body.outcome);
+    setMatch(body.match);
+    setReferenceId(body.referenceId);
+    setSubmissionToken(body.submissionToken);
+    setFirstName(details.firstName);
+    trackQuizEvent("results_access_submitted");
+
+    // A short, calming transition into the shared result reveal — skipped
+    // entirely for visitors who prefer reduced motion.
+    if (prefersReducedMotion()) {
+      setPhase("result");
+    } else {
+      setPhase("preparing");
+      clearTimeout(prepTimer.current);
+      prepTimer.current = setTimeout(() => setPhase("result"), PREPARING_DELAY);
+    }
   }
 
-  if (phase === "gate" && outcome) {
-    const reason = getResultContent(outcome).leadLabel;
+  if (phase === "result" && outcome && match && submissionToken) {
     return (
-      <ResultsGate
-        reason={reason}
-        onUnlock={() => {
-          setPhase("result");
-          trackQuizEvent("results_viewed");
-        }}
-      />
+      <div className="mx-auto max-w-[1080px]">
+        <ResultsReveal
+          outcome={outcome}
+          match={match}
+          safetyFlagged={safetyFlagged}
+          referenceId={referenceId}
+          submissionToken={submissionToken}
+          firstName={firstName}
+          onRestart={restart}
+        />
+      </div>
+    );
+  }
+
+  if (phase === "preparing") {
+    return (
+      <div className="mx-auto max-w-[640px]">
+        <PreparingTransition />
+      </div>
+    );
+  }
+
+  if (phase === "access") {
+    return (
+      <div className="mx-auto max-w-[640px]">
+        <ResultsAccessForm onSubmit={handleResultsAccess} />
+      </div>
     );
   }
 
   if (phase === "safety") {
     return (
-      <SafetyInterstitial
-        onContinue={() => finish({ ...answers, safety: "acknowledged" })}
-        onBack={() => setPhase("quiz")}
-      />
+      <div className="mx-auto max-w-[640px]">
+        <SafetyInterstitial
+          onContinue={() => finish({ ...answers, safety: "acknowledged" })}
+          onBack={() => {
+            setSafetyFlagged(false);
+            setPhase("quiz");
+          }}
+        />
+      </div>
     );
   }
 
   const selected = question.id in answers ? answers[question.id] : undefined;
+  const multiSelected =
+    question.kind === "multi" && Array.isArray(selected) ? (selected as string[]) : [];
 
   return (
-    <div>
+    <div className="mx-auto max-w-[640px]">
       {/* Progress */}
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between text-vxs uppercase tracking-[1.2px] text-ink-secondary">
@@ -130,7 +292,14 @@ export default function QuizFlow() {
           </span>
           <span>{progress}%</span>
         </div>
-        <div className="h-1 w-full overflow-hidden rounded-pill bg-black/10">
+        <div
+          role="progressbar"
+          aria-label="Quiz progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          className="h-1 w-full overflow-hidden rounded-pill bg-black/10"
+        >
           <div
             className="h-full rounded-pill bg-teal transition-all duration-300"
             style={{ width: `${progress}%` }}
@@ -144,40 +313,77 @@ export default function QuizFlow() {
             {question.helper}
           </p>
         ) : null}
-        <h2 className="font-serif text-[24px] font-medium leading-[1.25] tracking-[-0.4px] text-ink md:text-[28px]">
+        <h2
+          aria-live="polite"
+          className="font-serif text-[24px] font-medium leading-[1.25] tracking-[-0.4px] text-ink md:text-[28px]"
+        >
           {question.text}
         </h2>
 
-        <div className="mt-6 flex flex-col gap-2.5">
-          {question.options.map((option) => {
-            const isActive = selected === option.value;
-            return (
-              <button
-                key={String(option.value)}
-                type="button"
-                onClick={() => handleSelect(question, option.value)}
-                aria-pressed={isActive}
-                className={`flex items-center justify-between gap-3 rounded-[14px] border px-5 py-4 text-left text-[15px] transition-all duration-150 ${
-                  isActive
-                    ? "border-teal bg-teal/5 text-ink"
-                    : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
-                }`}
-              >
-                <span>{option.label}</span>
-                <span
-                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors ${
-                    isActive ? "border-teal bg-teal text-white" : "border-black/20 text-transparent"
+        {question.kind === "multi" ? (
+          <>
+            <div className="mt-6 flex flex-wrap gap-2.5">
+              {question.options.map((option) => {
+                const isActive = multiSelected.includes(String(option.value));
+                return (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    onClick={() => toggleMultiValue(question, String(option.value))}
+                    aria-pressed={isActive}
+                    className={`inline-flex min-h-[44px] items-center gap-2 rounded-pill border px-4 py-2.5 text-left text-[14px] transition-all duration-150 ${
+                      isActive
+                        ? "border-teal bg-teal text-white"
+                        : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
+                    }`}
+                  >
+                    {isActive ? <Check size={14} aria-hidden="true" /> : null}
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={continueFromMulti}
+              className="btn-primary mt-7 w-full justify-center"
+            >
+              {multiSelected.length > 0 ? "Continue" : "Skip — nothing specific"}
+              <ArrowRight size={16} className="ml-2" aria-hidden="true" />
+            </button>
+          </>
+        ) : (
+          <div className="mt-6 flex flex-col gap-2.5">
+            {question.options.map((option) => {
+              const isActive = selected === option.value;
+              return (
+                <button
+                  key={String(option.value)}
+                  type="button"
+                  onClick={() => handleSelect(question, option.value)}
+                  aria-pressed={isActive}
+                  className={`flex items-center justify-between gap-3 rounded-[14px] border px-5 py-4 text-left text-[15px] transition-all duration-150 ${
+                    isActive
+                      ? "border-teal bg-teal/5 text-ink"
+                      : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
                   }`}
-                  aria-hidden="true"
                 >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  <span>{option.label}</span>
+                  <span
+                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors ${
+                      isActive ? "border-teal bg-teal text-white" : "border-black/20 text-transparent"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-7 flex items-center justify-between">
           {index > 0 ? (
@@ -200,6 +406,29 @@ export default function QuizFlow() {
   );
 }
 
+/* ─── Preparing transition — a short, calming bridge into the results ───── */
+function PreparingTransition() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="quiz-prep-card rounded-card border-[0.5px] border-hairline bg-white p-10 text-center shadow-card md:p-14"
+    >
+      <div className="mx-auto flex items-center justify-center gap-1.5" aria-hidden="true">
+        <span className="quiz-prep-dot h-2 w-2 rounded-full bg-teal" style={{ animationDelay: "0ms" }} />
+        <span className="quiz-prep-dot h-2 w-2 rounded-full bg-teal" style={{ animationDelay: "150ms" }} />
+        <span className="quiz-prep-dot h-2 w-2 rounded-full bg-teal" style={{ animationDelay: "300ms" }} />
+      </div>
+      <h2 className="mt-5 font-serif text-[22px] font-medium tracking-[-0.4px] text-ink md:text-[25px]">
+        Preparing your personalized results
+      </h2>
+      <p className="mt-2 text-[14px] leading-[1.6] text-ink-secondary">
+        Reviewing your responses and finding a therapist who may fit your needs…
+      </p>
+    </div>
+  );
+}
+
 /* ─── Safety screen ─────────────────────────────────────────────────────── */
 function SafetyInterstitial({
   onContinue,
@@ -217,9 +446,9 @@ function SafetyInterstitial({
         Please reach out to someone who can help today
       </h2>
       <p className="mt-4 text-[15px] leading-[1.7] text-ink-secondary">
-        This quiz is an educational tool and cannot provide emergency support. If you&apos;re thinking
-        about hurting yourself, you don&apos;t have to sit with that alone — free, confidential help is
-        available around the clock.
+        This quiz is an educational tool and cannot provide emergency support — it isn&apos;t
+        monitored in real time. If you&apos;re thinking about hurting yourself, you don&apos;t have
+        to sit with that alone — free, confidential help is available around the clock.
       </p>
 
       <div className="mt-6 space-y-3">
@@ -248,8 +477,8 @@ function SafetyInterstitial({
           <Phone size={18} className="shrink-0 text-teal" aria-hidden="true" />
         </a>
         <p className="text-[13px] leading-[1.6] text-ink-secondary">
-          If you are in immediate danger, please call <strong className="text-ink">911</strong> or
-          go to your nearest emergency department.
+          If you are in immediate danger, please call <strong className="text-ink">9-1-1</strong>{" "}
+          or go to your nearest emergency department.
         </p>
       </div>
 
@@ -262,466 +491,10 @@ function SafetyInterstitial({
           <ArrowLeft size={15} aria-hidden="true" /> Go back
         </button>
         <button type="button" onClick={onContinue} className="btn-outline justify-center">
-          Continue to my results
+          Continue
           <ArrowRight size={16} className="ml-2" aria-hidden="true" />
         </button>
       </div>
     </div>
-  );
-}
-
-/* ─── Results gate — form must be completed before the result unlocks ────── */
-function ResultsGate({ reason, onUnlock }: { reason: string; onUnlock: () => void }) {
-  const [data, setData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    consent: false,
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const canSubmit =
-    Boolean(data.firstName && data.lastName && data.email && data.consent) && !submitting;
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!canSubmit) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/submit-intake", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: data.firstName.trim(),
-          lastName: data.lastName.trim(),
-          email: data.email.trim(),
-          phone: data.phone.trim() || undefined,
-          reason,
-          preferredTherapist: "flexible",
-          consent: data.consent,
-          notes: "Submitted via Valisen self-reflection quiz",
-          source: "quiz",
-        }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error || "Something went wrong. Please try again.");
-      }
-      onUnlock();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div>
-      <div className="mb-6 text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-pill bg-teal/10 px-3.5 py-1.5 text-[12px] font-semibold uppercase tracking-[1px] text-teal">
-          <Lock size={12} aria-hidden="true" /> Your reflection is ready
-        </span>
-      </div>
-
-      <form
-        onSubmit={submit}
-        className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-9"
-      >
-        <h2 className="font-serif text-[25px] font-medium leading-[1.2] tracking-[-0.5px] text-ink md:text-[30px]">
-          Where should we send your snapshot?
-        </h2>
-        <p className="mt-3 text-[14.5px] leading-[1.65] text-ink-secondary">
-          Enter your details to see your personalized well-being snapshot and the therapists who may
-          be the best fit. A member of our team will also follow up to help you get started — no
-          obligation.
-        </p>
-
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input label="First Name" value={data.firstName} onChange={(v) => setData((d) => ({ ...d, firstName: v }))} required />
-          <Input label="Last Name" value={data.lastName} onChange={(v) => setData((d) => ({ ...d, lastName: v }))} required />
-          <Input label="Email" type="email" value={data.email} onChange={(v) => setData((d) => ({ ...d, email: v }))} required />
-          <Input label="Phone (optional)" type="tel" value={data.phone} onChange={(v) => setData((d) => ({ ...d, phone: v }))} />
-        </div>
-
-        <label className="mt-5 flex cursor-pointer items-start gap-2.5">
-          <input
-            type="checkbox"
-            checked={data.consent}
-            onChange={(e) => setData((d) => ({ ...d, consent: e.target.checked }))}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-teal"
-          />
-          <span className="text-[13px] leading-[1.6] text-ink-secondary">
-            I agree to be contacted by Valisen Mental Health about starting therapy, and I understand
-            services are not covered by OHIP. See our{" "}
-            <Link href="/privacy-policy" className="text-teal hover:underline">
-              Privacy Policy
-            </Link>
-            .
-          </span>
-        </label>
-
-        {error ? <p className="mt-3 text-[13px] text-red-600">{error}</p> : null}
-
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="btn-primary mt-6 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? "Unlocking…" : (
-            <>
-              Show my snapshot <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-            </>
-          )}
-        </button>
-        <p className="mt-3 text-center text-[11.5px] text-ink-hint">
-          Your individual answers stay private and are never attached to your details.
-        </p>
-      </form>
-
-      <CrisisNote className="mt-5 text-center" />
-    </div>
-  );
-}
-
-/* ─── Result screen ─────────────────────────────────────────────────────── */
-function DURATION_TEXT(v?: string) {
-  switch (v) {
-    case "acute":
-      return "just recently";
-    case "weeks":
-      return "for a few weeks";
-    case "months":
-      return "for a few months now";
-    case "chronic":
-      return "for more than six months";
-    default:
-      return null;
-  }
-}
-
-function IMPACT_TEXT(v?: string) {
-  switch (v) {
-    case "severe":
-      return "affecting your day-to-day a great deal";
-    case "moderate":
-      return "affecting your day-to-day quite a bit";
-    case "mild":
-      return "touching your day-to-day a little";
-    case "none":
-      return "not affecting your day-to-day too much yet";
-    default:
-      return null;
-  }
-}
-
-/** Circular well-being score. A self-reflection number, not a clinical score. */
-function ScoreRing({ score }: { score: number | null }) {
-  const [shown, setShown] = useState(0);
-  const target = score ?? 0;
-
-  useEffect(() => {
-    let raf = 0;
-    const start = performance.now();
-    const duration = 900;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setShown(Math.round(eased * target));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target]);
-
-  const size = 118;
-  const stroke = 9;
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - (score ?? 0) / 100);
-
-  return (
-    <div className="flex shrink-0 flex-col items-center">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={stroke} />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke="#B5D4D4"
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={circ}
-            strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1)" }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-serif text-[34px] font-medium leading-none text-white">
-            {score === null ? "—" : shown}
-          </span>
-          <span className="mt-0.5 text-[10.5px] font-medium uppercase tracking-[1px] text-teal-light">
-            out of 100
-          </span>
-        </div>
-      </div>
-      <p className="mt-2 max-w-[150px] text-center text-[11.5px] font-medium leading-[1.4] text-white/70">
-        Well-Being Score
-      </p>
-    </div>
-  );
-}
-
-function QuizResult({ outcome, onRestart }: { outcome: QuizOutcome; onRestart: () => void }) {
-  const content = getResultContent(outcome);
-  const therapists = content.therapistSlugs
-    .map((slug) => getTherapistBySlug(slug))
-    .filter((t): t is NonNullable<typeof t> => Boolean(t));
-
-  const duration = DURATION_TEXT(outcome.duration);
-  const impact = IMPACT_TEXT(outcome.impact);
-  const personalLine =
-    duration && impact
-      ? `You mentioned this has been going on ${duration} and ${impact}.`
-      : null;
-
-  // Snapshot rows, strongest first.
-  const rows = [...outcome.scores].sort((a, b) => (b.average ?? -1) - (a.average ?? -1));
-
-  return (
-    <div>
-      {/* Snapshot card */}
-      <div className="overflow-hidden rounded-card border-[0.5px] border-hairline bg-white shadow-card">
-        <div className="bg-gradient-to-br from-teal-dark to-[#134040] px-7 py-8 md:px-10 md:py-9">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[1.6px] text-teal-light">
-                Your well-being snapshot
-              </p>
-              <div className="mt-3 inline-flex rounded-pill bg-white/12 px-3.5 py-1 text-[12.5px] font-medium text-white">
-                {content.badge}
-              </div>
-              <h2 className="mt-4 max-w-[440px] font-serif text-[26px] font-medium leading-[1.18] tracking-[-0.6px] text-white md:text-[32px]">
-                {content.heading}
-              </h2>
-              <p className="mt-3 text-[13.5px] font-medium text-teal-light">
-                {scoreBandFor(outcome.score)}
-              </p>
-            </div>
-            <ScoreRing score={outcome.score} />
-          </div>
-        </div>
-
-        <div className="px-7 py-7 md:px-10 md:py-8">
-          {/* Snapshot bars — qualitative, no clinical numbers */}
-          <p className="text-[12px] font-semibold uppercase tracking-[1px] text-ink-hint">
-            Where your answers landed
-          </p>
-          <div className="mt-4 space-y-4">
-            {rows.map((row) => {
-              const band = bandFor(row.average);
-              const isTop = row.dimension === rows[0].dimension && (row.average ?? 0) > 0;
-              return (
-                <div key={row.dimension}>
-                  <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                    <span className={`text-[14px] ${isTop ? "font-semibold text-ink" : "font-medium text-ink-secondary"}`}>
-                      {DIMENSION_LABELS[row.dimension]}
-                    </span>
-                    <span className={`text-[12.5px] ${isTop ? "text-teal" : "text-ink-hint"}`}>
-                      {band.label}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-pill bg-black/[0.06]">
-                    <div
-                      className={`h-full rounded-pill ${isTop ? "bg-teal" : "bg-sage"}`}
-                      style={{ width: `${band.fill}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="mt-4 text-[11.5px] leading-[1.5] text-ink-hint">
-            Your score and snapshot reflect the answers you gave — they&apos;re a self-reflection
-            tool, not a clinical measure or a diagnosis.
-          </p>
-
-          {/* Narrative */}
-          <div className="mt-7 border-t border-hairline pt-6">
-            {personalLine ? (
-              <p className="mb-3 text-[14px] font-medium text-teal">{personalLine}</p>
-            ) : null}
-            <p className="text-[15.5px] leading-[1.75] text-ink-secondary">{content.summary}</p>
-          </div>
-
-          {/* Feels like */}
-          <div className="mt-6 rounded-[16px] border border-hairline bg-canvas p-5">
-            <p className="text-[12.5px] font-semibold uppercase tracking-[1px] text-ink-hint">
-              You may be noticing
-            </p>
-            <ul className="mt-3 space-y-2">
-              {content.feelsLike.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-[14.5px] leading-[1.6] text-ink-secondary">
-                  <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-teal" aria-hidden="true" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* What helps */}
-          <div className="mt-4 rounded-[16px] border border-teal/20 bg-teal-xlight/40 p-5">
-            <p className="text-[12.5px] font-semibold uppercase tracking-[1px] text-teal-dark">
-              What tends to help
-            </p>
-            <ul className="mt-3 space-y-2">
-              {content.whatHelps.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-[14.5px] leading-[1.6] text-ink">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="mt-[3px] shrink-0 text-teal" aria-hidden="true">
-                    <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <p className="mt-5 text-[14.5px] font-medium leading-[1.6] text-ink">{content.reframe}</p>
-
-          {/* Primary conversion */}
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <a
-              href={JANE_BOOKING_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => trackQuizEvent("booking_clicked")}
-              className="btn-primary justify-center sm:flex-1"
-            >
-              <CalendarDays size={16} className="mr-2" aria-hidden="true" />
-              Book now
-              <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-            </a>
-            <Link
-              href={content.servicePath}
-              onClick={() =>
-                trackQuizEvent(
-                  content.servicePath === "/consultation"
-                    ? "consultation_clicked"
-                    : "therapist_directory_clicked",
-                )
-              }
-              className="btn-outline justify-center sm:flex-1"
-            >
-              {content.serviceLabel}
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Recommended therapists */}
-      {therapists.length > 0 ? (
-        <div className="mt-6 rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-8">
-          <h3 className="font-serif text-[21px] font-medium tracking-[-0.4px] text-ink">
-            Based on what you shared, these therapists may be relevant
-          </h3>
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {therapists.map((therapist) => (
-              <div
-                key={therapist.slug}
-                className="flex flex-col rounded-[16px] border border-hairline bg-canvas p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-black/8 bg-teal-xlight">
-                    {therapist.photo ? (
-                      <Image
-                        src={therapist.photo}
-                        alt={therapist.name}
-                        fill
-                        className="object-cover object-top"
-                        sizes="56px"
-                      />
-                    ) : (
-                      <span className="grid h-full w-full place-items-center font-serif text-[18px] font-medium text-teal">
-                        {therapist.initials}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-serif text-[16px] font-medium leading-tight text-ink">
-                      {therapist.name}
-                    </p>
-                    <p className="text-[12px] text-ink-secondary">{therapist.credentialSummary}</p>
-                    <p className="mt-0.5 text-[12px] text-ink-secondary">
-                      {therapist.languages.filter((l) => l !== "普通话").join(" · ")}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <a
-                    href={getTherapistIntakeUrl(therapist.slug)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => trackQuizEvent("booking_clicked")}
-                    className="flex-1 rounded-pill bg-teal px-3 py-2 text-center text-[13px] font-medium text-white no-underline transition-colors hover:bg-teal-dark"
-                  >
-                    Book with {therapist.name.split(" ")[0]}
-                  </a>
-                  <Link
-                    href={`/therapists/${therapist.slug}`}
-                    className="rounded-pill border border-black/15 px-3 py-2 text-[13px] font-medium text-ink no-underline hover:border-teal hover:text-teal"
-                  >
-                    Profile
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="mt-6 text-center">
-        <button
-          type="button"
-          onClick={onRestart}
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-secondary hover:text-teal"
-        >
-          <RotateCcw size={14} aria-hidden="true" /> Retake the quiz
-        </button>
-      </div>
-
-      <CrisisNote className="mt-5 text-center" />
-    </div>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-  type = "text",
-  required = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-vxs uppercase tracking-[1.2px] text-ink-secondary">{label}</span>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-[12px] border border-black/15 bg-canvas px-4 py-3 text-[15px] text-ink outline-none transition-colors focus:border-teal focus:bg-white"
-      />
-    </label>
   );
 }

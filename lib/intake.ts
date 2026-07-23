@@ -1,3 +1,5 @@
+import { getTherapistBySlug } from "@/lib/therapists";
+
 export const JANE_BOOKING_URL = "https://valisenmentalhealth.janeapp.com/";
 export const MATCHING_FORM_URL = JANE_BOOKING_URL;
 export const MATCHING_CTA_LABEL = "Book now";
@@ -51,12 +53,12 @@ export function isSpecificTherapistSlug(
   return value !== "flexible";
 }
 
-const THERAPIST_JANE_URLS: Record<string, string> = {
-  "tim-kahtava": "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
-  "wilfred-bengnwi": "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
-  "ryann-simpson": "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
-};
-
+/**
+ * Per-therapist Jane booking links live on each therapist record in
+ * lib/therapists.ts (`janeBookingUrl`) — the single source of truth.
+ * Falls back to the clinic-wide Jane page when a therapist has no
+ * confirmed individual link.
+ */
 export function getTherapistIntakeUrl(slug: string): string {
-  return THERAPIST_JANE_URLS[slug] ?? JANE_BOOKING_URL;
+  return getTherapistBySlug(slug)?.janeBookingUrl ?? JANE_BOOKING_URL;
 }

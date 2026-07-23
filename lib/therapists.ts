@@ -1,5 +1,46 @@
+import type { Dimension } from "@/lib/quiz";
+
 export const SESSION_RATE = "$180/hour";
 export const SESSION_FEE_LABEL = `Session Fee: ${SESSION_RATE}`;
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Matching metadata (used by lib/matching.ts)
+ *
+ * Every value here must be VERIFIED — i.e. directly supported by the
+ * therapist's own profile content below (specialties, areasOfSupport, bio
+ * pronouns). Never add a tag a therapist hasn't listed.
+ * `lastVerifiedAt` records when the metadata was last checked against the
+ * profile content in this file.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** User-selectable concern areas. Each maps to verified therapist experience. */
+export type ConcernTag =
+  | "anxiety"
+  | "depression"
+  | "stress-burnout"
+  | "relationship-challenges"
+  | "couples-therapy"
+  | "trauma"
+  | "adhd"
+  | "perfectionism-people-pleasing"
+  | "self-esteem"
+  | "addiction"
+  | "cultural-adjustment"
+  | "life-transitions"
+  | "grief";
+
+export type MatchingProfile = {
+  /** Sourced from the pronouns used in the therapist's own bio text. */
+  gender: "man" | "woman";
+  /** Concern areas verifiably listed in this therapist's specialties/areas of support. */
+  concernTags: ConcernTag[];
+  /** Quiz dimensions this therapist verifiably works with. */
+  dimensions: Dimension[];
+  /** All current therapists serve adults (18+) across Ontario. */
+  populations: Array<"adults-18-plus" | "couples">;
+  /** ISO date the metadata above was last verified against this profile. */
+  lastVerifiedAt: string;
+};
 
 export type SupportArea = {
   title: string;
@@ -31,6 +72,15 @@ export type Therapist = {
   carouselPhotoPosition?: string;
   featureLabel?: string;
   comingSoon?: boolean;
+  /**
+   * This therapist's own Jane staff-member booking page. Leave undefined
+   * until the correct staff link is confirmed — a therapist WITHOUT a
+   * verified individual booking link is never chosen as the quiz's
+   * suggested match (they still appear in the team list).
+   */
+  janeBookingUrl?: string;
+  /** Verified metadata consumed by the quiz matching engine. */
+  matching: MatchingProfile;
   featuredHero: {
     badge: string;
     headline: string;
@@ -97,6 +147,23 @@ export const therapists: Therapist[] = [
     comingSoon: false,
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    // No individual Jane staff link confirmed yet — excluded from suggested
+    // matches until one is added here.
+    janeBookingUrl: undefined,
+    matching: {
+      gender: "man",
+      concernTags: [
+        "anxiety",
+        "depression",
+        "stress-burnout",
+        "addiction",
+        "cultural-adjustment",
+        "life-transitions",
+      ],
+      dimensions: ["worry", "mood", "stress"],
+      populations: ["adults-18-plus"],
+      lastVerifiedAt: "2026-07-16",
+    },
     rate: SESSION_RATE,
     primaryConcerns: "Anxiety, Stress, Life Transitions, and Cultural Adjustment",
     headline:
@@ -220,6 +287,20 @@ export const therapists: Therapist[] = [
     initials: "WB",
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    janeBookingUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
+    matching: {
+      gender: "man",
+      concernTags: [
+        "couples-therapy",
+        "relationship-challenges",
+        "trauma",
+        "anxiety",
+        "addiction",
+      ],
+      dimensions: ["relationships", "worry"],
+      populations: ["adults-18-plus", "couples"],
+      lastVerifiedAt: "2026-07-16",
+    },
     rate: SESSION_RATE,
     primaryConcerns: "Couples, Relationship Repair, Trauma, and Attachment Injuries",
     headline:
@@ -333,6 +414,23 @@ export const therapists: Therapist[] = [
     carouselPhotoPosition: "center -10px",
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    janeBookingUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
+    matching: {
+      gender: "man",
+      concernTags: [
+        "anxiety",
+        "depression",
+        "trauma",
+        "couples-therapy",
+        "relationship-challenges",
+        "stress-burnout",
+        "life-transitions",
+        "grief",
+      ],
+      dimensions: ["worry", "mood", "stress", "relationships"],
+      populations: ["adults-18-plus", "couples"],
+      lastVerifiedAt: "2026-07-16",
+    },
     rate: SESSION_RATE,
     primaryConcerns: "Anxiety, Depression, Trauma, Couples, and Family Support",
     headline:
@@ -446,6 +544,23 @@ export const therapists: Therapist[] = [
     comingSoon: false,
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    janeBookingUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
+    matching: {
+      gender: "woman",
+      concernTags: [
+        "anxiety",
+        "relationship-challenges",
+        "couples-therapy",
+        "perfectionism-people-pleasing",
+        "adhd",
+        "self-esteem",
+        "stress-burnout",
+        "life-transitions",
+      ],
+      dimensions: ["worry", "stress", "relationships"],
+      populations: ["adults-18-plus", "couples"],
+      lastVerifiedAt: "2026-07-16",
+    },
     rate: SESSION_RATE,
     primaryConcerns: "Anxiety, Perfectionism, People-Pleasing, ADHD, and Self-Esteem",
     headline:
@@ -566,4 +681,9 @@ export const therapists: Therapist[] = [
 
 export function getTherapistBySlug(slug: string) {
   return therapists.find((therapist) => therapist.slug === slug);
+}
+
+/** Therapists currently shown to the public (not "coming soon"). */
+export function getActiveTherapists(): Therapist[] {
+  return therapists.filter((therapist) => !therapist.comingSoon);
 }

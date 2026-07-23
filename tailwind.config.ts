@@ -31,11 +31,15 @@ const config: Config = {
           DEFAULT: "#C9633E",
           light: "#FBE4D5",
         },
+        gold: {
+          DEFAULT: "#C6A15B",
+          light: "#F3E8D3",
+          dark: "#A8854A",
+        },
       },
       fontFamily: {
-        serif: ["var(--font-serif)", "Georgia", "Times New Roman", "serif"],
+        serif: ["Georgia", "Times New Roman", "serif"],
         sans: [
-          "var(--font-sans)",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
