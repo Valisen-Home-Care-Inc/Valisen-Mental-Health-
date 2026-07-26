@@ -6,13 +6,32 @@
 
 import crypto from "crypto";
 import { google } from "googleapis";
-import type { Answers, QuizOutcome } from "@/lib/quiz";
+import { scoreQuiz, type Answers, type QuizOutcome } from "@/lib/quiz";
 import type { MatchResult } from "@/lib/matching";
+import {
+  cleanCampaignAttribution,
+  type CampaignAttribution,
+} from "@/lib/campaignAttribution";
+import { isQuizIntent, type QuizIntent } from "@/lib/quizIntent";
+import {
+  CONTACT_METHOD_VALUES,
+  PREFERRED_CONTACT_TIME_VALUES,
+  isStrictLocalDateTime,
+  isValidContactTimeZone,
+  type ContactMethod,
+  type PreferredContactTime,
+} from "@/lib/quizLead";
 
 export const DEFAULT_QUIZ_LEADS_SHEET_NAME = "Quiz Leads";
 
 export type NotificationStatus = "not_requested" | "sending" | "sent" | "failed";
 export type AccessNotificationStatus = "pending" | "sending" | "sent" | "failed";
+export type UserResultsEmailStatus =
+  | "not_applicable"
+  | "pending"
+  | "sending"
+  | "sent"
+  | "failed";
 
 export type StoredQuizLead = {
   rowNumber: number;
@@ -35,6 +54,24 @@ export type StoredQuizLead = {
   match: MatchResult;
   recommendedTherapistSlug?: string;
   recommendedTherapistName?: string;
+  intent: QuizIntent;
+  attribution: CampaignAttribution;
+  resultsViewedAt?: string;
+  resultsViewedCount: number;
+  therapistMatchViewedAt?: string;
+  therapistMatchViewedCount: number;
+  janeBookingClickedAt?: string;
+  janeBookingClickCount: number;
+  janeCtaPlacement?: string;
+  contactHelpOpenedAt?: string;
+  contactHelpOpenedCount: number;
+  contactMethod?: ContactMethod;
+  contactPhone?: string;
+  /** Legacy morning/afternoon/evening value; never write for new requests. */
+  preferredContactTime?: PreferredContactTime;
+  preferredContactTimes: string[];
+  preferredContactTimeZone?: string;
+  contactMessage?: string;
   contactConsentAt?: string;
   contactConsentText?: string;
   contactConsentTextVersion?: string;
@@ -51,6 +88,12 @@ export type StoredQuizLead = {
   accessNotificationSentAt?: string;
   accessNotificationAttempts: number;
   accessNotificationLastError?: string;
+  userResultsEmailStatus: UserResultsEmailStatus;
+  userResultsEmailClaimId?: string;
+  userResultsEmailClaimedAt?: string;
+  userResultsEmailSentAt?: string;
+  userResultsEmailAttempts: number;
+  userResultsEmailLastError?: string;
 };
 
 export type NewQuizLead = Omit<StoredQuizLead, "rowNumber">;
@@ -115,7 +158,41 @@ const ACCESS_NOTIFICATION_HEADERS = [
   "Results Access Notification Last Error",
 ] as const;
 
-const HEADERS = [...LEGACY_HEADERS, ...ACCESS_NOTIFICATION_HEADERS] as const;
+const CONVERSION_HEADERS = [
+  "Quiz Intent",
+  "Campaign Attribution JSON",
+  "Results Viewed At (ISO)",
+  "Results Viewed Count",
+  "Therapist Match Viewed At (ISO)",
+  "Therapist Match Viewed Count",
+  "Jane Booking Clicked At (ISO)",
+  "Jane Booking Click Count",
+  "Jane CTA Placement",
+  "Contact Help Opened At (ISO)",
+  "Contact Help Open Count",
+  "Preferred Contact Method",
+  "Contact Phone",
+  "Preferred Contact Time",
+  "Contact Message",
+  "User Results Email Status",
+  "User Results Email Claim ID",
+  "User Results Email Claimed At (ISO)",
+  "User Results Email Sent At (ISO)",
+  "User Results Email Attempts",
+  "User Results Email Last Error",
+] as const;
+
+const EXACT_AVAILABILITY_HEADERS = [
+  "Preferred Contact Times JSON",
+  "Preferred Contact Time Zone",
+] as const;
+
+const HEADERS = [
+  ...LEGACY_HEADERS,
+  ...ACCESS_NOTIFICATION_HEADERS,
+  ...CONVERSION_HEADERS,
+  ...EXACT_AVAILABILITY_HEADERS,
+] as const;
 
 const LAST_COLUMN = columnName(HEADERS.length - 1);
 
@@ -155,6 +232,29 @@ const FIELD_INDEX: Record<keyof NewQuizLead, number> = {
   accessNotificationSentAt: 32,
   accessNotificationAttempts: 33,
   accessNotificationLastError: 34,
+  intent: 35,
+  attribution: 36,
+  resultsViewedAt: 37,
+  resultsViewedCount: 38,
+  therapistMatchViewedAt: 39,
+  therapistMatchViewedCount: 40,
+  janeBookingClickedAt: 41,
+  janeBookingClickCount: 42,
+  janeCtaPlacement: 43,
+  contactHelpOpenedAt: 44,
+  contactHelpOpenedCount: 45,
+  contactMethod: 46,
+  contactPhone: 47,
+  preferredContactTime: 48,
+  contactMessage: 49,
+  userResultsEmailStatus: 50,
+  userResultsEmailClaimId: 51,
+  userResultsEmailClaimedAt: 52,
+  userResultsEmailSentAt: 53,
+  userResultsEmailAttempts: 54,
+  userResultsEmailLastError: 55,
+  preferredContactTimes: 56,
+  preferredContactTimeZone: 57,
 };
 
 function columnName(index: number): string {
@@ -211,10 +311,28 @@ function quoteSheetTitle(title: string): string {
 }
 
 function serializeField(field: keyof NewQuizLead, value: unknown): string | number {
-  if (field === "answers" || field === "outcome" || field === "match") {
-    return JSON.stringify(value);
+  if (
+    field === "answers" ||
+    field === "outcome" ||
+    field === "match" ||
+    field === "attribution" ||
+    field === "preferredContactTimes"
+  ) {
+    return JSON.stringify(
+      field === "preferredContactTimes" && !Array.isArray(value)
+        ? []
+        : value,
+    );
   }
-  if (field === "notificationAttempts" || field === "accessNotificationAttempts") {
+  if (
+    field === "notificationAttempts" ||
+    field === "accessNotificationAttempts" ||
+    field === "userResultsEmailAttempts" ||
+    field === "resultsViewedCount" ||
+    field === "therapistMatchViewedCount" ||
+    field === "janeBookingClickCount" ||
+    field === "contactHelpOpenedCount"
+  ) {
     return typeof value === "number" && Number.isFinite(value) ? value : 0;
   }
   return typeof value === "string" ? value : "";
@@ -242,6 +360,21 @@ function parseJson<T>(value: unknown, label: string, rowNumber: number): T {
 function optionalCell(row: unknown[], index: number): string | undefined {
   const value = row[index];
   return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+function nonnegativeIntegerCell(
+  row: unknown[],
+  index: number,
+  label: string,
+  rowNumber: number,
+): number {
+  const raw = row[index];
+  if (raw === undefined || raw === null || raw === "") return 0;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`Quiz lead row ${rowNumber} has invalid ${label}.`);
+  }
+  return value;
 }
 
 export function rowToQuizLead(row: unknown[], rowNumber: number): StoredQuizLead {
@@ -279,6 +412,121 @@ export function rowToQuizLead(row: unknown[], rowNumber: number): StoredQuizLead
     throw new Error(`Quiz lead row ${rowNumber} has invalid access notification attempts.`);
   }
 
+  const rawIntent = optionalCell(row, FIELD_INDEX.intent) ?? "exploring";
+  if (!isQuizIntent(rawIntent)) {
+    throw new Error(`Quiz lead row ${rowNumber} has an invalid quiz intent.`);
+  }
+
+  const parsedAttribution = optionalCell(row, FIELD_INDEX.attribution)
+    ? parseJson<CampaignAttribution>(
+        row[FIELD_INDEX.attribution],
+        "campaign attribution JSON",
+        rowNumber,
+      )
+    : {};
+  if (
+    typeof parsedAttribution !== "object" ||
+    parsedAttribution === null ||
+    Array.isArray(parsedAttribution)
+  ) {
+    throw new Error(
+      `Quiz lead row ${rowNumber} has invalid campaign attribution JSON.`,
+    );
+  }
+  const attribution = cleanCampaignAttribution(parsedAttribution);
+
+  const rawContactMethod = optionalCell(row, FIELD_INDEX.contactMethod);
+  if (
+    rawContactMethod &&
+    !(CONTACT_METHOD_VALUES as readonly string[]).includes(rawContactMethod)
+  ) {
+    throw new Error(`Quiz lead row ${rowNumber} has an invalid contact method.`);
+  }
+  const rawPreferredContactTime = optionalCell(
+    row,
+    FIELD_INDEX.preferredContactTime,
+  );
+  if (
+    rawPreferredContactTime &&
+    !(PREFERRED_CONTACT_TIME_VALUES as readonly string[]).includes(
+      rawPreferredContactTime,
+    )
+  ) {
+    throw new Error(
+      `Quiz lead row ${rowNumber} has an invalid preferred contact time.`,
+    );
+  }
+
+  const rawPreferredContactTimes = optionalCell(
+    row,
+    FIELD_INDEX.preferredContactTimes,
+  );
+  const preferredContactTimes = rawPreferredContactTimes
+    ? parseJson<unknown>(
+        rawPreferredContactTimes,
+        "preferred contact times JSON",
+        rowNumber,
+      )
+    : [];
+  if (
+    !Array.isArray(preferredContactTimes) ||
+    preferredContactTimes.length > 4 ||
+    (preferredContactTimes.length > 0 &&
+      preferredContactTimes.length < 2) ||
+    preferredContactTimes.some(
+      (value) => !isStrictLocalDateTime(value),
+    ) ||
+    new Set(preferredContactTimes).size !== preferredContactTimes.length
+  ) {
+    throw new Error(
+      `Quiz lead row ${rowNumber} has invalid preferred contact times JSON.`,
+    );
+  }
+  const preferredContactTimeZone = optionalCell(
+    row,
+    FIELD_INDEX.preferredContactTimeZone,
+  );
+  if (
+    (preferredContactTimes.length > 0 &&
+      !isValidContactTimeZone(preferredContactTimeZone)) ||
+    (preferredContactTimes.length === 0 && preferredContactTimeZone)
+  ) {
+    throw new Error(
+      `Quiz lead row ${rowNumber} has an invalid preferred contact time zone.`,
+    );
+  }
+
+  const rawUserResultsEmailStatus =
+    optionalCell(row, FIELD_INDEX.userResultsEmailStatus) ?? "not_applicable";
+  if (
+    !["not_applicable", "pending", "sending", "sent", "failed"].includes(
+      rawUserResultsEmailStatus,
+    )
+  ) {
+    throw new Error(
+      `Quiz lead row ${rowNumber} has an invalid user results email status.`,
+    );
+  }
+
+  const answers = parseJson<Answers>(
+    row[FIELD_INDEX.answers],
+    "answers JSON",
+    rowNumber,
+  );
+  const parsedOutcome = parseJson<QuizOutcome>(
+    row[FIELD_INDEX.outcome],
+    "outcome JSON",
+    rowNumber,
+  );
+  const outcome =
+    Number.isInteger(parsedOutcome.answeredCount) &&
+    parsedOutcome.answeredCount >= 0
+      ? parsedOutcome
+      : {
+          ...parsedOutcome,
+          answeredCount: scoreQuiz(answers).answeredCount,
+        };
+
   return {
     rowNumber,
     referenceId: required(FIELD_INDEX.referenceId, "reference id"),
@@ -287,7 +535,9 @@ export function rowToQuizLead(row: unknown[], rowNumber: number): StoredQuizLead
     createdAt: required(FIELD_INDEX.createdAt, "created timestamp"),
     firstName: required(FIELD_INDEX.firstName, "first name"),
     email: required(FIELD_INDEX.email, "email"),
-    phone: required(FIELD_INDEX.phone, "phone"),
+    // Some historical quiz-v5 rows allowed a blank phone. New submissions
+    // require one, but legacy rows must remain readable without fabrication.
+    phone: optionalCell(row, FIELD_INDEX.phone) ?? "",
     privacyAcknowledgedAt: required(
       FIELD_INDEX.privacyAcknowledgedAt,
       "privacy acknowledgement timestamp",
@@ -296,13 +546,54 @@ export function rowToQuizLead(row: unknown[], rowNumber: number): StoredQuizLead
     privacyTextVersion: required(FIELD_INDEX.privacyTextVersion, "privacy text version"),
     quizVersion: required(FIELD_INDEX.quizVersion, "quiz version"),
     scoringVersion: required(FIELD_INDEX.scoringVersion, "scoring version"),
-    answers: parseJson<Answers>(row[FIELD_INDEX.answers], "answers JSON", rowNumber),
-    outcome: parseJson<QuizOutcome>(row[FIELD_INDEX.outcome], "outcome JSON", rowNumber),
+    answers,
+    outcome,
     resultCategory: required(FIELD_INDEX.resultCategory, "result category"),
     scoreBand: required(FIELD_INDEX.scoreBand, "score band"),
     match: parseJson<MatchResult>(row[FIELD_INDEX.match], "match JSON", rowNumber),
     recommendedTherapistSlug: optionalCell(row, FIELD_INDEX.recommendedTherapistSlug),
     recommendedTherapistName: optionalCell(row, FIELD_INDEX.recommendedTherapistName),
+    intent: rawIntent,
+    attribution,
+    resultsViewedAt: optionalCell(row, FIELD_INDEX.resultsViewedAt),
+    resultsViewedCount: nonnegativeIntegerCell(
+      row,
+      FIELD_INDEX.resultsViewedCount,
+      "results viewed count",
+      rowNumber,
+    ),
+    therapistMatchViewedAt: optionalCell(
+      row,
+      FIELD_INDEX.therapistMatchViewedAt,
+    ),
+    therapistMatchViewedCount: nonnegativeIntegerCell(
+      row,
+      FIELD_INDEX.therapistMatchViewedCount,
+      "therapist match viewed count",
+      rowNumber,
+    ),
+    janeBookingClickedAt: optionalCell(row, FIELD_INDEX.janeBookingClickedAt),
+    janeBookingClickCount: nonnegativeIntegerCell(
+      row,
+      FIELD_INDEX.janeBookingClickCount,
+      "Jane booking click count",
+      rowNumber,
+    ),
+    janeCtaPlacement: optionalCell(row, FIELD_INDEX.janeCtaPlacement),
+    contactHelpOpenedAt: optionalCell(row, FIELD_INDEX.contactHelpOpenedAt),
+    contactHelpOpenedCount: nonnegativeIntegerCell(
+      row,
+      FIELD_INDEX.contactHelpOpenedCount,
+      "contact help opened count",
+      rowNumber,
+    ),
+    contactMethod: rawContactMethod as ContactMethod | undefined,
+    contactPhone: optionalCell(row, FIELD_INDEX.contactPhone),
+    preferredContactTime:
+      rawPreferredContactTime as PreferredContactTime | undefined,
+    preferredContactTimes: preferredContactTimes as string[],
+    preferredContactTimeZone,
+    contactMessage: optionalCell(row, FIELD_INDEX.contactMessage),
     contactConsentAt: optionalCell(row, FIELD_INDEX.contactConsentAt),
     contactConsentText: optionalCell(row, FIELD_INDEX.contactConsentText),
     contactConsentTextVersion: optionalCell(row, FIELD_INDEX.contactConsentTextVersion),
@@ -319,6 +610,30 @@ export function rowToQuizLead(row: unknown[], rowNumber: number): StoredQuizLead
     accessNotificationSentAt: optionalCell(row, FIELD_INDEX.accessNotificationSentAt),
     accessNotificationAttempts,
     accessNotificationLastError: optionalCell(row, FIELD_INDEX.accessNotificationLastError),
+    userResultsEmailStatus:
+      rawUserResultsEmailStatus as UserResultsEmailStatus,
+    userResultsEmailClaimId: optionalCell(
+      row,
+      FIELD_INDEX.userResultsEmailClaimId,
+    ),
+    userResultsEmailClaimedAt: optionalCell(
+      row,
+      FIELD_INDEX.userResultsEmailClaimedAt,
+    ),
+    userResultsEmailSentAt: optionalCell(
+      row,
+      FIELD_INDEX.userResultsEmailSentAt,
+    ),
+    userResultsEmailAttempts: nonnegativeIntegerCell(
+      row,
+      FIELD_INDEX.userResultsEmailAttempts,
+      "user results email attempts",
+      rowNumber,
+    ),
+    userResultsEmailLastError: optionalCell(
+      row,
+      FIELD_INDEX.userResultsEmailLastError,
+    ),
   };
 }
 

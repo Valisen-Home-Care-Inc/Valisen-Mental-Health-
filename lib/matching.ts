@@ -3,14 +3,14 @@
  *
  * HOW IT WORKS (in plain language):
  *  1. Hard eligibility filters remove any therapist who is not active, not
- *     accepting new clients, has no verified individual Jane booking link,
- *     or cannot satisfy a firm therapist-gender preference the visitor
- *     stated.
+ *     accepting new clients, has no verified Valisen Jane destination, or
+ *     cannot satisfy a firm therapist-gender preference the visitor stated.
+ *     A documented clinic fallback is allowed where a staff URL is missing.
  *  2. Remaining therapists are scored with the documented weights below,
  *     using ONLY (a) the visitor's own answers and (b) verified therapist
  *     metadata from lib/therapists.ts.
  *  3. Ties break deterministically: higher score → more selected-concern
- *     overlap → roster order in lib/therapists.ts.
+ *     overlap → the explicit stable order below.
  *  4. If nothing meaningfully supports a suggestion, the engine returns
  *     "no clear match" rather than manufacturing one.
  *
@@ -37,6 +37,10 @@ import {
   type ConcernTag,
   type Therapist,
 } from "@/lib/therapists";
+import {
+  hasVerifiedTherapistBooking,
+  isVerifiedValisenJaneUrl,
+} from "@/lib/therapistBooking";
 
 /** Feature flag — set to false to disable the suggested-match card. */
 export const MATCHING_ENGINE_ENABLED = true;
@@ -62,6 +66,18 @@ export const MIN_MATCH_SCORE = 2;
 
 /** Maximum number of "why this may be a good fit" reasons shown/emailed. */
 export const MAX_REASONS = 4;
+
+/**
+ * Matching ties must not change when the public therapist grid is reordered.
+ * This preserves the effective production order that existed before booking
+ * configuration was centralized.
+ */
+export const MATCHING_TIE_BREAK_ORDER = [
+  "ryann-simpson",
+  "wilfred-bengnwi",
+  "tim-kahtava",
+  "dayong-quan",
+] as const;
 
 /* ────────────────────────────────────────────────────────────────────────
  * Preference extraction (validated — unknown values are dropped)
@@ -125,12 +141,9 @@ export type MatchResult =
     }
   | { status: "no-clear-match"; reason: NoMatchReason };
 
-/** Only a verified Valisen Jane staff link counts as a valid booking URL. */
+/** Only a verified Valisen Jane destination counts as a valid booking URL. */
 export function isValidJaneBookingUrl(url: string | undefined): url is string {
-  return (
-    typeof url === "string" &&
-    url.startsWith("https://valisenmentalhealth.janeapp.com/")
-  );
+  return isVerifiedValisenJaneUrl(url);
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -158,7 +171,7 @@ export function matchTherapist(
 
   // 1. Hard eligibility filters.
   const baseline = roster.filter(
-    (t) => t.acceptingNewClients && isValidJaneBookingUrl(t.janeBookingUrl),
+    (t) => t.acceptingNewClients && hasVerifiedTherapistBooking(t.slug),
   );
   if (baseline.length === 0) {
     return { status: "no-clear-match", reason: "no-eligible-therapist" };
@@ -184,7 +197,14 @@ export function matchTherapist(
   const secondaryDimension: Dimension | undefined = presentDimensions[1];
 
   const scored: ScoredCandidate[] = candidates.map((therapist) => {
-    const rosterIndex = roster.findIndex((t) => t.slug === therapist.slug);
+    const configuredIndex = MATCHING_TIE_BREAK_ORDER.indexOf(
+      therapist.slug as (typeof MATCHING_TIE_BREAK_ORDER)[number],
+    );
+    const rosterIndex =
+      configuredIndex >= 0
+        ? configuredIndex
+        : MATCHING_TIE_BREAK_ORDER.length +
+          roster.findIndex((t) => t.slug === therapist.slug);
     let score = 0;
     const dimensionHits: Dimension[] = [];
 

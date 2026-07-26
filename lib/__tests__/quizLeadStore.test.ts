@@ -36,6 +36,7 @@ function lead(overrides: Partial<NewQuizLead> = {}): NewQuizLead {
       resultKey: "worry",
       ordered: ["worry"],
       score: 46,
+      answeredCount: 1,
     },
     resultCategory: "Worry and tension stood out",
     scoreBand: "Carrying a real load right now",
@@ -45,6 +46,15 @@ function lead(overrides: Partial<NewQuizLead> = {}): NewQuizLead {
     updatedAt: "2026-07-22T18:00:00.000Z",
     accessNotificationStatus: "pending",
     accessNotificationAttempts: 0,
+    intent: "exploring",
+    attribution: {},
+    resultsViewedCount: 0,
+    therapistMatchViewedCount: 0,
+    janeBookingClickCount: 0,
+    contactHelpOpenedCount: 0,
+    preferredContactTimes: [],
+    userResultsEmailStatus: "pending",
+    userResultsEmailAttempts: 0,
     ...overrides,
   };
 }
@@ -68,9 +78,42 @@ describe("quiz lead sheet serialization", () => {
       accessNotificationClaimedAt: "2026-07-22T18:00:01.000Z",
       accessNotificationSentAt: "2026-07-22T18:00:02.000Z",
       accessNotificationAttempts: 1,
+      intent: "brief_consultation",
+      attribution: { source: "google", campaign: "therapy" },
+      resultsViewedAt: "2026-07-22T18:01:00.000Z",
+      resultsViewedCount: 2,
+      therapistMatchViewedAt: "2026-07-22T18:01:01.000Z",
+      therapistMatchViewedCount: 1,
+      janeBookingClickedAt: "2026-07-22T18:02:00.000Z",
+      janeBookingClickCount: 1,
+      janeCtaPlacement: "results_primary",
+      contactHelpOpenedAt: "2026-07-22T18:03:00.000Z",
+      contactHelpOpenedCount: 1,
+      contactMethod: "text",
+      contactPhone: "613-555-0199",
+      preferredContactTime: "evening",
+      preferredContactTimes: [
+        "2026-08-03T10:30",
+        "2026-08-04T14:00",
+      ],
+      preferredContactTimeZone: "America/Toronto",
+      contactMessage: "Please text first.",
+      userResultsEmailStatus: "sent",
+      userResultsEmailClaimId: "user-email-claim-1",
+      userResultsEmailClaimedAt: "2026-07-22T18:00:01.000Z",
+      userResultsEmailSentAt: "2026-07-22T18:00:03.000Z",
+      userResultsEmailAttempts: 1,
     });
     const parsed = rowToQuizLead(quizLeadToRow(source), 2);
     expect(parsed).toEqual({ ...source, rowNumber: 2 });
+  });
+
+  it("round-trips a new lead with no phone number", () => {
+    const source = lead({ phone: "" });
+    expect(rowToQuizLead(quizLeadToRow(source), 2)).toEqual({
+      ...source,
+      rowNumber: 2,
+    });
   });
 
   it("reads rows from the legacy 29-column schema with pending access delivery", () => {
@@ -84,11 +127,45 @@ describe("quiz lead sheet serialization", () => {
       notificationAttempts: 0,
       accessNotificationStatus: "pending",
       accessNotificationAttempts: 0,
+      intent: "exploring",
+      attribution: {},
+      userResultsEmailStatus: "not_applicable",
+      userResultsEmailAttempts: 0,
+      resultsViewedCount: 0,
+      janeBookingClickCount: 0,
+      preferredContactTimes: [],
     });
     expect(parsed.accessNotificationClaimId).toBeUndefined();
     expect(parsed.accessNotificationClaimedAt).toBeUndefined();
     expect(parsed.accessNotificationSentAt).toBeUndefined();
     expect(parsed.accessNotificationLastError).toBeUndefined();
+  });
+
+  it("reads the former 35-column schema with safe conversion defaults", () => {
+    const formerRow = quizLeadToRow(lead()).slice(0, 35);
+    const parsed = rowToQuizLead(formerRow, 8);
+    expect(parsed).toMatchObject({
+      intent: "exploring",
+      attribution: {},
+      resultsViewedCount: 0,
+      therapistMatchViewedCount: 0,
+      janeBookingClickCount: 0,
+      contactHelpOpenedCount: 0,
+      preferredContactTimes: [],
+      userResultsEmailStatus: "not_applicable",
+      userResultsEmailAttempts: 0,
+    });
+  });
+
+  it("derives answeredCount for outcomes stored before quiz v5", () => {
+    const row = quizLeadToRow(lead());
+    const legacyOutcome = { ...lead().outcome } as Partial<
+      NewQuizLead["outcome"]
+    >;
+    delete legacyOutcome.answeredCount;
+    row[13] = JSON.stringify(legacyOutcome);
+
+    expect(rowToQuizLead(row, 9).outcome.answeredCount).toBe(1);
   });
 
   it("fails closed for corrupted JSON or notification status", () => {
@@ -110,6 +187,35 @@ describe("quiz lead sheet serialization", () => {
     badAccessAttempts[33] = -1;
     expect(() => rowToQuizLead(badAccessAttempts, 2)).toThrow(
       /invalid access notification attempts/,
+    );
+
+    const badIntent = quizLeadToRow(lead());
+    badIntent[35] = "diagnose_me";
+    expect(() => rowToQuizLead(badIntent, 2)).toThrow(/invalid quiz intent/);
+
+    const badUserEmailStatus = quizLeadToRow(lead());
+    badUserEmailStatus[50] = "probably sent";
+    expect(() => rowToQuizLead(badUserEmailStatus, 2)).toThrow(
+      /invalid user results email status/,
+    );
+
+    const badPreferredTimes = quizLeadToRow(lead());
+    badPreferredTimes[56] = JSON.stringify([
+      "2026-08-03T10:30",
+      "2026-08-03T10:30",
+    ]);
+    badPreferredTimes[57] = "America/Toronto";
+    expect(() => rowToQuizLead(badPreferredTimes, 2)).toThrow(
+      /invalid preferred contact times JSON/,
+    );
+
+    const timesWithoutZone = quizLeadToRow(lead());
+    timesWithoutZone[56] = JSON.stringify([
+      "2026-08-03T10:30",
+      "2026-08-04T14:00",
+    ]);
+    expect(() => rowToQuizLead(timesWithoutZone, 2)).toThrow(
+      /invalid preferred contact time zone/,
     );
   });
 
@@ -139,18 +245,27 @@ describe("quiz lead sheet header migration", () => {
 
     const legacyHeaders = initial.headers.slice(0, 29);
     const migration = planQuizLeadHeaderUpdate(legacyHeaders);
-    expect(migration).toEqual({
+    expect(migration).toMatchObject({
       kind: "write",
       firstColumn: "AD",
-      headers: [
+    });
+    if (migration.kind !== "write") throw new Error("expected migration");
+    expect(migration.headers.slice(0, 6)).toEqual([
         "Results Access Notification Status",
         "Results Access Notification Claim ID",
         "Results Access Notification Claimed At (ISO)",
         "Results Access Notification Sent At (ISO)",
         "Results Access Notification Attempts",
         "Results Access Notification Last Error",
-      ],
-    });
+    ]);
+    expect(migration.headers).toContain("Quiz Intent");
+    expect(migration.headers).toContain("Campaign Attribution JSON");
+    expect(migration.headers).toContain("User Results Email Last Error");
+    expect(migration.headers.slice(-2)).toEqual([
+      "Preferred Contact Times JSON",
+      "Preferred Contact Time Zone",
+    ]);
+    expect(initial.headers).toHaveLength(58);
 
     expect(planQuizLeadHeaderUpdate(initial.headers)).toEqual({ kind: "current" });
   });

@@ -7,10 +7,12 @@ import {
   SCORE_MAX,
   SCORE_MIN,
   bandFor,
+  getResultContent,
   scoreBandFor,
   scoreQuiz,
   type Answers,
 } from "@/lib/quiz";
+import { QUIZ_INTENT_VALUES } from "@/lib/quizIntent";
 
 const scoredIds = QUESTIONS.filter((q) => q.kind === "scored").map((q) => q.id);
 
@@ -26,8 +28,8 @@ describe("versioning", () => {
     expect(SCORING_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  it("bumped the quiz version after removing the language question", () => {
-    expect(QUIZ_VERSION).toBe("4.0.0");
+  it("bumped the quiz version after adding the intent question", () => {
+    expect(QUIZ_VERSION).toBe("5.0.0");
   });
 });
 
@@ -45,10 +47,18 @@ describe("removed language preference", () => {
     }
   });
 
-  it("keeps the remaining 18 screens contiguous with safety last", () => {
-    expect(TOTAL_QUESTIONS).toBe(18);
+  it("keeps 19 screens contiguous with safety immediately before intent", () => {
+    expect(TOTAL_QUESTIONS).toBe(19);
     expect(TOTAL_QUESTIONS).toBe(QUESTIONS.length);
-    expect(QUESTIONS.at(-1)?.kind).toBe("safety");
+    expect(QUESTIONS.at(-2)).toMatchObject({ id: "safety", kind: "safety" });
+    expect(QUESTIONS.at(-1)).toMatchObject({
+      id: "intent",
+      kind: "intent",
+      text: "What would feel most helpful as your next step?",
+    });
+    expect(QUESTIONS.at(-1)?.options.map((option) => option.value)).toEqual(
+      QUIZ_INTENT_VALUES,
+    );
   });
 });
 
@@ -80,8 +90,9 @@ describe("removed questions (age & Ontario residency)", () => {
     // Progress in the UI is index / (TOTAL_QUESTIONS - 1); the last index → 100%.
     const lastIndex = QUESTIONS.length - 1;
     expect(Math.round((lastIndex / (QUESTIONS.length - 1)) * 100)).toBe(100);
-    // The safety check remains the final screen.
-    expect(QUESTIONS[lastIndex].kind).toBe("safety");
+    // Intent is final, with the safety check immediately before it.
+    expect(QUESTIONS[lastIndex]).toMatchObject({ id: "intent", kind: "intent" });
+    expect(QUESTIONS[lastIndex - 1]).toMatchObject({ id: "safety", kind: "safety" });
   });
 });
 
@@ -89,17 +100,36 @@ describe("scoreQuiz — overall score", () => {
   it("gives the maximum score when nothing is bothering the visitor", () => {
     const outcome = scoreQuiz(answersWithAllScored(0));
     expect(outcome.score).toBe(SCORE_MAX);
+    expect(outcome.answeredCount).toBe(scoredIds.length);
   });
 
   it("gives the minimum score at maximum reported strain", () => {
     const outcome = scoreQuiz(answersWithAllScored(3));
     expect(outcome.score).toBe(SCORE_MIN);
+    expect(outcome.answeredCount).toBe(scoredIds.length);
   });
 
-  it("returns null when every scored question is skipped", () => {
+  it("returns a transparent, non-misleading result when every scored question is skipped", () => {
     const outcome = scoreQuiz(answersWithAllScored(null));
     expect(outcome.score).toBeNull();
+    expect(outcome.answeredCount).toBe(0);
     expect(outcome.resultKey).toBe("mild");
+
+    const content = getResultContent(outcome);
+    expect(content.leadLabel).toBe("Not enough answered to interpret");
+    expect(content.heading).toBe("There isn’t enough information for a clear snapshot");
+    expect(content.summary).toMatch(/cannot responsibly describe/i);
+    expect(content.reframe).toMatch(/not answering is valid/i);
+    expect(content.heading).not.toMatch(/steady|doing well|low strain/i);
+  });
+
+  it("reports how many scored questions were actually answered", () => {
+    const answers = answersWithAllScored(null);
+    answers[scoredIds[0]] = 0;
+    answers[scoredIds[1]] = 3;
+    answers[scoredIds[2]] = "2" as unknown as number;
+
+    expect(scoreQuiz(answers).answeredCount).toBe(2);
   });
 
   it("higher strain always lowers the score (direction check)", () => {
@@ -152,6 +182,20 @@ describe("scoreQuiz — result key", () => {
     const withContext = { ...answers, duration: "chronic", impact: "severe" };
     expect(scoreQuiz(withContext).score).toBe(scoreQuiz(answers).score);
   });
+
+  it.each(QUIZ_INTENT_VALUES)(
+    "keeps intent %s completely outside clinical-style scoring",
+    (intent) => {
+      const answers = {
+        ...answersWithAllScored(2),
+        duration: "months",
+        impact: "moderate",
+      };
+      const baseline = scoreQuiz(answers);
+
+      expect(scoreQuiz({ ...answers, intent })).toEqual(baseline);
+    },
+  );
 });
 
 describe("result bands — every band and its boundaries", () => {
@@ -169,7 +213,7 @@ describe("result bands — every band and its boundaries", () => {
   });
 
   it("handles a null score", () => {
-    expect(scoreBandFor(null)).toBe("Your reflection");
+    expect(scoreBandFor(null)).toBe("Not enough answered to calculate a score");
   });
 
   it.each([

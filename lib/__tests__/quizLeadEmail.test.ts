@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   buildQuizLeadEmail,
   buildQuizResultsAccessEmail,
+  buildQuizUserResultsEmail,
   type QuizLeadEmailModel,
   type QuizResultsAccessEmailModel,
 } from "@/lib/server/quizLeadEmail";
-import { CONTACT_CONSENT_TEXT } from "@/lib/quizLead";
+import {
+  CONTACT_CONSENT_TEXT,
+  RESULTS_ACCESS_PRIVACY_TEXT,
+  RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
+} from "@/lib/quizLead";
 
 function model(overrides: Partial<QuizLeadEmailModel> = {}): QuizLeadEmailModel {
   return {
@@ -19,6 +24,21 @@ function model(overrides: Partial<QuizLeadEmailModel> = {}): QuizLeadEmailModel 
     consentTimestampLabel: "Wednesday, July 22, 2026 at 2:00 p.m.",
     consentText: CONTACT_CONSENT_TEXT,
     consentTextVersion: "2026-07-22.v1",
+    contactMethod: "text",
+    contactPhone: "613-555-0199",
+    preferredTimes: [
+      "2026-08-03T10:30",
+      "2026-08-04T14:00",
+    ],
+    timeZone: "America/Toronto",
+    contactMessage: "Please text first.",
+    intent: "brief_consultation",
+    attribution: { source: "google", campaign: "ottawa-therapy" },
+    resultsViewed: true,
+    therapistMatchViewed: true,
+    janeBookingClicked: true,
+    janeCtaPlacement: "results_primary",
+    contactHelpRequested: true,
     adminUrl: "https://admin.example.com/quiz/VQ-TEST1234",
     ...overrides,
   };
@@ -37,13 +57,21 @@ function accessModel(
     recommendedTherapistName: "Tim Kahtava",
     submittedAtLabel: "Thursday, July 23, 2026 at 2:00 p.m.",
     privacyAcknowledgedAtLabel: "Thursday, July 23, 2026 at 2:00 p.m.",
+    privacyText: RESULTS_ACCESS_PRIVACY_TEXT,
+    privacyTextVersion: RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
+    intent: "exploring",
+    attribution: { source: "google", campaign: "ottawa-therapy" },
+    resultsViewed: false,
+    therapistMatchViewed: false,
+    janeBookingClicked: false,
+    contactHelpRequested: false,
     adminUrl: "https://admin.example.com/quiz/VQ-ACCESS1234",
     ...overrides,
   };
 }
 
 describe("buildQuizResultsAccessEmail", () => {
-  it("builds a neutral internal results notification without contact permission", () => {
+  it("states the specific initial staff/therapist contact and sharing authorization", () => {
     const email = buildQuizResultsAccessEmail(accessModel());
 
     expect(email.subject).toBe("New Quiz Results Submission — Alex");
@@ -54,20 +82,52 @@ describe("buildQuizResultsAccessEmail", () => {
       expect(content).toContain("Worry and tension stood out");
       expect(content).toContain("Tim Kahtava");
       expect(content).toContain("VQ-ACCESS1234");
-      expect(content).toMatch(/results access only/i);
-      expect(content).toMatch(/contact (?:the visitor )?regarding therapy services/i);
-      expect(content).toMatch(/separate therapist-contact request is required/i);
+      expect(content).toMatch(/contact and therapist sharing authorized/i);
+      expect(content).toMatch(/authorized staff/i);
+      expect(content).toMatch(/recommended or matched therapist/i);
+      expect(content).toMatch(/by email, phone, or text/i);
+      expect(content).toMatch(/quiz results, (?:the )?therapist match, consultations, scheduling/i);
+      expect(content).toMatch(/share their contact details and relevant quiz summary/i);
+      expect(content).toMatch(/does not authorize sale/i);
+      expect(content).toMatch(/unrelated promotional marketing/i);
+      expect(content).toContain("I’m just exploring right now");
+      expect(content).toContain("campaign: ottawa-therapy");
+      expect(content).toMatch(/outbound click is not a confirmed/i);
     }
   });
 
-  it("never describes results access as granted therapist-contact consent", () => {
+  it("keeps the authorization specific and does not imply unrelated outreach", () => {
     const email = buildQuizResultsAccessEmail(accessModel());
     const combined = `${email.subject}\n${email.text}\n${email.html}`;
 
-    expect(combined).toMatch(/therapist contact not requested/i);
-    expect(combined).not.toMatch(/explicitly requested to be contacted/i);
+    expect(combined).toMatch(/recommended or matched therapist to contact/i);
+    expect(combined).not.toMatch(/any therapist|any purpose|any marketing/i);
     expect(combined).not.toContain(CONTACT_CONSENT_TEXT);
     expect(combined).not.toMatch(/user requested contact:\s*yes/i);
+  });
+
+  it("does not infer current therapist-contact authorization from legacy or inconsistent consent", () => {
+    for (const legacy of [
+      accessModel({
+        privacyText: "I consent to receiving my quiz results.",
+        privacyTextVersion: "2026-07-22.v1",
+      }),
+      accessModel({
+        privacyText: "Different copy despite a current-looking version.",
+        privacyTextVersion: RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
+      }),
+    ]) {
+      const email = buildQuizResultsAccessEmail(legacy);
+      const combined = `${email.text}\n${email.html}`;
+
+      expect(combined).toMatch(/legacy version; review required/i);
+      expect(combined).toMatch(
+        /do not infer authorization for therapist contact or disclosure/i,
+      );
+      expect(combined).not.toMatch(
+        /contact and therapist sharing authorized/i,
+      );
+    }
   });
 
   it("sanitizes the subject and escapes submitted values in HTML", () => {
@@ -109,7 +169,7 @@ describe("buildQuizResultsAccessEmail", () => {
 describe("buildQuizLeadEmail", () => {
   it("uses the requested subject with the visitor's first name", () => {
     expect(buildQuizLeadEmail(model()).subject).toBe(
-      "New Therapist Contact Request — Alex",
+      "Booking Help Requested — Alex",
     );
   });
 
@@ -118,7 +178,7 @@ describe("buildQuizLeadEmail", () => {
       model({ firstName: "Alex\r\nBcc: attacker@example.com" }),
     );
     expect(subject).toBe(
-      "New Therapist Contact Request — Alex Bcc: attacker@example.com",
+      "Booking Help Requested — Alex Bcc: attacker@example.com",
     );
     expect(subject).not.toMatch(/[\r\n]/);
   });
@@ -132,9 +192,16 @@ describe("buildQuizLeadEmail", () => {
       expect(content).toContain("Worry and tension stood out");
       expect(content).toContain("Tim Kahtava");
       expect(content).toContain("July 22, 2026");
-      expect(content).toContain("explicitly requested");
+      expect(content).toContain("explicitly asked");
       expect(content).toContain("VQ-TEST1234");
       expect(content).toContain(CONTACT_CONSENT_TEXT);
+      expect(content).toContain("Preferred contact method");
+      expect(content).toContain("2026-08-03T10:30");
+      expect(content).toContain("2026-08-04T14:00");
+      expect(content).toContain("America/Toronto");
+      expect(content).toMatch(/not confirmed/i);
+      expect(content).toMatch(/no appointment is booked until/i);
+      expect(content).toMatch(/outbound click is not a confirmed/i);
     }
   });
 
@@ -170,5 +237,70 @@ describe("buildQuizLeadEmail", () => {
   it("does not embed raw quiz answer keys", () => {
     const email = buildQuizLeadEmail(model());
     expect(email.text).not.toMatch(/worry_1|mood_1|gender_preference|"language"/i);
+  });
+});
+
+describe("buildQuizUserResultsEmail", () => {
+  it.each([
+    ["ready_to_speak", "Choose a Consultation Time"],
+    ["brief_consultation", "Book a Consultation with Tim"],
+    ["see_recommended_therapist", "Book a Consultation with Tim"],
+    ["exploring", "See Consultation Times"],
+  ] as const)("uses adaptive CTA copy for %s", (intent, cta) => {
+    const email = buildQuizUserResultsEmail({
+      referenceId: "VQ-USER123456",
+      firstName: "Alex",
+      resultHeading: "Worry and tension stood out",
+      intent,
+      recommendedTherapistSlug: "tim-kahtava",
+      recommendedTherapistName: "Tim Kahtava",
+      privateResultsUrl:
+        "https://valisenmentalhealth.com/quiz#result=v1.VQ-USER123456.token",
+    });
+
+    expect(email.text).toContain(cta);
+    expect(email.html).toContain(cta);
+    expect(email.bookingUrl).toBe(
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
+    );
+    expect(email.text).toContain("#result=");
+    expect(email.text).toContain("does not subscribe you to promotional email");
+    expect(email.text).not.toMatch(/newsletter|special offer/i);
+  });
+
+  it("falls back to the verified clinic Jane page without a match", () => {
+    const email = buildQuizUserResultsEmail({
+      referenceId: "VQ-USER123456",
+      firstName: "Alex",
+      resultHeading: "Your reflection",
+      intent: "exploring",
+      recommendedTherapistName: null,
+      privateResultsUrl:
+        "https://valisenmentalhealth.com/quiz#result=v1.VQ-USER123456.token",
+    });
+    expect(email.bookingUrl).toBe("https://valisenmentalhealth.janeapp.com/");
+  });
+
+  it("describes Dayong's clinic-level Jane fallback without implying personal availability", () => {
+    const email = buildQuizUserResultsEmail({
+      referenceId: "VQ-USER123456",
+      firstName: "Alex",
+      resultHeading: "Your reflection",
+      intent: "see_recommended_therapist",
+      recommendedTherapistSlug: "dayong-quan",
+      recommendedTherapistName: "Dayong Quan",
+      privateResultsUrl:
+        "https://valisenmentalhealth.com/quiz#result=v1.VQ-USER123456.token",
+    });
+
+    expect(email.bookingUrl).toBe("https://valisenmentalhealth.janeapp.com/");
+    for (const content of [email.text, email.html]) {
+      expect(content).toContain("View Valisen Consultation Times");
+      expect(content).toMatch(/clinic booking page in Jane/i);
+      expect(content).toMatch(/recommended match remains Dayong/i);
+      expect(content).not.toMatch(
+        /Dayong(?:’|&rsquo;|'|&#x27;)s availability|Book a Consultation with Dayong/i,
+      );
+    }
   });
 });

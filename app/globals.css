@@ -30,6 +30,22 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Once a persisted result is restored, keep the personalized journey at the
+ * top instead of retaining the quiz's introductory marketing block above it. */
+#quiz-shell {
+  overflow-x: clip;
+}
+
+@supports selector(:has(*)) {
+  #quiz-shell:has([data-quiz-results]) {
+    padding-top: 24px;
+  }
+
+  #quiz-shell:has([data-quiz-results]) #quiz-intro {
+    display: none;
+  }
+}
+
 @layer components {
   /* ── Buttons ─────────────────────────────────────────── */
   .btn {

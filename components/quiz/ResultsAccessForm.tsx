@@ -9,6 +9,7 @@ import {
   MAX_FIRST_NAME_LENGTH,
   MAX_PHONE_LENGTH,
   RESULTS_ACCESS_PRIVACY_TEXT,
+  RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
   isValidEmail,
   isValidPhone,
 } from "@/lib/quizLead";
@@ -18,6 +19,8 @@ export type ResultsAccessDetails = {
   email: string;
   phone: string;
   privacyAcknowledged: true;
+  privacyLanguage: string;
+  privacyTextVersion: string;
   /** Honeypot value. Human visitors leave this empty. */
   website: string;
 };
@@ -67,7 +70,7 @@ export default function ResultsAccessForm({
       touched.phone && !valuesValid.phone ? "Please enter a valid phone number." : undefined,
     privacy:
       touched.privacy && !valuesValid.privacy
-        ? "Please acknowledge the privacy notice to view your results."
+        ? "Please provide this consent to view your results."
         : undefined,
   };
 
@@ -99,6 +102,8 @@ export default function ResultsAccessForm({
         email: email.trim(),
         phone: phone.trim(),
         privacyAcknowledged: true,
+        privacyLanguage: RESULTS_ACCESS_PRIVACY_TEXT,
+        privacyTextVersion: RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
         website,
       });
     } catch (error) {
@@ -269,8 +274,8 @@ export default function ResultsAccessForm({
               className="mt-0.5 h-5 w-5 shrink-0 accent-teal"
             />
             <span id={`${idPrefix}-privacy-copy`} className="text-[13.5px] leading-[1.65] text-ink-secondary">
-              {RESULTS_ACCESS_PRIVACY_TEXT} This acknowledgement is required to save and show your
-              results. <strong className="font-semibold text-ink">It is not consent for a therapist to contact you.</strong>
+              {RESULTS_ACCESS_PRIVACY_TEXT} This consent is required to save and show your
+              results.
             </span>
           </label>
           {errors.privacy ? (
@@ -328,8 +333,8 @@ export default function ResultsAccessForm({
           {!submitting ? <ArrowRight size={17} className="ml-2" aria-hidden="true" /> : null}
         </button>
         <p className="mt-3 text-center text-[12px] leading-[1.55] text-ink-hint">
-          Your score, interpretation, therapist recommendation, and booking options stay hidden
-          until this secure step is complete.
+          We&apos;ll email the results and booking link you requested. This does not enrol you in
+          promotional or marketing emails.
         </p>
       </form>
 

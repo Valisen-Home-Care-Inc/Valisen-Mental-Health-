@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:quiz-ui": "node scripts/quiz-flow-smoke.mjs",
+    "screenshots:quiz": "node scripts/quiz-results-screenshots.mjs",
     "typecheck": "tsc --noEmit",
     "screenshot": "node screenshot.js"
   },

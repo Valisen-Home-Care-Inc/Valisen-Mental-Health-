@@ -1,3 +1,8 @@
+import {
+  QUIZ_INTENT_OPTIONS,
+  type QuizIntentOption,
+} from "@/lib/quizIntent";
+
 /**
  * Valisen self-reflection quiz — single source of truth.
  *
@@ -22,7 +27,7 @@
  * produced it. Bump QUIZ_VERSION when questions change; bump
  * SCORING_VERSION when thresholds, weights, or bands change.
  */
-export const QUIZ_VERSION = "4.0.0";
+export const QUIZ_VERSION = "5.0.0";
 export const SCORING_VERSION = "1.0.0";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -102,6 +107,13 @@ export type Question =
       /** Selecting one of these values triggers the safety message. */
       concerningValues: string[];
       options: { label: string; value: string }[];
+    }
+  | {
+      id: "intent";
+      kind: "intent";
+      text: string;
+      helper?: string;
+      options: readonly QuizIntentOption[];
     };
 
 const scored = (
@@ -214,6 +226,13 @@ export const QUESTIONS: Question[] = [
       { label: "Prefer not to answer", value: "skip" },
     ],
   },
+  {
+    id: "intent",
+    kind: "intent",
+    text: "What would feel most helpful as your next step?",
+    helper: "Choose the option that feels closest to where you are today.",
+    options: QUIZ_INTENT_OPTIONS,
+  },
 ];
 
 export const TOTAL_QUESTIONS = QUESTIONS.length;
@@ -251,11 +270,13 @@ export type QuizOutcome = {
   duration?: string;
   impact?: string;
   /**
-   * Overall well-being reflection score, 0–100 (higher = steadier).
+   * Overall well-being reflection score, 20–98 (higher = steadier).
    * Derived from ALL answered scored questions, so it varies with responses.
    * This is a self-reflection number, NOT a clinical or diagnostic score.
    */
   score: number | null;
+  /** Number of the 12 scored questions the visitor chose to answer. */
+  answeredCount: number;
 };
 
 /**
@@ -266,7 +287,7 @@ export const SCORE_MAX = 98;
 export const SCORE_MIN = 20;
 
 export function scoreBandFor(score: number | null): string {
-  if (score === null) return "Your reflection";
+  if (score === null) return "Not enough answered to calculate a score";
   if (score >= 80) return "Generally steady right now";
   if (score >= 60) return "Coping, but under some strain";
   if (score >= 40) return "Carrying a real load right now";
@@ -343,6 +364,7 @@ export function scoreQuiz(answers: Answers): QuizOutcome {
     duration: typeof answers["duration"] === "string" ? (answers["duration"] as string) : undefined,
     impact: typeof answers["impact"] === "string" ? (answers["impact"] as string) : undefined,
     score,
+    answeredCount: allValues.length,
   };
 }
 
@@ -469,7 +491,7 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
     badge: "The tangle",
     heading: "A few things are competing for your attention at once",
     summary:
-      "This is the interesting one: your answers don't crown a single culprit. Worry, mood, stress, and connection are all in the mix — and they're feeding each other, which is why it's been hard to point to one thing and say 'that's it.' That overlap is incredibly common, and naming the threads is where the relief starts.",
+      "Your answers did not point to just one area. Two or more concerns appear close together, and those patterns can affect one another. That overlap is common, and naming the strongest threads can make the next step feel more manageable.",
     feelsLike: [
       "More than one area feeling heavy at the same time",
       "Not being sure which thing is driving the others",
@@ -511,6 +533,31 @@ export const RESULTS: Record<ResultKey, ResultContent> = {
   },
 };
 
+const INSUFFICIENT_RESULT: ResultContent = {
+  key: "mild",
+  leadLabel: "Not enough answered to interpret",
+  badge: "A partial reflection",
+  heading: "There isn’t enough information for a clear snapshot",
+  summary:
+    "You chose not to answer the scored questions, so this quiz cannot responsibly describe one area as stronger or steadier than another. You can still explore therapist options or retake the quiz whenever you wish.",
+  feelsLike: [
+    "You may prefer to keep some answers private",
+    "You may still be deciding what kind of support would feel useful",
+    "A consultation can focus on questions rather than a quiz score",
+  ],
+  whatHelps: [
+    "Choose only the questions you feel comfortable answering",
+    "Ask a therapist what an initial consultation involves",
+    "Use therapist profiles without relying on a quiz interpretation",
+  ],
+  reframe:
+    "Not answering is valid. It simply means the quiz does not have enough information to interpret.",
+  therapistSlugs: ["tim-kahtava", "dayong-quan", "ryann-simpson"],
+  servicePath: "/consultation",
+  serviceLabel: "View consultation options",
+};
+
 export function getResultContent(outcome: QuizOutcome): ResultContent {
+  if (outcome.score === null) return INSUFFICIENT_RESULT;
   return RESULTS[outcome.resultKey];
 }

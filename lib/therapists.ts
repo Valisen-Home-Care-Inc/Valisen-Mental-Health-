@@ -72,13 +72,6 @@ export type Therapist = {
   carouselPhotoPosition?: string;
   featureLabel?: string;
   comingSoon?: boolean;
-  /**
-   * This therapist's own Jane staff-member booking page. Leave undefined
-   * until the correct staff link is confirmed — a therapist WITHOUT a
-   * verified individual booking link is never chosen as the quiz's
-   * suggested match (they still appear in the team list).
-   */
-  janeBookingUrl?: string;
   /** Verified metadata consumed by the quiz matching engine. */
   matching: MatchingProfile;
   featuredHero: {
@@ -147,9 +140,6 @@ export const therapists: Therapist[] = [
     comingSoon: false,
     availability: "Accepting new clients",
     acceptingNewClients: true,
-    // No individual Jane staff link confirmed yet — excluded from suggested
-    // matches until one is added here.
-    janeBookingUrl: undefined,
     matching: {
       gender: "man",
       concernTags: [
@@ -287,7 +277,6 @@ export const therapists: Therapist[] = [
     initials: "WB",
     availability: "Accepting new clients",
     acceptingNewClients: true,
-    janeBookingUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
     matching: {
       gender: "man",
       concernTags: [
@@ -414,7 +403,6 @@ export const therapists: Therapist[] = [
     carouselPhotoPosition: "center -10px",
     availability: "Accepting new clients",
     acceptingNewClients: true,
-    janeBookingUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
     matching: {
       gender: "man",
       concernTags: [
@@ -544,7 +532,6 @@ export const therapists: Therapist[] = [
     comingSoon: false,
     availability: "Accepting new clients",
     acceptingNewClients: true,
-    janeBookingUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
     matching: {
       gender: "woman",
       concernTags: [

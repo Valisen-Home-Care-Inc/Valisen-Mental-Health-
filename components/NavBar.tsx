@@ -22,7 +22,12 @@ const FAQ_CATEGORIES = [
   { label: "About Valisen", href: "/faq" },
 ];
 
-export default function NavBar() {
+export default function NavBar({
+  hideBookingCta = false,
+}: {
+  /** Quiz/results pages provide a personalized Jane action instead. */
+  hideBookingCta?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
 
@@ -50,7 +55,7 @@ export default function NavBar() {
               <ChevronDown size={13} className="transition-transform duration-150 group-hover:rotate-180" />
             </Link>
             {/* Dropdown panel */}
-            <div className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 pt-3 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+            <div className="pointer-events-none absolute right-0 top-full pt-3 opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
               <div className="w-52 overflow-hidden rounded-xl border border-black/8 bg-white shadow-lg">
                 {FAQ_CATEGORIES.map((cat) => (
                   <Link
@@ -73,33 +78,34 @@ export default function NavBar() {
             </div>
           </li>
 
-          {/* Book now dropdown */}
-          <li className="group relative">
-            <Link href={MATCHING_FORM_URL} className="btn-dark gap-1.5">
-              Book now
-              <ChevronDown size={14} className="transition-transform duration-150 group-hover:rotate-180" />
-            </Link>
-            {/* Dropdown panel */}
-            <div className="pointer-events-none absolute right-0 top-full pt-3 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
-              <div className="w-72 rounded-xl border border-black/8 bg-white p-3 shadow-lg">
-                <Link
-                  href={MATCHING_FORM_URL}
-                  className="btn-dark w-full justify-center"
-                >
-                  Book Now
-                </Link>
-                <p className="mt-3 px-1 text-[13px] leading-[1.5] text-ink-secondary">
-                  Not sure who to book with?{" "}
+          {!hideBookingCta ? (
+            /* Book now dropdown */
+            <li className="group relative">
+              <Link href={MATCHING_FORM_URL} className="btn-dark gap-1.5">
+                Book now
+                <ChevronDown size={14} className="transition-transform duration-150 group-hover:rotate-180" />
+              </Link>
+              <div className="pointer-events-none absolute right-0 top-full pt-3 opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div className="w-72 rounded-xl border border-black/8 bg-white p-3 shadow-lg">
                   <Link
-                    href="/consultation"
-                    className="font-semibold text-teal no-underline hover:underline"
+                    href={MATCHING_FORM_URL}
+                    className="btn-dark w-full justify-center"
                   >
-                    Fill out our Request form
+                    Book Now
                   </Link>
-                </p>
+                  <p className="mt-3 px-1 text-[13px] leading-[1.5] text-ink-secondary">
+                    Not sure who to book with?{" "}
+                    <Link
+                      href="/consultation"
+                      className="font-semibold text-teal no-underline hover:underline"
+                    >
+                      Fill out our Request form
+                    </Link>
+                  </p>
+                </div>
               </div>
-            </div>
-          </li>
+            </li>
+          ) : null}
         </ul>
 
         <button
@@ -173,25 +179,27 @@ export default function NavBar() {
               )}
             </li>
 
-            <li className="pt-2">
-              <Link
-                href={MATCHING_FORM_URL}
-                className="btn-dark w-full justify-center"
-                onClick={() => setOpen(false)}
-              >
-                Book Now
-              </Link>
-              <p className="mt-2 px-1 text-center text-[13px] leading-[1.5] text-ink-secondary">
-                Not sure who to book with?{" "}
+            {!hideBookingCta ? (
+              <li className="pt-2">
                 <Link
-                  href="/consultation"
-                  className="font-semibold text-teal no-underline"
+                  href={MATCHING_FORM_URL}
+                  className="btn-dark w-full justify-center"
                   onClick={() => setOpen(false)}
                 >
-                  Fill out our Request form
+                  Book Now
                 </Link>
-              </p>
-            </li>
+                <p className="mt-2 px-1 text-center text-[13px] leading-[1.5] text-ink-secondary">
+                  Not sure who to book with?{" "}
+                  <Link
+                    href="/consultation"
+                    className="font-semibold text-teal no-underline"
+                    onClick={() => setOpen(false)}
+                  >
+                    Fill out our Request form
+                  </Link>
+                </p>
+              </li>
+            ) : null}
           </ul>
         </div>
       ) : null}

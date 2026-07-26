@@ -1,7 +1,6 @@
 import { ArrowRight, CalendarDays, CheckCircle, Phone } from "lucide-react";
 import BookingNote from "@/components/BookingNote";
-
-const JANE_URL = "https://valisenmentalhealth.janeapp.com/";
+import { CLINIC_JANE_BOOKING_URL } from "@/lib/therapistBooking";
 
 export default function HeroSection() {
   return (
@@ -103,7 +102,7 @@ function FreeConsultationCard() {
 
       <div className="mt-6 flex flex-col gap-3">
         <a
-          href={JANE_URL}
+          href={CLINIC_JANE_BOOKING_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="btn-primary w-full justify-center"

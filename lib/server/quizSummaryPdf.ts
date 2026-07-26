@@ -17,14 +17,20 @@ export type QuizSummaryPdfModel = {
   submittedAtLabel: string;
   quizVersion: string;
   scoringVersion: string;
-  contactConsent:
-    | {
-        status: "not_requested";
-      }
+  initialContactAuthorization:
     | {
         status: "granted";
         timestampLabel: string;
+        textVersion: string;
+      }
+    | {
+        status: "legacy";
+        timestampLabel: string;
+        textVersion: string;
       };
+  contactHelpRequest:
+    | { status: "not_requested" }
+    | { status: "submitted"; timestampLabel: string };
   /** Check-In Score (higher = steadier). Null when every question was skipped. */
   score: number | null;
   scoreMax: number;
@@ -36,19 +42,50 @@ export type QuizSummaryPdfModel = {
 };
 
 /**
- * Visible consent metadata used by the PDF. Keeping this transformation
- * separate makes it impossible for an access-stage summary to accidentally
- * inherit the consent-stage "Yes" label or timestamp.
+ * Visible authorization metadata used by the PDF. The initial results-access
+ * consent and the later booking-help request are separate facts: the latter
+ * never becomes the label that grants the former.
  */
 export function getQuizSummaryConsentMetadata(
-  contactConsent: QuizSummaryPdfModel["contactConsent"],
+  initialContactAuthorization: QuizSummaryPdfModel["initialContactAuthorization"],
+  contactHelpRequest: QuizSummaryPdfModel["contactHelpRequest"],
 ): Array<[string, string]> {
-  return contactConsent.status === "granted"
-    ? [
-        ["Consent to be contacted", "Yes"],
-        ["Consent timestamp", contactConsent.timestampLabel],
-      ]
-    : [["Consent to be contacted", "No — not requested"]];
+  const initialRows: Array<[string, string]> =
+    initialContactAuthorization.status === "granted"
+      ? [
+          ["Initial contact & sharing", "Authorized"],
+          ["Contact channels", "Email, phone, text"],
+          [
+            "Authorized purposes",
+            "Results, match, consultations, scheduling, therapy",
+          ],
+          [
+            "Information sharing",
+            "Contact details + relevant summary with therapist",
+          ],
+          [
+            "Excluded uses",
+            "Sale + unrelated promotional marketing",
+          ],
+          ["Authorization version", initialContactAuthorization.textVersion],
+          [
+            "Authorization recorded",
+            initialContactAuthorization.timestampLabel,
+          ],
+        ]
+      : [
+          ["Initial contact & sharing", "See recorded legacy consent"],
+          ["Consent version", initialContactAuthorization.textVersion],
+          ["Consent recorded", initialContactAuthorization.timestampLabel],
+        ];
+  const helpRows: Array<[string, string]> =
+    contactHelpRequest.status === "submitted"
+      ? [
+          ["Contact-help request", "Submitted — times not confirmed"],
+          ["Help request recorded", contactHelpRequest.timestampLabel],
+        ]
+      : [["Contact-help request", "Not requested"]];
+  return [...initialRows, ...helpRows];
 }
 
 const TEAL = rgb(42 / 255, 127 / 255, 127 / 255);
@@ -146,7 +183,10 @@ export async function buildQuizSummaryPdf(model: QuizSummaryPdfModel): Promise<U
     ["Submitted", model.submittedAtLabel],
     ["Quiz version", model.quizVersion],
     ["Scoring rules version", model.scoringVersion],
-    ...getQuizSummaryConsentMetadata(model.contactConsent),
+    ...getQuizSummaryConsentMetadata(
+      model.initialContactAuthorization,
+      model.contactHelpRequest,
+    ),
   ];
   const metaBoxHeight = metaRows.length * 16 + 24;
   page.drawRectangle({

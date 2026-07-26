@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { QUESTIONS, scoreQuiz, type Answers } from "@/lib/quiz";
 import {
+  MATCHING_TIE_BREAK_ORDER,
   MIN_MATCH_SCORE,
   extractPreferences,
   isValidJaneBookingUrl,
   matchTherapist,
   type MatchPreferences,
 } from "@/lib/matching";
+import { getTherapistBookingConfig } from "@/lib/therapistBooking";
 import { therapists, type Therapist } from "@/lib/therapists";
 
 const scoredIds = QUESTIONS.filter((q) => q.kind === "scored").map((q) => q.id);
@@ -30,24 +32,14 @@ const NO_PREFS: MatchPreferences = {
   genderPreference: "no-preference",
 };
 
-/** Synthetic roster helper for hard-filter tests. */
-function fakeTherapist(overrides: Partial<Therapist> & { slug: string }): Therapist {
-  const base = therapists[0];
-  return {
-    ...base,
-    name: overrides.slug,
-    janeBookingUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/99",
-    acceptingNewClients: true,
-    comingSoon: false,
-    matching: {
-      gender: "man",
-      concernTags: ["anxiety"],
-      dimensions: ["worry"],
-      populations: ["adults-18-plus"],
-      lastVerifiedAt: "2026-07-16",
-    },
-    ...overrides,
-  };
+/** Clone a real, centrally configured therapist for eligibility-filter tests. */
+function configuredTherapist(
+  slug: string,
+  overrides: Partial<Therapist> = {},
+): Therapist {
+  const base = therapists.find((therapist) => therapist.slug === slug);
+  if (!base) throw new Error(`Missing test therapist: ${slug}`);
+  return { ...base, ...overrides };
 }
 
 describe("extractPreferences", () => {
@@ -107,12 +99,23 @@ describe("matchTherapist — real roster", () => {
     }
   });
 
-  it("breaks ties deterministically by roster order", () => {
-    // Relationships-dominant + couples concern scores Wilfred and Tim
-    // identically; Wilfred comes first in the roster.
+  it("breaks ties by the explicit stable order, independent of display roster order", () => {
+    expect(MATCHING_TIE_BREAK_ORDER).toEqual([
+      "ryann-simpson",
+      "wilfred-bengnwi",
+      "tim-kahtava",
+      "dayong-quan",
+    ]);
+
+    // Relationship-dominant + couples concern gives several therapists the
+    // same score. Reversing the injected roster must not change the winner.
     const outcome = scoreQuiz(answersWithDimension("relationships"));
-    const result = matchTherapist(outcome, { ...NO_PREFS, concerns: ["couples-therapy"] });
-    expect(result).toMatchObject({ status: "match", therapistSlug: "wilfred-bengnwi" });
+    const prefs = { ...NO_PREFS, concerns: ["couples-therapy" as const] };
+    const forward = matchTherapist(outcome, prefs, [...therapists]);
+    const reversed = matchTherapist(outcome, prefs, [...therapists].reverse());
+
+    expect(forward).toMatchObject({ status: "match", therapistSlug: "ryann-simpson" });
+    expect(reversed).toMatchObject({ status: "match", therapistSlug: "ryann-simpson" });
   });
 
   it("is deterministic across repeated runs", () => {
@@ -152,13 +155,50 @@ describe("matchTherapist — real roster", () => {
     }
   });
 
+  it.each([
+    {
+      therapistSlug: "dayong-quan",
+      concern: "cultural-adjustment",
+      expectedUrl: "https://valisenmentalhealth.janeapp.com/",
+    },
+    {
+      therapistSlug: "wilfred-bengnwi",
+      concern: "addiction",
+      expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
+    },
+    {
+      therapistSlug: "tim-kahtava",
+      concern: "grief",
+      expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
+    },
+    {
+      therapistSlug: "ryann-simpson",
+      concern: "adhd",
+      expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
+    },
+  ] as const)(
+    "can match $therapistSlug and maps it to its exact centralized booking destination",
+    ({ therapistSlug, concern, expectedUrl }) => {
+      const outcome = scoreQuiz(calmAnswers());
+      const result = matchTherapist(outcome, {
+        ...NO_PREFS,
+        concerns: [concern],
+      });
+
+      expect(result).toMatchObject({ status: "match", therapistSlug });
+      expect(getTherapistBookingConfig(therapistSlug)?.consultationBookingUrl).toBe(
+        expectedUrl,
+      );
+    },
+  );
+
 });
 
 describe("matchTherapist — hard eligibility filters (synthetic roster)", () => {
   const outcome = scoreQuiz(answersWithDimension("worry"));
 
   it("excludes therapists marked coming soon", () => {
-    const roster = [fakeTherapist({ slug: "hidden", comingSoon: true })];
+    const roster = [configuredTherapist("tim-kahtava", { comingSoon: true })];
     expect(matchTherapist(outcome, NO_PREFS, roster)).toEqual({
       status: "no-clear-match",
       reason: "no-eligible-therapist",
@@ -166,15 +206,21 @@ describe("matchTherapist — hard eligibility filters (synthetic roster)", () =>
   });
 
   it("excludes therapists not accepting new clients", () => {
-    const roster = [fakeTherapist({ slug: "full", acceptingNewClients: false })];
+    const roster = [
+      configuredTherapist("tim-kahtava", { acceptingNewClients: false }),
+    ];
     expect(matchTherapist(outcome, NO_PREFS, roster)).toEqual({
       status: "no-clear-match",
       reason: "no-eligible-therapist",
     });
   });
 
-  it("excludes therapists without a valid individual Jane booking URL", () => {
-    const roster = [fakeTherapist({ slug: "no-link", janeBookingUrl: undefined })];
+  it("excludes therapists without a verified centralized booking configuration", () => {
+    const roster = [
+      configuredTherapist("tim-kahtava", {
+        slug: "synthetic-without-booking-config",
+      }),
+    ];
     expect(matchTherapist(outcome, NO_PREFS, roster)).toEqual({
       status: "no-clear-match",
       reason: "no-eligible-therapist",
@@ -183,6 +229,19 @@ describe("matchTherapist — hard eligibility filters (synthetic roster)", () =>
 
   it("rejects booking URLs pointing at other domains", () => {
     expect(isValidJaneBookingUrl("https://evil.example.com/#/staff_member/5")).toBe(false);
+    expect(
+      isValidJaneBookingUrl(
+        "https://valisenmentalhealth.janeapp.com.evil.example/#/staff_member/5",
+      ),
+    ).toBe(false);
+    expect(
+      isValidJaneBookingUrl(
+        "https://valisenmentalhealth.janeapp.com@evil.example/#/staff_member/5",
+      ),
+    ).toBe(false);
+    expect(
+      isValidJaneBookingUrl("http://valisenmentalhealth.janeapp.com/#/staff_member/5"),
+    ).toBe(false);
     expect(isValidJaneBookingUrl("https://valisenmentalhealth.janeapp.com/#/staff_member/5")).toBe(
       true,
     );
@@ -190,8 +249,7 @@ describe("matchTherapist — hard eligibility filters (synthetic roster)", () =>
   });
 
   it("falls back to eligible colleagues when the strongest match is unavailable", () => {
-    const strongest = fakeTherapist({
-      slug: "strongest-but-away",
+    const strongest = configuredTherapist("tim-kahtava", {
       acceptingNewClients: false,
       matching: {
         gender: "man",
@@ -201,9 +259,9 @@ describe("matchTherapist — hard eligibility filters (synthetic roster)", () =>
         lastVerifiedAt: "2026-07-16",
       },
     });
-    const available = fakeTherapist({ slug: "available" });
+    const available = configuredTherapist("ryann-simpson");
     const result = matchTherapist(outcome, NO_PREFS, [strongest, available]);
-    expect(result).toMatchObject({ status: "match", therapistSlug: "available" });
+    expect(result).toMatchObject({ status: "match", therapistSlug: "ryann-simpson" });
   });
 
   it("MIN_MATCH_SCORE guards against weak single-signal noise", () => {

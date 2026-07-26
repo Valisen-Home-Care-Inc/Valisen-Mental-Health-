@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 const EFFECTIVE_DATE = "May 9, 2026";
-const LAST_UPDATED = "July 22, 2026";
+const LAST_UPDATED = "July 26, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -78,16 +78,29 @@ export default function PrivacyPolicyPage() {
               <p>We collect the following categories of personal information:</p>
               <h4 className="mt-4 font-semibold text-ink">a) Information you provide directly</h4>
               <ul className="ml-5 mt-2 list-disc space-y-1">
-                <li>Name, phone number, and email address (intake and quiz results-access forms)</li>
+                <li>
+                  Name, email address, and phone number on the quiz results-access form; plus any
+                  contact preferences you separately provide when asking for booking help
+                </li>
                 <li>Reason for seeking therapy and general mental health concerns</li>
                 <li>
                   Answers you choose to submit through our educational self-reflection quiz,
                   together with the result category and therapist recommendation generated from
-                  those answers. The quiz safety-check response is not stored.
+                  those answers. Your raw safety-check answer is never sent to or stored by
+                  Valisen or our analytics providers. To preserve the appropriate safety message
+                  if you restore a result during the same browser session, only a derived{" "}
+                  <code>safetyFlagged</code> true/false value may be retained temporarily in{" "}
+                  <code>sessionStorage</code> on your device.
                 </li>
                 <li>
-                  Records of privacy acknowledgements and optional therapist-contact requests,
-                  including the wording presented and the date and time of the action
+                  Records of privacy acknowledgements and optional scheduling-help requests,
+                  including your chosen contact method, proposed consultation dates and times,
+                  time zone, optional message, consent wording, and the date and time of the
+                  action
+                </li>
+                <li>
+                  Administrative funnel timestamps, such as when results were viewed, a Jane
+                  booking link was opened, or the booking-help form was opened
                 </li>
                 <li>Insurance provider information (if applicable)</li>
                 <li>Communication preferences</li>
@@ -114,17 +127,26 @@ export default function PrivacyPolicyPage() {
                 <li>To schedule and facilitate therapy services</li>
                 <li>To communicate with you about your care</li>
                 <li>
-                  To save and display quiz results, generate a therapist recommendation, and send
-                  an administrative results summary to Valisen&apos;s authorized internal inbox
+                  To save and display quiz results, generate a therapist recommendation, email the
+                  requested results and matched Jane booking link to you, generate a private
+                  results PDF when you request one, contact you by email, phone, or text about
+                  your result, therapist match, consultations, scheduling, and related therapy
+                  services, share your contact details and relevant quiz summary with the
+                  recommended therapist for those purposes, and send an administrative summary
+                  to Valisen&apos;s authorized internal inbox
                 </li>
                 <li>To issue receipts for insurance claims where applicable</li>
                 <li>To comply with our legal and professional obligations</li>
                 <li>To improve our platform&apos;s services (in aggregate, de-identified form only)</li>
               </ul>
               <p className="mt-3">
-                We do <strong className="text-ink">not</strong> use your information for
-                advertising, sell it to third parties, or use it for any purpose unrelated to
-                your care without your express consent.
+                We do <strong className="text-ink">not</strong> sell your information, use it for
+                unrelated advertising, or use it for purposes outside the consent presented when
+                you submit the form.
+              </p>
+              <p className="mt-3">
+                Receiving your requested quiz results does not enrol you in promotional or
+                marketing email campaigns.
               </p>
             </Section>
 
@@ -135,18 +157,27 @@ export default function PrivacyPolicyPage() {
                 described in this policy.
               </p>
               <p className="mt-3">
-                The quiz results-access form requires a privacy acknowledgement before the quiz
-                submission is saved and results are displayed. That acknowledgement does not
-                authorize Valisen or a therapist to contact you. A therapist-contact request is a
-                separate, voluntary action on the results page and is recorded only when you
-                deliberately select its consent button.
+                The quiz results-access form requires an unchecked acknowledgement before the quiz
+                submission is saved and results are displayed and emailed to you. That
+                acknowledgement authorizes Valisen and the recommended therapist to contact you
+                by email, phone, or text about your quiz result, therapist match, consultations,
+                scheduling, and related therapy services. It also authorizes Valisen to share your
+                contact details and relevant quiz summary with that therapist for those stated
+                purposes. It does not authorize sale of your information or enrolment in unrelated
+                promotional marketing.
               </p>
               <p className="mt-3">
                 When the results-access form is submitted, an administrative copy of the result
                 summary is delivered to Valisen&apos;s authorized internal inbox for secure record
-                handling. That internal notice is clearly marked as{" "}
-                <strong className="text-ink">not a request for therapist contact</strong> and does
-                not authorize follow-up.
+                handling. The stored administrative record captures the exact acknowledgement and
+                its version. The email identifies the authorization status and version, and flags
+                legacy or inconsistent wording for staff review before contact or sharing.
+              </p>
+              <p className="mt-3">
+                The optional scheduling-help form is a separate request to review two to four
+                proposed consultation times. Its checkbox confirms that the times are preferences,
+                not a booked appointment. Valisen or the therapist must still confirm a time before
+                an appointment exists.
               </p>
               <p className="mt-3">
                 You may withdraw consent at any time by contacting us at{" "}
@@ -178,6 +209,14 @@ export default function PrivacyPolicyPage() {
                   consent, to facilitate reimbursement claims.
                 </li>
                 <li>
+                  <strong className="text-ink">Recommended therapist:</strong> Only after you
+                  submit the results-access acknowledgement authorizing Valisen to share your
+                  contact details and relevant quiz summary, and only for result, matching,
+                  consultation, scheduling, and related therapy-service follow-up. If you submit
+                  proposed times through scheduling help, those preferences may also be shared to
+                  coordinate a possible appointment.
+                </li>
+                <li>
                   <strong className="text-ink">Legal requirements:</strong> When required by law,
                   court order, or regulatory body.
                 </li>
@@ -193,7 +232,8 @@ export default function PrivacyPolicyPage() {
               <p>
                 Valisen retains administrative intake and quiz lead records (name, contact
                 information, insurance details when applicable, submitted quiz data, matching
-                information, and consent records) for a minimum of{" "}
+                information, administrative engagement timestamps, proposed scheduling times and
+                time zone, booking-help preferences, and consent records) for a minimum of{" "}
                 <strong className="text-ink">7 years</strong> for tax and regulatory purposes.
               </p>
               <p className="mt-3">
@@ -227,13 +267,17 @@ export default function PrivacyPolicyPage() {
               </p>
               <ul className="ml-5 mt-3 list-disc space-y-1">
                 <li>
-                  <strong className="text-ink">Essential cookies:</strong> Necessary for the
-                  website to function (e.g., form submission state).
+                  <strong className="text-ink">Essential browser storage:</strong> Necessary for
+                  functions such as restoring a private quiz result during the browser session.
+                  This can include the private result capability and the derived{" "}
+                  <code>safetyFlagged</code> true/false value on your device; it does not include
+                  your raw safety-check answer.
                 </li>
                 <li>
                   <strong className="text-ink">Analytics cookies:</strong> We may use
-                  privacy-respecting analytics to understand how visitors use our website. No
-                  personally identifiable information is collected through analytics.
+                  privacy-respecting analytics to understand how visitors use our website. Quiz
+                  scores, concern categories, written responses, safety answers, email addresses,
+                  and phone numbers are not sent in quiz analytics events.
                 </li>
               </ul>
               <p className="mt-3">
