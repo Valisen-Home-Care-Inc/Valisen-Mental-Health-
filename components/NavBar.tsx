@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import Logo from "./Logo";
-import { MATCHING_FORM_URL } from "@/lib/intake";
 import { ChevronDown } from "lucide-react";
+import { CLINIC_JANE_BOOKING_URL } from "@/lib/therapists";
+
+const FINDER_URL = "/therapists#therapist-finder";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -33,7 +35,7 @@ export default function NavBar({
 
   return (
     <nav className="sticky top-0 z-50 border-b border-hairline-light bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-container items-center justify-between px-6 py-[18px] md:px-8">
+      <div className="mx-auto flex max-w-container items-center justify-between px-5 py-3 md:px-8 md:py-[18px]">
         <Logo />
 
         <ul className="hidden items-center gap-7 text-[14px] text-ink md:flex">
@@ -79,31 +81,15 @@ export default function NavBar({
           </li>
 
           {!hideBookingCta ? (
-            /* Book now dropdown */
-            <li className="group relative">
-              <Link href={MATCHING_FORM_URL} className="btn-dark gap-1.5">
-                Book now
-                <ChevronDown size={14} className="transition-transform duration-150 group-hover:rotate-180" />
-              </Link>
-              <div className="pointer-events-none absolute right-0 top-full pt-3 opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
-                <div className="w-72 rounded-xl border border-black/8 bg-white p-3 shadow-lg">
-                  <Link
-                    href={MATCHING_FORM_URL}
-                    className="btn-dark w-full justify-center"
-                  >
-                    Book Now
-                  </Link>
-                  <p className="mt-3 px-1 text-[13px] leading-[1.5] text-ink-secondary">
-                    Not sure who to book with?{" "}
-                    <Link
-                      href="/consultation"
-                      className="font-semibold text-teal no-underline hover:underline"
-                    >
-                      Fill out our Request form
-                    </Link>
-                  </p>
-                </div>
-              </div>
+            <li>
+              <a
+                href={CLINIC_JANE_BOOKING_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-dark"
+              >
+                Book Free Consultation
+              </a>
             </li>
           ) : null}
         </ul>
@@ -181,21 +167,23 @@ export default function NavBar({
 
             {!hideBookingCta ? (
               <li className="pt-2">
-                <Link
-                  href={MATCHING_FORM_URL}
+                <a
+                  href={CLINIC_JANE_BOOKING_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="btn-dark w-full justify-center"
                   onClick={() => setOpen(false)}
                 >
-                  Book Now
-                </Link>
+                  Book Free Consultation
+                </a>
                 <p className="mt-2 px-1 text-center text-[13px] leading-[1.5] text-ink-secondary">
-                  Not sure who to book with?{" "}
+                  Need help choosing?{" "}
                   <Link
-                    href="/consultation"
+                    href={FINDER_URL}
                     className="font-semibold text-teal no-underline"
                     onClick={() => setOpen(false)}
                   >
-                    Fill out our Request form
+                    Find my therapist
                   </Link>
                 </p>
               </li>

@@ -1,122 +1,210 @@
-import { ArrowRight, CalendarDays, CheckCircle, Phone } from "lucide-react";
-import BookingNote from "@/components/BookingNote";
-import { CLINIC_JANE_BOOKING_URL } from "@/lib/therapistBooking";
+import Image from "next/image";
+import { ArrowRight, Check, ExternalLink, Phone, Sparkles } from "lucide-react";
+import TrackedLink from "@/components/TrackedLink";
+import {
+  CONSULTATION_DURATION_MINUTES,
+  CLINIC_JANE_BOOKING_URL,
+  getActiveTherapists,
+  getTherapyPriceSummary,
+} from "@/lib/therapists";
+
+const activeTherapists = getActiveTherapists();
 
 export default function HeroSection() {
   return (
-    <section className="relative flex min-h-[88vh] flex-col justify-center overflow-hidden bg-canvas">
-      {/* Decorative gradient blobs */}
+    <section
+      data-home-hero
+      className="relative overflow-hidden bg-[#F4F0E8]"
+    >
       <div
-        className="pointer-events-none absolute -right-80 -top-40 h-[700px] w-[700px] rounded-full bg-teal/[0.08] blur-[140px]"
         aria-hidden="true"
+        className="absolute -right-48 -top-56 h-[620px] w-[620px] rounded-full bg-teal/10 blur-3xl"
       />
       <div
-        className="pointer-events-none absolute -left-40 bottom-[-10%] h-[500px] w-[500px] rounded-full bg-sage/[0.12] blur-[100px]"
         aria-hidden="true"
+        className="absolute -bottom-44 -left-44 h-[500px] w-[500px] rounded-full bg-sage/20 blur-3xl"
       />
 
-      <div className="container-v relative z-10 grid w-full grid-cols-1 items-center gap-12 py-20 md:grid-cols-[1.02fr_0.98fr] md:py-28">
-        <div>
-          <span className="badge-outline-teal mb-6">SERVING ALL OF ONTARIO</span>
+      <div className="container-v relative grid gap-8 py-9 sm:py-12 lg:min-h-[calc(100vh-77px)] lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-12 lg:py-20">
+        <div className="max-w-[720px]">
+          <div className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-teal/25 bg-white/65 px-3.5 py-2 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-teal-dark backdrop-blur sm:px-4 sm:text-[10.5px] sm:tracking-[0.15em]">
+            <Sparkles size={13} aria-hidden="true" />
+            <span className="lg:hidden">
+              Ontario therapists · Free {CONSULTATION_DURATION_MINUTES}-minute consult
+            </span>
+            <span className="hidden lg:inline">
+              Virtual therapy across Ontario · Free {CONSULTATION_DURATION_MINUTES}-minute consultation
+            </span>
+          </div>
 
-          <h1 className="mb-6 font-serif text-[42px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-v3xl">
-            Professional therapy in Ontario — from our{" "}
-            <span className="italic text-teal">registered</span> therapists, usually within days.
+          <h1 className="mt-4 font-serif text-[39px] font-medium leading-[1.02] tracking-[-1.3px] text-ink sm:mt-6 sm:text-[55px] lg:mt-7 lg:text-[66px] lg:tracking-[-1.6px]">
+            <span className="lg:hidden">
+              Find the therapist who feels right—
+              <em className="font-normal italic text-teal-dark">
+                without the endless search.
+              </em>
+            </span>
+            <span className="hidden lg:inline">
+              Finding the right therapist shouldn&apos;t feel like{" "}
+              <em className="font-normal italic text-teal-dark">
+                another problem to solve.
+              </em>
+            </span>
           </h1>
+          <p className="mt-4 max-w-[630px] text-[15px] leading-6 text-ink-secondary sm:text-[16px] lg:mt-6 lg:text-[17px] lg:leading-[1.75]">
+            <span className="lg:hidden">
+              Start with what&apos;s been hard. We&apos;ll narrow the team, show
+              fees upfront, and take you straight to a free consultation.
+            </span>
+            <span className="hidden lg:inline">
+              Start with what has been feeling difficult. We&apos;ll narrow the
+              options, show you the price upfront, and help you book a free
+              20-minute consultation with a regulated therapist.
+            </span>
+          </p>
 
-          <p className="max-w-[560px] text-vbase leading-[1.6] text-ink-secondary">
-            Valisen Mental Health is an Ontario therapy clinic based in Ottawa. Start with a free
-            20-minute phone consultation and explore support from one of our Registered
-            Psychotherapists, virtually anywhere in Ontario.
-          </p>
-          <p className="mt-5 text-[14px] text-ink-secondary">
-            Or call us directly at{" "}
-            <a href="tel:613-707-0333" className="font-medium text-ink hover:text-teal">
-              613-707-0333
-            </a>
-          </p>
-          <ul className="mt-6 flex max-w-[560px] flex-col gap-3 text-[15px] leading-[1.5] text-ink-secondary">
-            <li className="flex items-start gap-3">
-              <span className="mt-[2px] shrink-0 text-teal" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <span>Virtual therapy available across Ontario</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="mt-[2px] shrink-0 text-teal" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <span>Insurance accepted — Manulife, Sun Life, Canada Life and more</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="mt-[2px] shrink-0 text-teal" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <span>Registered Psychotherapists and Social Workers</span>
-            </li>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-8">
+            <TrackedLink
+              href="#therapist-finder"
+              event="hero_finder_clicked"
+              page="homepage"
+              placement="hero_primary"
+              className="btn-primary min-h-[50px] w-full justify-center px-6 sm:w-auto lg:min-h-[52px] lg:px-7"
+            >
+              <span className="lg:hidden">Find My Therapist</span>
+              <span className="hidden lg:inline">Help Me Find My Therapist</span>
+              <ArrowRight size={17} className="ml-2" aria-hidden="true" />
+            </TrackedLink>
+            <TrackedLink
+              href="#therapist-comparison"
+              event="hero_compare_clicked"
+              page="homepage"
+              placement="hero_secondary"
+              className="btn-outline hidden min-h-[52px] justify-center border-black/25 bg-white/50 px-7 lg:inline-flex"
+            >
+              Compare Therapists &amp; Fees
+            </TrackedLink>
+          </div>
+
+          <TrackedLink
+            href={CLINIC_JANE_BOOKING_URL}
+            event="hero_booking_clicked"
+            page="homepage"
+            placement="hero_booking"
+            janeClick
+            newTab
+            className="btn-dark mt-3 min-h-[48px] w-full justify-center px-7 sm:w-auto lg:min-h-[50px]"
+          >
+            Book Free Consultation
+            <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+          </TrackedLink>
+
+          <TrackedLink
+            href="#therapist-comparison"
+            event="hero_compare_clicked"
+            page="homepage"
+            placement="hero_secondary"
+            className="mt-2 inline-flex min-h-10 items-center text-[12.5px] font-semibold text-teal no-underline lg:hidden"
+          >
+            View All Therapists &amp; Fees
+            <ArrowRight size={14} className="ml-1.5" aria-hidden="true" />
+          </TrackedLink>
+
+          <div className="mt-4 grid grid-cols-3 divide-x divide-black/10 rounded-2xl border border-black/10 bg-white/65 px-2 py-3 text-center shadow-sm backdrop-blur lg:hidden">
+            <div className="px-1">
+              <p className="text-[9px] uppercase tracking-[0.08em] text-ink-hint">
+                Consult
+              </p>
+              <p className="mt-1 text-[11px] font-bold text-ink">
+                Free · {CONSULTATION_DURATION_MINUTES} min
+              </p>
+            </div>
+            <div className="px-1">
+              <p className="text-[9px] uppercase tracking-[0.08em] text-ink-hint">
+                Sessions
+              </p>
+              <p className="mt-1 text-[11px] font-bold text-ink">$160–$180</p>
+            </div>
+            <div className="px-1">
+              <p className="text-[9px] uppercase tracking-[0.08em] text-ink-hint">
+                Access
+              </p>
+              <p className="mt-1 text-[11px] font-bold text-ink">Ontario-wide</p>
+            </div>
+          </div>
+
+          <ul className="mt-8 hidden gap-x-7 gap-y-3 border-t border-black/10 pt-6 text-[13px] leading-5 text-ink-secondary sm:grid-cols-2 lg:grid">
+            {[
+              `Free ${CONSULTATION_DURATION_MINUTES}-minute consultation`,
+              getTherapyPriceSummary(activeTherapists),
+              "Virtual across Ontario",
+              "Receipts provided for possible insurance reimbursement",
+            ].map((fact) => (
+              <li key={fact} className="flex items-start gap-2.5">
+                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-teal-xlight text-teal-dark">
+                  <Check size={12} aria-hidden="true" />
+                </span>
+                <span>{fact}</span>
+              </li>
+            ))}
           </ul>
+
+          <TrackedLink
+            href="tel:613-707-0333"
+            event="hero_phone_clicked"
+            secondaryEvent="phone_clicked"
+            page="homepage"
+            placement="hero_phone"
+            className="mt-2 inline-flex min-h-10 items-center gap-2 text-[12px] font-semibold text-ink no-underline hover:text-teal lg:mt-6 lg:min-h-11 lg:text-[13px]"
+          >
+            <Phone size={15} className="text-teal" aria-hidden="true" />
+            Prefer to talk? Call 613-707-0333
+          </TrackedLink>
         </div>
 
-        <div className="mx-auto w-full max-w-[520px]">
-          <FreeConsultationCard />
+        <div className="relative mx-auto hidden w-full max-w-[520px] lg:block">
+          <div className="grid grid-cols-2 gap-3">
+            {activeTherapists.map((therapist, index) => (
+              <div
+                key={therapist.slug}
+                className={`relative overflow-hidden rounded-[24px] bg-teal-xlight shadow-[0_18px_50px_rgba(24,63,61,0.13)] ${
+                  index % 2 === 1 ? "translate-y-7" : ""
+                }`}
+              >
+                <div className="relative aspect-[4/5]">
+                  {therapist.photo ? (
+                    <Image
+                      src={therapist.photo}
+                      alt={`${therapist.name}, ${therapist.credentialSummary}`}
+                      fill
+                      priority={index < 2}
+                      className="object-cover object-top"
+                      sizes="(max-width: 1024px) 45vw, 240px"
+                    />
+                  ) : null}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0C2F30]/90 via-[#0C2F30]/45 to-transparent px-4 pb-4 pt-14 text-white">
+                    <p className="font-serif text-[18px] font-medium leading-tight">
+                      {therapist.name}
+                    </p>
+                    <p className="mt-1 text-[10.5px] text-white/75">
+                      {therapist.credentialSummary}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute -bottom-3 left-1/2 w-[88%] -translate-x-1/2 rounded-2xl border border-white/70 bg-white/95 p-4 shadow-xl backdrop-blur sm:-bottom-8">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal">
+              A focused team, clearly compared
+            </p>
+            <p className="mt-1 text-[13px] leading-5 text-ink-secondary">
+              See areas of practice, language, availability, and the current fee range
+              before you choose.
+            </p>
+          </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function FreeConsultationCard() {
-  return (
-    <div className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-8">
-      <div className="mb-6">
-        <div className="mb-1.5 text-vxs font-semibold uppercase tracking-[1.5px] text-teal">
-          Free 20-minute Phone Consultation
-        </div>
-        <h2 className="font-serif text-[30px] font-medium leading-[1.12] tracking-[-0.6px] text-ink">
-          Start with a short call.
-        </h2>
-        <p className="mt-3 text-[14px] leading-[1.6] text-ink-secondary">
-          Browse our therapists, choose who feels right for you, and book a free consultation
-          directly with them — no referrals, no waitlists.
-        </p>
-      </div>
-
-      <div className="space-y-3 border-y border-hairline py-5">
-        {[
-          "20-minute phone consultation",
-          "No cost to start the consultation process",
-          "Available for new clients exploring therapist fit",
-        ].map((item) => (
-          <div key={item} className="flex items-center gap-2.5">
-            <CheckCircle size={15} className="shrink-0 text-teal" aria-hidden="true" />
-            <span className="text-[13px] text-ink-secondary">{item}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-6 flex flex-col gap-3">
-        <a
-          href={CLINIC_JANE_BOOKING_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-primary w-full justify-center"
-        >
-          <CalendarDays size={16} className="mr-2" aria-hidden="true" />
-          Book now
-          <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-        </a>
-        <a href="tel:613-707-0333" className="btn-outline w-full justify-center">
-          <Phone size={16} className="mr-2" aria-hidden="true" />
-          Call 613-707-0333
-        </a>
-      </div>
-      <BookingNote className="mt-4" />
-    </div>
   );
 }

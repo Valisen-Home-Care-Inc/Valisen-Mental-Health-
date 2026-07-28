@@ -13,7 +13,7 @@ const TRUST_ITEMS = [
   },
   {
     icon: <ShieldCheck size={15} aria-hidden="true" />,
-    text: "Insurance accepted — Manulife, Sun Life, Canada Life and more",
+    text: "Official receipts provided; reimbursement depends on your plan and therapist designation",
   },
 ];
 

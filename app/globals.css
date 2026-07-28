@@ -135,6 +135,11 @@ textarea:focus {
   outline-offset: 3px;
 }
 
+.possibility-option:has(input:focus-visible) {
+  outline: 3px solid rgba(181, 212, 212, 0.9);
+  outline-offset: 3px;
+}
+
 @keyframes featuredCarouselIn {
   from {
     opacity: 0;
@@ -150,8 +155,42 @@ textarea:focus {
   animation: featuredCarouselIn 420ms ease-out;
 }
 
+@keyframes therapistSwipeCue {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: translateX(-2px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(7px);
+  }
+}
+
+.therapist-swipe-cue {
+  animation: therapistSwipeCue 1.55s ease-in-out infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .featured-carousel-slide {
+    animation: none;
+  }
+
+  .therapist-swipe-cue {
     animation: none;
   }
 }

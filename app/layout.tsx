@@ -87,7 +87,7 @@ const SCHEMA = {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": ["Organization", "MedicalClinic", "LocalBusiness"],
+      "@type": "Organization",
       "@id": "https://valisenmentalhealth.com/#organization",
       name: "Valisen Mental Health",
       url: "https://valisenmentalhealth.com",
@@ -105,21 +105,14 @@ const SCHEMA = {
       email: "info@valisenmentalhealth.com",
       address: {
         "@type": "PostalAddress",
-        streetAddress: "Ottawa",
         addressLocality: "Ottawa",
         addressRegion: "ON",
         addressCountry: "CA",
-      },
-      geo: {
-        "@type": "GeoCoordinates",
-        latitude: 45.4215,
-        longitude: -75.6972,
       },
       areaServed: [
         { "@type": "City", name: "Ottawa" },
         { "@type": "State", name: "Ontario" },
       ],
-      medicalSpecialty: "Psychiatry",
       availableService: [
         { "@type": "MedicalTherapy", name: "Individual Therapy" },
         { "@type": "MedicalTherapy", name: "Couples Therapy" },
@@ -132,7 +125,6 @@ const SCHEMA = {
       description:
         "Valisen Mental Health is an Ottawa therapy clinic offering virtual sessions with Registered Psychotherapists and Registered Social Workers across Ontario.",
       priceRange: "$$",
-      openingHours: "Mo-Fr 09:00-19:00",
     },
   ],
 };

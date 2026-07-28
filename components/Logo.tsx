@@ -9,7 +9,7 @@ export default function Logo({ dark = false }: { dark?: boolean }) {
         alt="Valisen Mental Health"
         width={950}
         height={330}
-        className={`h-10 w-auto object-contain md:h-12 ${dark ? "brightness-0 invert" : ""}`}
+        className={`h-9 w-auto object-contain md:h-12 ${dark ? "brightness-0 invert" : ""}`}
         priority
       />
     </Link>

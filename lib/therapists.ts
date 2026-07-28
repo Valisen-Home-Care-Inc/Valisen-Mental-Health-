@@ -1,7 +1,19 @@
 import type { Dimension } from "@/lib/quiz";
 
-export const SESSION_RATE = "$180/hour";
-export const SESSION_FEE_LABEL = `Session Fee: ${SESSION_RATE}`;
+export const CLINIC_JANE_BOOKING_URL =
+  "https://valisenmentalhealth.janeapp.com/";
+/** Clinic-wide range, including the planned lower-priced therapist. */
+export const THERAPY_SESSION_PRICE_MINIMUM = 160;
+export const THERAPY_SESSION_PRICE_MAXIMUM = 180;
+/** Exact fee for every therapist currently shown on the public roster. */
+export const CURRENT_THERAPIST_SESSION_PRICE = 180;
+export const THERAPY_SESSION_DURATION_MINUTES = 50;
+export const CONSULTATION_PRICE = 0;
+export const CONSULTATION_DURATION_MINUTES = 20;
+export const THERAPY_PRICE_RANGE = `$${THERAPY_SESSION_PRICE_MINIMUM}–$${THERAPY_SESSION_PRICE_MAXIMUM} per ${THERAPY_SESSION_DURATION_MINUTES} minutes`;
+export const SESSION_RATE = `$${CURRENT_THERAPIST_SESSION_PRICE} per ${THERAPY_SESSION_DURATION_MINUTES} minutes`;
+export const SESSION_FEE_LABEL = `Paid therapy session: ${SESSION_RATE}`;
+export const CONSULTATION_LABEL = `Free ${CONSULTATION_DURATION_MINUTES}-minute consultation`;
 
 /* ────────────────────────────────────────────────────────────────────────
  * Matching metadata (used by lib/matching.ts)
@@ -60,6 +72,20 @@ export type Therapist = {
   initials: string;
   availability: string;
   acceptingNewClients: boolean;
+  profileUrl: string;
+  consultationBookingUrl: string;
+  usesClinicBookingFallback: boolean;
+  janeStaffId?: string;
+  consultationPrice: number;
+  consultationDurationMinutes: number;
+  consultationFormat: "Phone";
+  therapySessionPriceMinimum: number;
+  therapySessionPriceMaximum: number;
+  therapySessionDurationMinutes: number;
+  formats: Array<"Virtual" | "Telephone">;
+  jurisdictions: string[];
+  populationsServed: string[];
+  approachStyles: Array<"Practical / structured" | "Reflective / exploratory">;
   rate: string;
   primaryConcerns: string;
   headline: string;
@@ -140,6 +166,21 @@ export const therapists: Therapist[] = [
     comingSoon: false,
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    profileUrl: "/therapists/dayong-quan",
+    consultationBookingUrl:
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
+    usesClinicBookingFallback: false,
+    janeStaffId: "7",
+    consultationPrice: CONSULTATION_PRICE,
+    consultationDurationMinutes: CONSULTATION_DURATION_MINUTES,
+    consultationFormat: "Phone",
+    therapySessionPriceMinimum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionPriceMaximum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionDurationMinutes: THERAPY_SESSION_DURATION_MINUTES,
+    formats: ["Virtual"],
+    jurisdictions: ["Ontario"],
+    populationsServed: ["Individual adults (18+)"],
+    approachStyles: ["Practical / structured", "Reflective / exploratory"],
     matching: {
       gender: "man",
       concernTags: [
@@ -170,7 +211,7 @@ export const therapists: Therapist[] = [
       "Cultural adjustment",
       "Behavioural concerns",
     ],
-    languages: ["Mandarin", "English", "普通话"],
+    languages: ["English", "Mandarin"],
     sessionTypes: ["Virtual therapy", "Ontario"],
     featureLabel: "Mandarin-speaking therapist",
     featuredHero: {
@@ -258,7 +299,7 @@ export const therapists: Therapist[] = [
     seo: {
       title: "Dayong Quan | Mandarin-Speaking Therapist in Ontario",
       description:
-        "Dayong Quan offers therapy in English and Mandarin for anxiety, stress, depression, addiction-related concerns, mindfulness, cultural adjustment, and life transitions. Sessions are $180/hour.",
+        "Dayong Quan offers therapy in English and Mandarin for anxiety, stress, depression, addiction-related concerns, mindfulness, cultural adjustment, and life transitions. Sessions are $180 per 50 minutes.",
       keywords: [
         "Mandarin-speaking therapist Ontario",
         "Chinese therapist Ontario",
@@ -277,6 +318,21 @@ export const therapists: Therapist[] = [
     initials: "WB",
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    profileUrl: "/therapists/wilfred-bengnwi",
+    consultationBookingUrl:
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
+    usesClinicBookingFallback: false,
+    janeStaffId: "6",
+    consultationPrice: CONSULTATION_PRICE,
+    consultationDurationMinutes: CONSULTATION_DURATION_MINUTES,
+    consultationFormat: "Phone",
+    therapySessionPriceMinimum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionPriceMaximum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionDurationMinutes: THERAPY_SESSION_DURATION_MINUTES,
+    formats: ["Virtual"],
+    jurisdictions: ["Ontario"],
+    populationsServed: ["Individuals", "Couples", "Families"],
+    approachStyles: ["Practical / structured", "Reflective / exploratory"],
     matching: {
       gender: "man",
       concernTags: [
@@ -306,7 +362,7 @@ export const therapists: Therapist[] = [
       "Youth and adult mental health",
       "Addiction and substance use",
     ],
-    languages: ["English"],
+    languages: ["English", "French"],
     sessionTypes: ["Virtual therapy", "Ontario"],
     featuredHero: {
       badge: "Couples and relationship therapy",
@@ -383,7 +439,7 @@ export const therapists: Therapist[] = [
     seo: {
       title: "Wilfred Bengnwi | Couples Therapist and Registered Psychotherapist",
       description:
-        "Wilfred Bengnwi, RP, M.A., PhD, provides therapy for couples, relationship repair, emotional infidelity recovery, trauma, attachment injuries, youth and adult mental health. Sessions are $180/hour.",
+        "Wilfred Bengnwi, RP, M.A., PhD, provides therapy for couples, relationship repair, emotional infidelity recovery, trauma, attachment injuries, youth and adult mental health. Sessions are $180 per 50 minutes.",
       keywords: [
         "couples therapist Ontario",
         "relationship therapist Ontario",
@@ -403,6 +459,21 @@ export const therapists: Therapist[] = [
     carouselPhotoPosition: "center -10px",
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    profileUrl: "/therapists/tim-kahtava",
+    consultationBookingUrl:
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
+    usesClinicBookingFallback: false,
+    janeStaffId: "5",
+    consultationPrice: CONSULTATION_PRICE,
+    consultationDurationMinutes: CONSULTATION_DURATION_MINUTES,
+    consultationFormat: "Phone",
+    therapySessionPriceMinimum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionPriceMaximum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionDurationMinutes: THERAPY_SESSION_DURATION_MINUTES,
+    formats: ["Virtual"],
+    jurisdictions: ["Ontario"],
+    populationsServed: ["Individuals", "Couples", "Families"],
+    approachStyles: ["Practical / structured"],
     matching: {
       gender: "man",
       concernTags: [
@@ -512,7 +583,7 @@ export const therapists: Therapist[] = [
     seo: {
       title: "Tim Kahtava | Registered Psychotherapist in Ontario",
       description:
-        "Tim Kahtava is a Registered Psychotherapist in Ontario with over 20 years of experience supporting individuals, couples, and families through CBT, DBT, EMDR, and solution-focused therapy. Sessions are $180/hour.",
+        "Tim Kahtava is a Registered Psychotherapist in Ontario with over 20 years of experience supporting individuals, couples, and families through CBT, DBT, EMDR, and solution-focused therapy. Sessions are $180 per 50 minutes.",
       keywords: [
         "Registered Psychotherapist Ontario",
         "CBT therapist Ontario",
@@ -532,6 +603,21 @@ export const therapists: Therapist[] = [
     comingSoon: false,
     availability: "Accepting new clients",
     acceptingNewClients: true,
+    profileUrl: "/therapists/ryann-simpson",
+    consultationBookingUrl:
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
+    usesClinicBookingFallback: false,
+    janeStaffId: "8",
+    consultationPrice: CONSULTATION_PRICE,
+    consultationDurationMinutes: CONSULTATION_DURATION_MINUTES,
+    consultationFormat: "Phone",
+    therapySessionPriceMinimum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionPriceMaximum: CURRENT_THERAPIST_SESSION_PRICE,
+    therapySessionDurationMinutes: THERAPY_SESSION_DURATION_MINUTES,
+    formats: ["Virtual", "Telephone"],
+    jurisdictions: ["Ontario", "Saskatchewan"],
+    populationsServed: ["Individual adults (18+)", "Couples"],
+    approachStyles: ["Practical / structured", "Reflective / exploratory"],
     matching: {
       gender: "woman",
       concernTags: [
@@ -649,7 +735,7 @@ export const therapists: Therapist[] = [
     seo: {
       title: "Ryann Simpson | RSW Therapist in Ontario and Saskatchewan",
       description:
-        "Ryann Simpson, RSW, offers virtual and telephone therapy for individual adults and couples in Ontario and Saskatchewan navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and life transitions. Sessions are $180/hour.",
+        "Ryann Simpson, RSW, offers virtual and telephone therapy for individual adults and couples in Ontario and Saskatchewan navigating anxiety, perfectionism, people-pleasing, ADHD, self-esteem, and life transitions. Sessions are $180 per 50 minutes.",
       keywords: [
         "RSW therapist Ontario",
         "RSW therapist Saskatchewan",
@@ -675,4 +761,52 @@ export function getTherapistBySlug(slug: string) {
 /** Therapists currently shown to the public (not "coming soon"). */
 export function getActiveTherapists(): Therapist[] {
   return therapists.filter((therapist) => !therapist.comingSoon);
+}
+
+export function getAcceptingTherapists(): Therapist[] {
+  return getActiveTherapists().filter(
+    (therapist) => therapist.acceptingNewClients,
+  );
+}
+
+export function formatTherapySession(therapist: Therapist): string {
+  const price =
+    therapist.therapySessionPriceMinimum === therapist.therapySessionPriceMaximum
+      ? `$${therapist.therapySessionPriceMaximum}`
+      : `$${therapist.therapySessionPriceMinimum}–$${therapist.therapySessionPriceMaximum}`;
+  return `${price} per ${therapist.therapySessionDurationMinutes} minutes`;
+}
+
+export function formatConsultation(therapist: Therapist): string {
+  return therapist.consultationPrice === 0
+    ? `Free ${therapist.consultationDurationMinutes}-minute consultation`
+    : `$${therapist.consultationPrice} per ${therapist.consultationDurationMinutes} minutes`;
+}
+
+export function getTherapyPriceSummary(
+  roster: Therapist[] = getActiveTherapists(),
+): string {
+  if (roster.length === 0) return "Contact Valisen for current fees";
+
+  const durations = new Set(
+    roster.map((therapist) => therapist.therapySessionDurationMinutes),
+  );
+
+  if (durations.size === 1) {
+    return `Therapy sessions: $${THERAPY_SESSION_PRICE_MINIMUM}–$${THERAPY_SESSION_PRICE_MAXIMUM} per ${roster[0].therapySessionDurationMinutes} minutes`;
+  }
+
+  return `Therapy sessions: $${THERAPY_SESSION_PRICE_MINIMUM}–$${THERAPY_SESSION_PRICE_MAXIMUM}, depending on therapist and session type`;
+}
+
+export function getVerifiedLanguages(
+  roster: Therapist[] = getActiveTherapists(),
+): string[] {
+  return Array.from(
+    new Set(
+      roster.flatMap((therapist) =>
+        therapist.languages.filter((language) => language !== "普通话"),
+      ),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import CrisisNote from "@/components/CrisisNote";
+import { trackFunnelEvent, type FunnelPage } from "@/lib/analytics";
 
 /* ─── Types ──────────────────────────────────────────────────── */
 type FormData = {
@@ -155,6 +156,25 @@ export default function ConsultationPage() {
       }
 
       setSubmitted(true);
+      let landingPage: FunnelPage = "homepage";
+      try {
+        const stored = JSON.parse(
+          window.sessionStorage.getItem("valisen:landing-context:v1") || "{}",
+        ) as { landingPage?: string };
+        if (
+          stored.landingPage === "homepage" ||
+          stored.landingPage === "therapist_directory"
+        ) {
+          landingPage = stored.landingPage;
+        }
+      } catch {
+        // Submission succeeds even if browser storage is unavailable.
+      }
+      trackFunnelEvent("request_help_submitted", {
+        page: landingPage,
+        ctaPlacement: "finder_help",
+        finderUsed: true,
+      });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {

@@ -3,7 +3,7 @@ const STEPS: Array<{ n: string; title: string; duration: string; body: string; s
     n: "01",
     title: "Browse our therapists",
     duration: "FIND YOUR FIT",
-    body: "Read through our therapist profiles, their approaches, and specializations. Take your time — finding the right fit is the most important step.",
+    body: "Compare therapist profiles, approaches, availability, and the current fee range, or use the short finder to narrow the options.",
   },
   {
     n: "02",

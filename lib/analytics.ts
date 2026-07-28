@@ -8,6 +8,10 @@
  */
 
 import type { QuizIntent } from "@/lib/quizIntent";
+import {
+  captureCampaignAttribution,
+  type CampaignAttribution,
+} from "@/lib/campaignAttribution";
 
 export type QuizEvent =
   | "quiz_page_viewed"
@@ -38,6 +42,69 @@ export type TherapistProfileLinkPlacement =
   (typeof THERAPIST_PROFILE_LINK_PLACEMENTS)[number];
 export type DeviceCategory = "mobile" | "tablet" | "desktop";
 
+export type FunnelEvent =
+  | "landing_page_viewed"
+  | "homepage_viewed"
+  | "therapist_directory_viewed"
+  | "paid_traffic_landed"
+  | "hero_finder_clicked"
+  | "hero_compare_clicked"
+  | "hero_booking_clicked"
+  | "hero_phone_clicked"
+  | "pricing_section_viewed"
+  | "insurance_section_viewed"
+  | "therapist_finder_started"
+  | "therapist_finder_step_completed"
+  | "therapist_finder_completed"
+  | "therapist_recommendation_viewed"
+  | "therapist_recommendation_profile_clicked"
+  | "therapist_recommendation_jane_clicked"
+  | "concern_selector_used"
+  | "therapist_card_viewed"
+  | "therapist_profile_clicked"
+  | "therapist_compare_started"
+  | "therapist_compare_completed"
+  | "directory_jane_clicked"
+  | "possibility_builder_viewed"
+  | "possibility_builder_started"
+  | "possibility_stage_completed"
+  | "possibility_reflection_viewed"
+  | "recommendation_profile_clicked"
+  | "recommendation_jane_clicked"
+  | "alternative_therapists_clicked"
+  | "possibility_builder_restarted"
+  | "phone_clicked"
+  | "request_help_opened"
+  | "request_help_submitted"
+  | "quiz_clicked"
+  | "jane_booking_clicked";
+
+export type FunnelPage = "homepage" | "therapist_directory" | "therapist_profile";
+
+export type FunnelCtaPlacement =
+  | "hero_primary"
+  | "hero_secondary"
+  | "hero_booking"
+  | "hero_phone"
+  | "finder_result"
+  | "finder_help"
+  | "therapist_card"
+  | "comparison"
+  | "mobile_sticky"
+  | "profile"
+  | "final_primary"
+  | "final_secondary";
+
+export type SafeFunnelEventProperties = {
+  page: FunnelPage;
+  ctaPlacement?: FunnelCtaPlacement;
+  landingPageVariant?: "default" | "paid";
+  finderUsed?: boolean;
+  funnelStep?: number;
+  funnelCompleted?: boolean;
+  attribution?: CampaignAttribution;
+};
+
 export type SafeQuizEventProperties = {
   quizStep?: number;
   intent?: QuizIntent;
@@ -51,6 +118,8 @@ export type SafeQuizEventProperties = {
 };
 
 type DataLayerWindow = Window & { dataLayer?: Record<string, unknown>[] };
+
+const firedViewEvents = new Set<string>();
 
 function cleanEventValue(
   value: string | undefined,
@@ -129,4 +198,81 @@ export function trackQuizEvent(
   const w = window as DataLayerWindow;
   w.dataLayer = w.dataLayer || [];
   w.dataLayer.push(payload);
+}
+
+/**
+ * Emits only acquisition and interaction metadata. There is intentionally no
+ * field for a concern, answer, recommendation, contact detail, quiz result or
+ * free-text value.
+ */
+export function trackFunnelEvent(
+  event: FunnelEvent,
+  properties: SafeFunnelEventProperties,
+) {
+  if (typeof window === "undefined") return;
+
+  const attribution =
+    properties.attribution ?? captureCampaignAttribution(window.location.search);
+  const payload: Record<string, unknown> = {
+    event,
+    page: properties.page,
+    device_category: getDeviceCategory(),
+  };
+
+  if (properties.ctaPlacement) {
+    payload.cta_placement = properties.ctaPlacement;
+  }
+  if (properties.landingPageVariant) {
+    payload.landing_page_variant = properties.landingPageVariant;
+  }
+  if (typeof properties.finderUsed === "boolean") {
+    payload.finder_used = properties.finderUsed;
+  }
+  if (
+    typeof properties.funnelStep === "number" &&
+    Number.isInteger(properties.funnelStep) &&
+    properties.funnelStep >= 1 &&
+    properties.funnelStep <= 3
+  ) {
+    payload.funnel_step = properties.funnelStep;
+  }
+  if (typeof properties.funnelCompleted === "boolean") {
+    payload.funnel_completed = properties.funnelCompleted;
+  }
+
+  const source = cleanEventValue(attribution.source);
+  const medium = cleanEventValue(attribution.medium);
+  const campaign = cleanEventValue(attribution.campaign);
+  const content = cleanEventValue(attribution.content);
+  if (source) payload.utm_source = source;
+  if (medium) payload.utm_medium = medium;
+  if (campaign) payload.utm_campaign = campaign;
+  if (content) payload.utm_content = content;
+
+  const w = window as DataLayerWindow;
+  w.dataLayer = w.dataLayer || [];
+  w.dataLayer.push(payload);
+}
+
+export function trackFunnelViewOnce(
+  event: Extract<
+    FunnelEvent,
+    | "landing_page_viewed"
+    | "homepage_viewed"
+    | "therapist_directory_viewed"
+    | "paid_traffic_landed"
+    | "pricing_section_viewed"
+    | "insurance_section_viewed"
+    | "therapist_recommendation_viewed"
+    | "possibility_builder_viewed"
+    | "possibility_reflection_viewed"
+  >,
+  properties: SafeFunnelEventProperties,
+  instanceKey: string = event,
+) {
+  if (typeof window === "undefined") return;
+  const key = `${window.location.pathname}:${instanceKey}`;
+  if (firedViewEvents.has(key)) return;
+  firedViewEvents.add(key);
+  trackFunnelEvent(event, properties);
 }

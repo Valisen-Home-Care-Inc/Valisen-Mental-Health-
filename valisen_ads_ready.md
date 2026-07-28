@@ -30,7 +30,7 @@ Anxiety (worry, racing thoughts, panic), Depression, Trauma, Grief, Stress & bur
 - **Languages: English, Mandarin, French, Hebrew, Yiddish, ASL** (Mandarin via Dayong Quan — currently "coming soon")
 
 ### Conversion language already on-site
-"Book now", "Take the first step", "Browse and book directly", "Choose who feels right for you", "Free 20-minute call", "Ready to get started?"
+"Book Free Consultation", "Take the first step", "Browse and book directly", "Choose who feels right for you", "Free 20-minute call", "Ready to get started?"
 
 ### Therapist roster (for ad/keyword relevance)
 | Therapist | Credentials | Languages | Notable specialties |
@@ -448,7 +448,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 9. **Ad group structure.** One tight theme per ad group (Anxiety / Depression / RP-general / Online / Insurance / Mandarin). Each ad group: 1 RSA (15 headlines, 4 descriptions from Section 4) + 5–15 closely-themed keywords. Pin the primary-keyword headline to Position 1 in at least one slot for relevance.
 
-10. **Sitelinks, callouts & extensions.** Add: Sitelinks (Our Therapists, Insurance, Book Now, Anxiety Therapy); Callouts (Free 20-Min Consult, No Waitlist, No Referral, Virtual Across Ontario, RP & RSW); a **Call extension** with 613-707-0333; Structured Snippet (Services: Anxiety, Depression, Trauma, Grief, Couples). Extensions lift CTR and Ad Rank at no extra cost.
+10. **Sitelinks, callouts & extensions.** Add: Sitelinks (Our Therapists, Insurance, Book Free Consultation, Anxiety Therapy); Callouts (Free 20-Min Consult, No Waitlist, No Referral, Virtual Across Ontario, RP & RSW); a **Call extension** with 613-707-0333; Structured Snippet (Services: Anxiety, Depression, Trauma, Grief, Couples). Extensions lift CTR and Ad Rank at no extra cost.
 
 11. **Budget, geo-fit & landing-page readiness.** Set a realistic daily budget (≥ ~CA$30–50/day so Smart Bidding can learn). Confirm each campaign's Final URL loads fast on mobile, the Jane booking button works, and the free-consult CTA is above the fold. **Before enabling PSHCP keywords, add PSHCP/federal-coverage copy to /insurance** (currently absent — see Section 1 gaps).
 

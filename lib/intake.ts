@@ -5,10 +5,10 @@ import {
 
 export const JANE_BOOKING_URL = CLINIC_JANE_BOOKING_URL;
 export const MATCHING_FORM_URL = JANE_BOOKING_URL;
-export const MATCHING_CTA_LABEL = "Book now";
+export const MATCHING_CTA_LABEL = "Book Free Consultation";
 export const CONSULTATION_CTA_LABEL = "Book a Free Consultation";
 export const INTAKE_NOTE =
-  "Book directly through Jane or call Valisen if you need help choosing a therapist.";
+  "Jane booking opens in a new tab. A Jane click records an outbound booking step, not a confirmed appointment.";
 
 export const SPECIFIC_THERAPIST_VALUES = [
   "dayong-quan",

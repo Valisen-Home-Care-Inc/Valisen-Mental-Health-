@@ -1,9 +1,10 @@
 /**
  * Narrow, non-clinical campaign attribution.
  *
- * Search terms, page copy, quiz responses, scores, contact details and ad-click
- * identifiers are deliberately excluded. Only the campaign fields already
- * present in the landing URL are retained.
+ * Quiz responses, scores, contact details and ad-click identifiers are
+ * deliberately excluded. Only the campaign fields already present in the
+ * landing URL are retained. UTM term is stored first-party for attribution but
+ * is not exposed by the analytics event API, where it could reveal a concern.
  */
 export type CampaignAttribution = {
   source?: string;
@@ -64,4 +65,73 @@ export function formatCampaignAttribution(
     return value ? [`${key}: ${value}`] : [];
   });
   return parts.length > 0 ? parts.join(" | ") : "Not captured";
+}
+
+const ATTRIBUTION_STORAGE_KEY = "valisen:first-touch-attribution:v1";
+const ATTRIBUTION_TERM_STORAGE_KEY = "valisen:first-touch-utm-term:v1";
+
+export function getStoredCampaignTerm(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    return cleanValue(
+      window.sessionStorage.getItem(ATTRIBUTION_TERM_STORAGE_KEY),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+export function getStoredCampaignAttribution(): CampaignAttribution {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = window.sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
+    return stored ? cleanCampaignAttribution(JSON.parse(stored)) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function captureCampaignAttribution(
+  search = typeof window === "undefined" ? "" : window.location.search,
+): CampaignAttribution {
+  if (typeof window === "undefined") return {};
+
+  const stored = getStoredCampaignAttribution();
+  if (Object.keys(stored).length > 0) return stored;
+
+  const captured = campaignAttributionFromSearch(search);
+  const rawTerm = new URLSearchParams(search).get("utm_term");
+  const term = cleanValue(rawTerm);
+  if (Object.keys(captured).length > 0) {
+    try {
+      window.sessionStorage.setItem(
+        ATTRIBUTION_STORAGE_KEY,
+        JSON.stringify(captured),
+      );
+    } catch {
+      // Attribution must never block the page or a booking action.
+    }
+  }
+  if (term) {
+    try {
+      if (!window.sessionStorage.getItem(ATTRIBUTION_TERM_STORAGE_KEY)) {
+        window.sessionStorage.setItem(ATTRIBUTION_TERM_STORAGE_KEY, term);
+      }
+    } catch {
+      // The term remains first-party and is never added to analytics payloads.
+    }
+  }
+  return captured;
+}
+
+export function isPaidAttribution(
+  attribution: CampaignAttribution,
+): boolean {
+  const medium = attribution.medium?.toLowerCase();
+  return Boolean(
+    medium &&
+      ["cpc", "ppc", "paid", "paid-social", "display"].some((value) =>
+        medium.includes(value),
+      ),
+  );
 }

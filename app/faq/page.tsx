@@ -182,7 +182,7 @@ const CATEGORIES: FAQCategory[] = [
         slug: "languages-offered",
         question: "Do you offer therapy in languages other than English?",
         shortAnswer:
-          "Our team currently offers therapy in English and Mandarin. Language access significantly affects the depth and safety of therapy — especially for early-life experiences. Filter by language on our therapists page to find the right fit.",
+          "Our team currently offers therapy in English, French, and Mandarin. Dayong provides therapy in English and Mandarin, and Wilfred provides therapy in English and French. Filter by language on our therapists page to find the right fit.",
       },
       {
         slug: "therapist-credentials",
@@ -404,7 +404,7 @@ export default function FAQPage() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href={MATCHING_FORM_URL} className="btn-primary">
-              Book now
+              Book Free Consultation
             </Link>
             <a
               href="tel:613-707-0333"

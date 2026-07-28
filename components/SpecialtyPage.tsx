@@ -156,7 +156,7 @@ function DarkCta() {
     <section className="bg-teal-dark py-24 md:py-32">
       <div className="container-v text-center">
         <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-canvas md:text-v2xl">
-          Take the first step
+          Compare your next-step options
         </h2>
         <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.6] text-canvas/80">
           Book directly through Jane or call us if you would like help choosing a therapist.

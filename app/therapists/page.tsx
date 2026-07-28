@@ -1,316 +1,299 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowRight, CalendarDays, CheckCircle } from "lucide-react";
-import Badge from "@/components/Badge";
-import CTASection from "@/components/CTASection";
-import FeaturedTherapistCarousel from "@/components/FeaturedTherapistCarousel";
+import Image from "next/image";
+import {
+  ArrowRight,
+  Check,
+  ExternalLink,
+  Rows3,
+  SlidersHorizontal,
+} from "lucide-react";
 import Footer from "@/components/Footer";
+import FunnelPageAnalytics from "@/components/FunnelPageAnalytics";
 import NavBar from "@/components/NavBar";
-import TherapistGrid from "@/components/TherapistGrid";
-import { MATCHING_CTA_LABEL, MATCHING_FORM_URL } from "@/lib/intake";
-import { SESSION_RATE, therapists } from "@/lib/therapists";
+import TherapistDirectoryExperience from "@/components/TherapistDirectoryExperience";
+import TherapistFinder from "@/components/TherapistFinder";
+import TrackedLink from "@/components/TrackedLink";
+import {
+  CLINIC_JANE_BOOKING_URL,
+  CONSULTATION_DURATION_MINUTES,
+  THERAPY_PRICE_RANGE,
+  getAcceptingTherapists,
+  getActiveTherapists,
+  getTherapyPriceSummary,
+} from "@/lib/therapists";
 
 export const metadata: Metadata = {
-  title: "Meet Our Therapists - Valisen Mental Health",
+  title: "Compare Ontario Therapists, Availability & Fees",
   description:
-    "Browse Valisen Mental Health therapists. Registered Psychotherapists and Registered Social Workers offering virtual support, including therapy available in Arabic, French, English, and Mandarin.",
+    "Compare Valisen therapists by areas of practice, language, approach, availability, and the current fee range. Book a free 20-minute consultation through the selected therapist’s Jane page.",
   alternates: {
     canonical: "https://valisenmentalhealth.com/therapists",
   },
   keywords: [
     "therapists Ottawa",
     "therapists Ontario",
-    "registered psychotherapist Ottawa",
+    "registered psychotherapist Ontario",
     "virtual therapy Ontario",
     "Mandarin-speaking therapist Ontario",
   ],
 };
 
-/**
- * Editorial mapping of common search intents (mirrors the Google Ads
- * campaign themes) to the therapists best suited to each. Slugs must
- * match lib/therapists.ts — names resolve from data so they never drift.
- */
-const FIT_PATHS: { title: string; description: string; slugs: string[] }[] = [
-  {
-    title: "Anxiety, stress and depression",
-    description: "Worry, panic, burnout, low mood, or overthinking that's getting hard to manage.",
-    slugs: ["dayong-quan", "tim-kahtava", "ryann-simpson"],
-  },
-  {
-    title: "Couples and relationships",
-    description: "Conflict, communication breakdowns, trust repair, and attachment injuries.",
-    slugs: ["wilfred-bengnwi", "tim-kahtava", "ryann-simpson"],
-  },
-  {
-    title: "ADHD, perfectionism and people-pleasing",
-    description: "Overthinking, self-criticism, and patterns that are hard to name on your own.",
-    slugs: ["ryann-simpson"],
-  },
-  {
-    title: "Trauma and EMDR",
-    description: "Trauma-informed therapy, including EMDR, for experiences that still feel close.",
-    slugs: ["tim-kahtava", "wilfred-bengnwi"],
-  },
-  {
-    title: "普通话 · Therapy in Mandarin",
-    description: "Full sessions in Mandarin — anxiety, stress, cultural adjustment, and transitions.",
-    slugs: ["dayong-quan"],
-  },
-];
+const therapists = getActiveTherapists();
+const acceptingTherapists = getAcceptingTherapists();
 
-const acceptingCount = therapists.filter((t) => t.acceptingNewClients).length;
-const allAccepting = acceptingCount === therapists.length;
+const DIRECTORY_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: "Valisen Mental Health therapists",
+  numberOfItems: therapists.length,
+  itemListElement: therapists.map((therapist, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    url: `https://valisenmentalhealth.com${therapist.profileUrl}`,
+    name: `${therapist.name}, ${therapist.credentials}`,
+  })),
+};
 
 export default function TherapistsPage() {
   return (
-    <main className="bg-canvas">
+    <main className="overflow-x-clip bg-canvas pb-20 md:pb-0">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(DIRECTORY_SCHEMA) }}
+      />
+      <FunnelPageAnalytics page="therapist_directory" />
       <NavBar />
 
-      {/* ── Hero ─────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-canvas py-16 md:py-24">
-        {/* Soft ambient glows — decorative only */}
+      <section className="relative overflow-hidden bg-[#F4F0E8] py-16 md:py-24">
         <div
           aria-hidden="true"
-          className="absolute -top-44 right-[-12%] h-[500px] w-[500px] rounded-full bg-teal/[0.08] blur-3xl"
+          className="absolute -right-56 -top-56 h-[600px] w-[600px] rounded-full bg-teal/10 blur-3xl"
         />
-        <div
-          aria-hidden="true"
-          className="absolute -bottom-48 left-[-10%] h-[440px] w-[440px] rounded-full bg-sage/[0.14] blur-3xl"
-        />
-
-        <div className="container-v relative grid grid-cols-1 gap-12 md:grid-cols-[1fr_0.78fr] md:items-center">
+        <div className="container-v relative grid gap-12 lg:grid-cols-[1fr_0.82fr] lg:items-center">
           <div>
-            <div className="mb-6 flex flex-wrap items-center gap-2">
-              <span className="badge-outline-teal">OTTAWA · VIRTUAL ACROSS ONTARIO</span>
-              <Badge variant="status">
-                <CheckCircle size={12} className="mr-1" aria-hidden="true" />
-                {allAccepting
-                  ? `All ${acceptingCount} therapists accepting new clients`
-                  : `${acceptingCount} therapists accepting new clients`}
-              </Badge>
-            </div>
-
-            <h1 className="font-serif text-[42px] font-medium leading-[1.05] tracking-[-1.4px] text-ink md:text-v3xl">
-              Meet Our <em className="italic text-teal-dark">Therapists</em>
+            <span className="inline-flex max-w-full flex-wrap rounded-2xl border border-teal/25 bg-white/55 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-teal-dark sm:rounded-full sm:tracking-[0.15em]">
+              {therapists.length} regulated therapists · Virtual across Ontario
+            </span>
+            <h1 className="mt-7 max-w-[720px] font-serif text-[46px] font-medium leading-[1.02] tracking-[-1.5px] text-ink md:text-[64px]">
+              Start with what matters{" "}
+              <em className="font-normal italic text-teal-dark">most to you.</em>
             </h1>
-            <p className="mt-5 max-w-[600px] text-vbase leading-[1.7] text-ink-secondary">
-              Registered Psychotherapists and Registered Social Workers offering secure virtual therapy across Ontario.
-              Compare specialties, languages, and style — then book a free consultation
-              directly online. No referral, no waitlist call-backs.
+            <p className="mt-6 max-w-[650px] text-[16px] leading-7 text-ink-secondary">
+              Compare areas of practice, language, approach, availability, and
+              price—or answer three quick questions and we’ll narrow the
+              options.
             </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href={MATCHING_FORM_URL}
-                className="btn-primary justify-center"
+            <div className="mt-8">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <TrackedLink
+                  href="#therapist-finder"
+                  event="therapist_finder_started"
+                  page="therapist_directory"
+                  placement="hero_primary"
+                  finderUsed
+                  className="btn-primary min-h-[52px] justify-center px-7"
+                >
+                  Find My Therapist
+                  <ArrowRight size={17} className="ml-2" aria-hidden="true" />
+                </TrackedLink>
+                <TrackedLink
+                  href={CLINIC_JANE_BOOKING_URL}
+                  event="directory_jane_clicked"
+                  page="therapist_directory"
+                  placement="hero_booking"
+                  janeClick
+                  newTab
+                  className="btn-dark min-h-[52px] justify-center px-7 sm:hidden"
+                >
+                  Book Free Consultation
+                  <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+                </TrackedLink>
+                <TrackedLink
+                  href="#therapist-directory"
+                  event="hero_compare_clicked"
+                  page="therapist_directory"
+                  placement="hero_secondary"
+                  className="btn-outline min-h-[52px] justify-center bg-white/50 px-7"
+                >
+                  View All Therapists &amp; Fees
+                </TrackedLink>
+              </div>
+              <TrackedLink
+                href={CLINIC_JANE_BOOKING_URL}
+                event="directory_jane_clicked"
+                page="therapist_directory"
+                placement="hero_booking"
+                janeClick
+                newTab
+                className="btn-dark mt-3 hidden min-h-[52px] justify-center px-7 sm:inline-flex"
               >
-                <CalendarDays size={16} className="mr-2" aria-hidden="true" />
-                {MATCHING_CTA_LABEL}
-              </Link>
-              <a href="#therapist-directory" className="btn-outline justify-center">
-                Browse Profiles
-                <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-              </a>
+                Book Free Consultation
+                <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+              </TrackedLink>
             </div>
-
-            <ul className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] font-medium text-ink-secondary">
-              <li className="flex items-center gap-1.5">
-                <CheckCircle size={13} className="text-teal" aria-hidden="true" />
-                Free 20-minute consultation
-              </li>
-              <li className="flex items-center gap-1.5">
-                <CheckCircle size={13} className="text-teal" aria-hidden="true" />
-                {SESSION_RATE} · insurance receipts
-              </li>
-              <li className="flex items-center gap-1.5">
-                <CheckCircle size={13} className="text-teal" aria-hidden="true" />
-                Arabic · French · English · Mandarin
-              </li>
+            <ul className="mt-8 grid max-w-[700px] gap-3 border-t border-black/10 pt-6 text-[13px] text-ink-secondary sm:grid-cols-2">
+              {[
+                `Free ${CONSULTATION_DURATION_MINUTES}-minute consultation`,
+                getTherapyPriceSummary(therapists),
+                "Official receipts for possible reimbursement",
+                `${acceptingTherapists.length} currently accepting new clients`,
+              ].map((fact) => (
+                <li key={fact} className="flex items-start gap-2.5">
+                  <Check size={15} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
+                  <span>{fact}</span>
+                </li>
+              ))}
             </ul>
           </div>
 
-          <div className="relative">
-            <div
-              aria-hidden="true"
-              className="absolute -inset-4 rounded-[32px] bg-gradient-to-br from-teal/[0.10] via-transparent to-sage/[0.16] blur-xl"
-            />
-            <FeaturedTherapistCarousel therapists={therapists} />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Stat band ────────────────────────────────────────── */}
-      <section aria-label="Clinic at a glance" className="border-y border-hairline bg-white">
-        <dl className="container-v grid grid-cols-2 gap-y-8 py-10 md:grid-cols-4 md:gap-y-0">
-          <StatCell value={String(therapists.length)} label="Regulated therapists — RP and RSW" />
-          <StatCell value="25+" label="Years of combined clinical experience" />
-          <StatCell value="4" label="Languages — Arabic, French, English and Mandarin" />
-          <StatCell value="Starting at $150" label="Per session, receipts for insurance" last />
-        </dl>
-      </section>
-
-      {/* ── Fit finder ───────────────────────────────────────── */}
-      <section className="bg-teal-dark py-20 md:py-24">
-        <div className="container-v">
-          <div className="max-w-[640px]">
-            <span className="badge-outline-white mb-5">FIND YOUR FIT</span>
-            <h2 className="font-serif text-[32px] font-medium leading-[1.12] tracking-[-1px] text-canvas md:text-v2xl">
-              Start with what&apos;s on your mind
-            </h2>
-            <p className="mt-4 text-[15px] leading-[1.7] text-canvas/80">
-              You don&apos;t need the perfect words for it. Pick what feels closest, and
-              we&apos;ll point you to the therapists who work in that area every day.
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {FIT_PATHS.map((path) => (
-              <div
-                key={path.title}
-                className="flex flex-col rounded-xl border border-white/15 bg-white/[0.07] p-5 transition-colors duration-200 hover:bg-white/[0.11]"
-              >
-                <h3 className="text-[16px] font-medium leading-snug text-white">{path.title}</h3>
-                <p className="mt-2 flex-1 text-[13px] leading-[1.6] text-canvas/70">
-                  {path.description}
+          <div className="rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-[0_24px_70px_rgba(25,58,56,0.12)] backdrop-blur">
+            <div className="flex items-center justify-between px-2 pb-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal">
+                  One team · clearly compared
                 </p>
-                <ul className="mt-4 space-y-1.5 border-t border-white/10 pt-3.5">
-                  {path.slugs.map((slug) => {
-                    const therapist = therapists.find((t) => t.slug === slug);
-                    if (!therapist) return null;
-                    return (
-                      <li key={slug}>
-                        <a
-                          href={`#${slug}`}
-                          className="group inline-flex items-center gap-1.5 text-[13.5px] font-medium text-teal-light no-underline transition-colors hover:text-white"
-                        >
-                          {therapist.name}
-                          <ArrowRight
-                            size={13}
-                            className="transition-transform duration-200 group-hover:translate-x-0.5"
-                            aria-hidden="true"
-                          />
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <p className="mt-1 text-[13px] text-ink-secondary">
+                  See the essentials at a glance
+                </p>
               </div>
-            ))}
+              <Rows3 size={20} className="text-teal" aria-hidden="true" />
+            </div>
+            <div className="space-y-2.5">
+              {therapists.map((therapist) => (
+                <a
+                  key={therapist.slug}
+                  href={therapist.profileUrl}
+                  aria-label={`View ${therapist.name}'s therapist profile`}
+                  className="group grid grid-cols-[54px_1fr_auto] items-center gap-3 rounded-2xl border border-hairline bg-white p-2.5 text-inherit no-underline transition duration-200 hover:-translate-y-0.5 hover:border-teal/35 hover:shadow-md focus-visible:border-teal"
+                >
+                  <div className="relative h-[54px] overflow-hidden rounded-xl bg-teal-xlight">
+                    {therapist.photo ? (
+                      <Image
+                        src={therapist.photo}
+                        alt=""
+                        fill
+                        className="object-cover object-top"
+                        sizes="54px"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-ink">
+                      {therapist.name}
+                    </p>
+                    <p className="truncate text-[10.5px] text-ink-hint">
+                      {therapist.specialties.slice(0, 2).join(" · ")}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[9.5px] font-semibold text-emerald-800 transition-colors group-hover:bg-emerald-100">
+                    Accepting
+                    <ArrowRight
+                      size={10}
+                      className="transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </a>
+              ))}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-teal-xlight/70 p-3">
+                <p className="text-[10px] text-ink-hint">Paid session</p>
+                <p className="mt-1 text-[12px] font-semibold text-ink">
+                  {THERAPY_PRICE_RANGE}
+                </p>
+              </div>
+              <div className="rounded-xl bg-teal-xlight/70 p-3">
+                <p className="text-[10px] text-ink-hint">Consultation</p>
+                <p className="mt-1 text-[12px] font-semibold text-ink">
+                  Free · {therapists[0].consultationDurationMinutes} minutes
+                </p>
+              </div>
+            </div>
           </div>
-
-          <p className="mt-8 text-[13px] leading-[1.6] text-canvas/60">
-            Also supporting addiction and substance-use concerns, family therapy, grief, and
-            major life transitions — full details on each profile below.
-          </p>
         </div>
       </section>
 
-      {/* ── Directory ────────────────────────────────────────── */}
-      <section id="therapist-directory" className="scroll-mt-20 bg-canvas py-20 md:py-28">
-        <div className="container-v">
-          <div className="mb-12 max-w-[680px]">
-            <span className="badge-outline-teal mb-5">
-              {allAccepting
-                ? "ALL THERAPISTS CURRENTLY ACCEPTING CLIENTS"
-                : "CURRENTLY ACCEPTING CLIENTS"}
-            </span>
-            <h2 className="font-serif text-[34px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-              A focused team, not an endless directory
-            </h2>
-            <p className="mt-4 text-[15px] leading-[1.7] text-ink-secondary">
-              Every profile shows specialties, languages, session fee, and therapeutic style
-              side by side — so you can compare honestly and choose with confidence.
-            </p>
-          </div>
-          <TherapistGrid therapists={therapists} />
-        </div>
-      </section>
+      <TherapistFinder page="therapist_directory" />
+      <TherapistDirectoryExperience />
 
-      {/* ── What happens next ────────────────────────────────── */}
       <section className="border-y border-hairline bg-white py-16 md:py-20">
         <div className="container-v">
-          <h2 className="max-w-[560px] font-serif text-[28px] font-medium leading-[1.15] tracking-[-0.8px] text-ink md:text-[34px]">
-            From this page to your first session
-          </h2>
-          <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-8">
-            <StepItem
-              number="01"
-              title="Choose your therapist"
-              body="Browse the profiles above, or start from what you need support with. There's no wrong choice — fit is what the consultation is for."
+          <div className="grid gap-8 md:grid-cols-3">
+            <DirectoryStep
+              icon={<SlidersHorizontal size={19} aria-hidden="true" />}
+              title="Filter without hiding options"
+              body="Bring relevant listed experience forward while keeping the full team available."
             />
-            <StepItem
-              number="02"
-              title="Book directly through Jane"
-              body="Pick a time that works in each therapist's live calendar. Free 20-minute consultations are available, with no referral needed."
+            <DirectoryStep
+              icon={<Rows3 size={19} aria-hidden="true" />}
+              title="Compare the practical details"
+              body="Review credentials, approach, populations, language, format, jurisdiction, fee, and availability."
             />
-            <StepItem
-              number="03"
-              title="Meet virtually, anywhere in Ontario"
-              body="Secure video sessions from wherever you're comfortable. If it doesn't feel like the right fit, we'll help you adjust."
+            <DirectoryStep
+              icon={<ExternalLink size={19} aria-hidden="true" />}
+              title="Book the therapist you selected"
+              body="Open that therapist’s verified Jane destination and choose an available free consultation time."
             />
           </div>
         </div>
       </section>
 
-      <CTASection
-        dark
-        href={MATCHING_FORM_URL}
-        buttonLabel={MATCHING_CTA_LABEL}
-        headline="Ready to get started?"
-        subtext="Browse our therapists above, choose who feels right, and book directly through Jane. Or call us at 613-707-0333 if you'd like help deciding."
-      />
+      <section className="bg-[#123F40] py-20 text-center text-white">
+        <div className="container-v">
+          <h2 className="mx-auto max-w-[720px] font-serif text-[38px] font-medium leading-tight md:text-[52px]">
+            Still deciding between therapists?
+          </h2>
+          <p className="mx-auto mt-4 max-w-[620px] text-[14px] leading-7 text-white/70">
+            Return to the short finder for a focused option, or ask Valisen to
+            help you choose.
+          </p>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <TrackedLink
+              href="#therapist-finder"
+              event="therapist_finder_started"
+              page="therapist_directory"
+              placement="final_primary"
+              finderUsed
+              className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-white px-7 text-sm font-semibold text-[#123F40]"
+            >
+              Find My Therapist
+              <ArrowRight size={16} className="ml-2" aria-hidden="true" />
+            </TrackedLink>
+            <TrackedLink
+              href="/consultation"
+              event="request_help_opened"
+              page="therapist_directory"
+              placement="final_secondary"
+              className="inline-flex min-h-[52px] items-center justify-center rounded-full border border-white/30 px-7 text-sm font-semibold text-white"
+            >
+              Let Valisen Help Me Choose
+            </TrackedLink>
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </main>
   );
 }
 
-function StatCell({
-  value,
-  label,
-  last = false,
-}: {
-  value: string;
-  label: string;
-  last?: boolean;
-}) {
-  return (
-    <div
-      className={`flex flex-col items-center gap-1.5 px-4 text-center ${
-        last ? "" : "md:border-r md:border-hairline"
-      }`}
-    >
-      <dt className="order-2 max-w-[190px] text-[12px] font-medium uppercase leading-[1.5] tracking-[0.8px] text-ink-hint">
-        {label}
-      </dt>
-      <dd className="order-1 font-serif text-[34px] font-medium leading-none tracking-[-0.5px] text-teal-dark">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function StepItem({
-  number,
+function DirectoryStep({
+  icon,
   title,
   body,
 }: {
-  number: string;
+  icon: React.ReactNode;
   title: string;
   body: string;
 }) {
   return (
-    <div className="relative">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-5 left-0 select-none font-serif text-[56px] font-medium leading-none text-teal/[0.22]"
-      >
-        {number}
+    <article>
+      <span className="grid h-10 w-10 place-items-center rounded-xl bg-teal-xlight text-teal-dark">
+        {icon}
       </span>
-      <div className="relative pt-6">
-        <h3 className="text-[16.5px] font-medium text-ink">{title}</h3>
-        <p className="mt-2 text-[13.5px] leading-[1.65] text-ink-secondary">{body}</p>
-      </div>
-    </div>
+      <h2 className="mt-5 text-[17px] font-semibold text-ink">{title}</h2>
+      <p className="mt-2 text-[13.5px] leading-6 text-ink-secondary">{body}</p>
+    </article>
   );
 }

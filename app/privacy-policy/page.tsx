@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://valisenmentalhealth.com/privacy-policy" },
 };
 
-const EFFECTIVE_DATE = "May 9, 2026";
+const EFFECTIVE_DATE = "July 26, 2026";
 const LAST_UPDATED = "July 26, 2026";
 
 export default function PrivacyPolicyPage() {
@@ -274,10 +274,23 @@ export default function PrivacyPolicyPage() {
                   your raw safety-check answer.
                 </li>
                 <li>
+                  <strong className="text-ink">Therapist finder:</strong> Choices made in the short
+                  homepage or directory finder stay in the current page only. They are not placed
+                  in the page URL, saved to browser storage, or sent in advertising analytics
+                  events.
+                </li>
+                <li>
+                  <strong className="text-ink">First-touch attribution:</strong> Standard UTM
+                  campaign fields may be retained in session storage to understand the non-clinical
+                  source of a visit. UTM terms remain first-party and are not copied into analytics
+                  events because a term could contain health-related wording.
+                </li>
+                <li>
                   <strong className="text-ink">Analytics cookies:</strong> We may use
                   privacy-respecting analytics to understand how visitors use our website. Quiz
-                  scores, concern categories, written responses, safety answers, email addresses,
-                  and phone numbers are not sent in quiz analytics events.
+                  scores, finder choices, therapist recommendations, concern categories, written
+                  responses, safety answers, names, email addresses, and phone numbers are not
+                  sent in quiz or therapist-finder analytics events.
                 </li>
               </ul>
               <p className="mt-3">

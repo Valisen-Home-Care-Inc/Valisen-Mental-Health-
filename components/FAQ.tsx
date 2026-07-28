@@ -1,84 +1,81 @@
-"use client";
+import {
+  CONSULTATION_DURATION_MINUTES,
+  getActiveTherapists,
+  getTherapyPriceSummary,
+} from "@/lib/therapists";
 
-import { useState } from "react";
+const therapists = getActiveTherapists();
 
 const FAQS = [
   {
     question: "How much does therapy cost?",
-    answer:
-      "Session fees vary by therapist and service type. You'll receive a clear breakdown of fees before your first session. Many clients have their sessions fully or partially covered by extended health benefits.",
+    answer: `${getTherapyPriceSummary(therapists)}. The exact fee may depend on the therapist and session type. Confirm the service and fee shown in Jane before booking.`,
   },
   {
-    question: "Will my extended health plan cover this?",
-    answer:
-      "Many plans through Manulife, Sun Life, Canada Life, Green Shield, and Equitable Life cover sessions with Registered Psychotherapists and Registered Social Workers. We recommend checking your plan's mental health coverage. Receipts for insurance purposes are provided after each session.",
+    question: `Is the ${CONSULTATION_DURATION_MINUTES}-minute consultation free?`,
+    answer: `Yes. The initial ${CONSULTATION_DURATION_MINUTES}-minute phone consultation is free. It is separate from a paid therapy session.`,
   },
   {
-    question: "How do I get started with therapy?",
+    question: "Will my insurance reimburse therapy?",
     answer:
-      "Book a free 20-minute phone consultation through our online booking system or call 613-707-0333. Sessions are typically available within a few days of your first contact.",
+      "Official receipts are provided for insurance reimbursement. Coverage depends on your plan and your therapist’s professional designation. Confirm that your plan covers a Registered Psychotherapist (RP) or Registered Social Worker (RSW), as applicable.",
   },
   {
-    question: "What if I want to switch therapists?",
+    question: "How do I choose a therapist?",
     answer:
-      "Just let us know. We have multiple therapists on our team and will find you a better fit at no extra cost.",
+      "Use the short therapist finder to narrow the team, or compare areas of practice, populations, language, approach, availability, and price directly. The free consultation gives you a chance to ask about fit before deciding what comes next.",
+  },
+  {
+    question: "What happens during the consultation?",
+    answer:
+      "You can briefly describe what you want support with and ask about the therapist’s approach, scheduling, fees, and whether their experience aligns with what you are looking for.",
+  },
+  {
+    question: "Can I switch therapists?",
+    answer:
+      "Yes. If the first conversation does not feel like the right fit, you can compare another Valisen therapist or contact the clinic for help choosing.",
+  },
+  {
+    question: "Is therapy virtual or in person?",
+    answer:
+      "The therapists listed here offer virtual therapy. Service jurisdiction is shown on every card; most services are available across Ontario, and Ryann also serves Saskatchewan.",
   },
 ];
 
 export default function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-  function toggle(index: number) {
-    setOpenIndex((current) => (current === index ? null : index));
-  }
-
   return (
-    <section className="bg-white py-24 md:py-32">
-      <div className="container-v max-w-[800px]">
-        <div className="mb-10 text-center">
-          <span className="badge-outline-teal mb-5">FAQ</span>
-          <h2 className="font-serif text-[32px] font-medium leading-[1.1] tracking-[-1px] text-ink md:text-v2xl">
-            Common questions
+    <section className="bg-white py-20 md:py-28" aria-labelledby="faq-heading">
+      <div className="container-v max-w-[860px]">
+        <div className="mb-9">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal">
+            Focused FAQ
+          </span>
+          <h2
+            id="faq-heading"
+            className="mt-3 font-serif text-[34px] font-medium leading-tight text-ink md:text-[46px]"
+          >
+            The practical questions, answered first.
           </h2>
         </div>
-        <div className="space-y-3">
-          {FAQS.map((faq, index) => {
-            const isOpen = openIndex === index;
-            return (
-              <div
-                key={faq.question}
-                className={`card-lift rounded-card border-[0.5px] bg-white p-5 transition-colors ${
-                  isOpen ? "border-teal" : "border-hairline"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(index)}
-                  className="flex w-full items-center justify-between gap-4 text-left"
-                  aria-expanded={isOpen}
+        <div className="divide-y divide-hairline border-y border-hairline">
+          {FAQS.map((faq, index) => (
+            <details key={faq.question} className="group py-2" open={index === 0}>
+              <summary className="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-5 py-3 text-left [&::-webkit-details-marker]:hidden">
+                <span className="font-serif text-[19px] font-medium text-ink md:text-[21px]">
+                  {faq.question}
+                </span>
+                <span
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-teal-xlight text-lg text-teal transition group-open:rotate-45"
+                  aria-hidden="true"
                 >
-                  <span
-                    className={`font-serif text-vlg font-medium transition-colors ${
-                      isOpen ? "text-teal" : "text-ink"
-                    }`}
-                  >
-                    {faq.question}
-                  </span>
-                  <span
-                    className={`shrink-0 text-teal transition-transform duration-200 ${
-                      isOpen ? "rotate-45" : ""
-                    }`}
-                    aria-hidden="true"
-                  >
-                    +
-                  </span>
-                </button>
-                {isOpen ? (
-                  <p className="mt-4 text-[14px] leading-[1.7] text-ink-secondary">{faq.answer}</p>
-                ) : null}
-              </div>
-            );
-          })}
+                  +
+                </span>
+              </summary>
+              <p className="max-w-[760px] pb-5 pr-12 text-[14px] leading-7 text-ink-secondary">
+                {faq.answer}
+              </p>
+            </details>
+          ))}
         </div>
       </div>
     </section>

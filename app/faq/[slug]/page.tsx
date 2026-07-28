@@ -772,17 +772,17 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
     question: "Do you offer therapy in languages other than English?",
     category: "About Valisen",
     categorySlug: "about-valisen",
-    metaTitle: "Therapy in English and Mandarin | Valisen Ottawa",
+    metaTitle: "Therapy in English, French and Mandarin | Valisen Ottawa",
     metaDescription:
-      "Valisen Mental Health offers therapy in English and Mandarin — because the language you work in shapes the depth and safety of therapy.",
+      "Valisen Mental Health offers therapy in English, French, and Mandarin — because the language you work in shapes the depth and safety of therapy.",
     updatedDate: "2026-06-08",
     intro:
-      "The language in which therapy happens is not a neutral detail. The depth of emotional access, the precision of self-expression, and the safety of the therapeutic relationship are all meaningfully affected by whether you are working in your first language. At Valisen, therapy is available in both English and Mandarin.",
+      "The language in which therapy happens is not a neutral detail. The depth of emotional access, the precision of self-expression, and the safety of the therapeutic relationship are all meaningfully affected by whether you are working in your first language. At Valisen, therapy is available in English, French, and Mandarin.",
     sections: [
       {
         h2: "Languages currently available",
         paragraphs: [
-          "Our team currently offers therapy in English and Mandarin. For Mandarin-speaking clients, sessions are available with a bilingual Registered Psychotherapist. When booking, please indicate your language preference so we can match you with the right therapist.",
+          "Our team currently offers therapy in English, French, and Mandarin. Dayong offers sessions in English and Mandarin, while Wilfred offers sessions in English and French. When booking, please indicate your language preference so we can match you with the right therapist.",
         ],
       },
       {
@@ -1090,7 +1090,7 @@ export default function FAQEntryPage({ params }: { params: { slug: string } }) {
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link href={MATCHING_FORM_URL} className="btn-primary">
-                Book now
+                Book Free Consultation
               </Link>
               <a
                 href="tel:613-707-0333"

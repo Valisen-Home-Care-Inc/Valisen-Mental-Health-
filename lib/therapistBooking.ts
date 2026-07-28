@@ -1,102 +1,61 @@
 /**
- * Verified therapist-to-Jane booking configuration.
+ * Compatibility helpers for therapist-specific booking.
  *
- * Keep booking destinations here rather than scattering URLs through profile,
- * matching, result, and email components. The existing verified destinations
- * are Jane staff pages; no treatment/service-specific Jane IDs or real-time
- * availability integration are present in the business configuration.
+ * Identity, fees, availability and Jane destinations live together on each
+ * record in lib/therapists.ts. This module exposes the narrower shape used by
+ * the quiz, email and legacy booking callers without duplicating configuration.
  */
 
-export const CLINIC_JANE_BOOKING_URL =
-  "https://valisenmentalhealth.janeapp.com/";
+import {
+  CLINIC_JANE_BOOKING_URL,
+  therapists,
+} from "@/lib/therapists";
+
+export { CLINIC_JANE_BOOKING_URL };
 
 export type TherapistBookingConfig = {
-  /** Stable first-party identifier used in matching and privacy-safe events. */
   therapistId: string;
   therapistName: string;
   consultationBookingUrl: string;
   profileUrl: string;
-  consultationIsFree?: boolean;
-  consultationDuration?: string;
-  consultationFormat?: string;
+  consultationIsFree: boolean;
+  consultationDuration: string;
+  consultationFormat: string;
   serviceFormat: string[];
   languages: string[];
-  /** True only where no therapist-specific Jane staff URL is verified. */
   usesClinicFallback: boolean;
   janeStaffId?: string;
 };
 
-export const THERAPIST_BOOKING_CONFIG = {
-  "dayong-quan": {
-    therapistId: "dayong-quan",
-    therapistName: "Dayong Quan",
-    consultationBookingUrl:
-      "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
-    profileUrl: "/therapists/dayong-quan",
-    consultationIsFree: true,
-    consultationDuration: "20 minutes",
-    consultationFormat: "Phone",
-    serviceFormat: ["Virtual therapy", "Ontario"],
-    languages: ["English", "Mandarin"],
-    usesClinicFallback: false,
-    janeStaffId: "7",
-  },
-  "wilfred-bengnwi": {
-    therapistId: "wilfred-bengnwi",
-    therapistName: "Wilfred Bengnwi",
-    consultationBookingUrl:
-      "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
-    profileUrl: "/therapists/wilfred-bengnwi",
-    consultationIsFree: true,
-    consultationDuration: "20 minutes",
-    consultationFormat: "Phone",
-    serviceFormat: ["Virtual therapy", "Ontario"],
-    languages: ["English"],
-    usesClinicFallback: false,
-    janeStaffId: "6",
-  },
-  "tim-kahtava": {
-    therapistId: "tim-kahtava",
-    therapistName: "Tim Kahtava",
-    consultationBookingUrl:
-      "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
-    profileUrl: "/therapists/tim-kahtava",
-    consultationIsFree: true,
-    consultationDuration: "20 minutes",
-    consultationFormat: "Phone",
-    serviceFormat: ["Virtual therapy", "Ontario"],
-    languages: ["English"],
-    usesClinicFallback: false,
-    janeStaffId: "5",
-  },
-  "ryann-simpson": {
-    therapistId: "ryann-simpson",
-    therapistName: "Ryann Simpson",
-    consultationBookingUrl:
-      "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
-    profileUrl: "/therapists/ryann-simpson",
-    consultationIsFree: true,
-    consultationDuration: "20 minutes",
-    consultationFormat: "Phone",
-    serviceFormat: [
-      "Virtual therapy",
-      "Telephone therapy",
-      "Ontario and Saskatchewan",
-    ],
-    languages: ["English"],
-    usesClinicFallback: false,
-    janeStaffId: "8",
-  },
-} as const satisfies Record<string, TherapistBookingConfig>;
-
-export type BookableTherapistSlug = keyof typeof THERAPIST_BOOKING_CONFIG;
+export const THERAPIST_BOOKING_CONFIG: Record<
+  string,
+  TherapistBookingConfig
+> = Object.fromEntries(
+  therapists.map((therapist) => [
+    therapist.slug,
+    {
+      therapistId: therapist.slug,
+      therapistName: therapist.name,
+      consultationBookingUrl: therapist.consultationBookingUrl,
+      profileUrl: therapist.profileUrl,
+      consultationIsFree: therapist.consultationPrice === 0,
+      consultationDuration: `${therapist.consultationDurationMinutes} minutes`,
+      consultationFormat: therapist.consultationFormat,
+      serviceFormat: [
+        ...therapist.formats.map((format) => `${format} therapy`),
+        therapist.jurisdictions.join(" and "),
+      ],
+      languages: therapist.languages.filter((language) => language !== "普通话"),
+      usesClinicFallback: therapist.usesClinicBookingFallback,
+      janeStaffId: therapist.janeStaffId,
+    },
+  ]),
+);
 
 export function getTherapistBookingConfig(
   therapistSlug: string,
 ): TherapistBookingConfig | undefined {
-  return THERAPIST_BOOKING_CONFIG[
-    therapistSlug as BookableTherapistSlug
-  ] as TherapistBookingConfig | undefined;
+  return THERAPIST_BOOKING_CONFIG[therapistSlug];
 }
 
 export function getTherapistConsultationUrl(therapistSlug: string): string {

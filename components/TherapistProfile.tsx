@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle,
   Clock,
+  ExternalLink,
   GraduationCap,
   Languages,
   MapPin,
@@ -18,14 +19,20 @@ import BookingNote from "@/components/BookingNote";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
 import NavBar from "@/components/NavBar";
+import TrackedLink from "@/components/TrackedLink";
 import { CONSULTATION_CTA_LABEL, getTherapistIntakeUrl } from "@/lib/intake";
-import type { DetailItem, Therapist } from "@/lib/therapists";
+import {
+  formatConsultation,
+  formatTherapySession,
+  type DetailItem,
+  type Therapist,
+} from "@/lib/therapists";
 
 export default function TherapistProfile({ therapist }: { therapist: Therapist }) {
   const intakeHref = getTherapistIntakeUrl(therapist.slug);
 
   return (
-    <main className="bg-canvas">
+    <main className="bg-canvas pb-20 md:pb-0">
       <NavBar />
       <Hero therapist={therapist} intakeHref={intakeHref} />
       <HumanIntroduction therapist={therapist} />
@@ -50,6 +57,22 @@ export default function TherapistProfile({ therapist }: { therapist: Therapist }
           subtext="Book directly through Jane or call us if you would like help choosing a therapist."
         />
       )}
+      {!therapist.comingSoon && therapist.acceptingNewClients ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md md:hidden">
+          <TrackedLink
+            href={therapist.consultationBookingUrl}
+            event="jane_booking_clicked"
+            page="therapist_profile"
+            placement="mobile_sticky"
+            janeClick
+            newTab
+            className="btn-primary min-h-12 w-full justify-center"
+          >
+            Book Free Consultation with {therapist.name.split(" ")[0]}
+            <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+          </TrackedLink>
+        </div>
+      ) : null}
       <Footer />
     </main>
   );
@@ -58,11 +81,11 @@ export default function TherapistProfile({ therapist }: { therapist: Therapist }
 function Hero({ therapist, intakeHref }: { therapist: Therapist; intakeHref: string }) {
   return (
     <section className="relative overflow-hidden bg-canvas">
-      <div className="container-v grid grid-cols-1 gap-10 py-16 md:grid-cols-[0.95fr_1.05fr] md:items-center md:py-24">
+      <div className="container-v grid grid-cols-1 gap-10 py-6 md:grid-cols-[0.95fr_1.05fr] md:items-center md:py-24">
         <div className="order-2 md:order-1">
           <Link
             href="/therapists"
-            className="mb-8 inline-flex items-center gap-2 text-[13px] font-medium text-ink-secondary no-underline hover:text-teal"
+            className="mb-8 hidden items-center gap-2 text-[13px] font-medium text-ink-secondary no-underline hover:text-teal md:inline-flex"
           >
             <ArrowLeft size={15} aria-hidden="true" />
             Back to therapists
@@ -103,13 +126,19 @@ function Hero({ therapist, intakeHref }: { therapist: Therapist; intakeHref: str
                 Coming Soon — Accepting Clients Shortly
               </span>
             ) : (
-              <Link
+              <TrackedLink
                 href={intakeHref}
+                event="jane_booking_clicked"
+                page="therapist_profile"
+                placement="profile"
+                janeClick
+                newTab
                 className="btn-primary justify-center"
               >
                 <CalendarDays size={16} className="mr-2" aria-hidden="true" />
                 {CONSULTATION_CTA_LABEL}
-              </Link>
+                <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+              </TrackedLink>
             )}
             <Link href="/therapists" className="btn-outline justify-center">
               View All Therapists
@@ -120,6 +149,13 @@ function Hero({ therapist, intakeHref }: { therapist: Therapist; intakeHref: str
         </div>
 
         <div className="order-1 md:order-2">
+          <Link
+            href="/therapists"
+            className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-hairline bg-white px-4 text-[13px] font-semibold text-ink-secondary no-underline shadow-sm hover:border-teal/30 hover:text-teal md:hidden"
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+            Back to therapists
+          </Link>
           <div className="mx-auto max-w-[430px] rounded-card border-[0.5px] border-hairline bg-white p-4 shadow-card">
             <ProfilePortrait therapist={therapist} />
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -127,11 +163,17 @@ function Hero({ therapist, intakeHref }: { therapist: Therapist; intakeHref: str
               <Fact
                 icon={<MapPin size={17} aria-hidden="true" />}
                 label="Eligible in"
-                value={
-                  therapist.slug === "ryann-simpson"
-                    ? "Ontario and Saskatchewan"
-                    : "Ontario"
-                }
+                value={therapist.jurisdictions.join(" and ")}
+              />
+              <Fact
+                icon={<Clock size={17} aria-hidden="true" />}
+                label="Paid session"
+                value={formatTherapySession(therapist)}
+              />
+              <Fact
+                icon={<CalendarDays size={17} aria-hidden="true" />}
+                label="Consultation"
+                value={formatConsultation(therapist)}
               />
             </div>
           </div>
@@ -318,13 +360,18 @@ function DetailPanel({
       </dl>
       {intakeHref ? (
         <div className="mt-6 border-t border-hairline pt-5">
-          <Link
+          <TrackedLink
             href={intakeHref}
+            event="jane_booking_clicked"
+            page="therapist_profile"
+            placement="profile"
+            janeClick
+            newTab
             className="btn-primary w-full justify-center"
           >
             {CONSULTATION_CTA_LABEL}
             <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-          </Link>
+          </TrackedLink>
           <BookingNote className="mt-4" />
         </div>
       ) : null}
