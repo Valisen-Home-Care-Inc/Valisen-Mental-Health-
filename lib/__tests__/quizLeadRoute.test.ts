@@ -200,7 +200,7 @@ function sentMessages() {
 
 function internalResultsMessages() {
   return sentMessages().filter((message) =>
-    String(message.subject).startsWith("New Quiz Results Submission"),
+    String(message.subject).includes("New Quiz Results Submission"),
   );
 }
 
@@ -213,7 +213,7 @@ function userResultsMessages() {
 
 function contactMessages() {
   return sentMessages().filter((message) =>
-    String(message.subject).startsWith("Booking Help Requested"),
+    String(message.subject).includes("Booking Help Requested"),
   );
 }
 

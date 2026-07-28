@@ -30,14 +30,16 @@ export const THERAPIST_BOOKING_CONFIG = {
   "dayong-quan": {
     therapistId: "dayong-quan",
     therapistName: "Dayong Quan",
-    consultationBookingUrl: CLINIC_JANE_BOOKING_URL,
+    consultationBookingUrl:
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
     profileUrl: "/therapists/dayong-quan",
     consultationIsFree: true,
     consultationDuration: "20 minutes",
     consultationFormat: "Phone",
     serviceFormat: ["Virtual therapy", "Ontario"],
     languages: ["English", "Mandarin"],
-    usesClinicFallback: true,
+    usesClinicFallback: false,
+    janeStaffId: "7",
   },
   "wilfred-bengnwi": {
     therapistId: "wilfred-bengnwi",

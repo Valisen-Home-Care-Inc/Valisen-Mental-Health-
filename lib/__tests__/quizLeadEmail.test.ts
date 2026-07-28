@@ -3,6 +3,7 @@ import {
   buildQuizLeadEmail,
   buildQuizResultsAccessEmail,
   buildQuizUserResultsEmail,
+  scoreQuizLeadHeat,
   type QuizLeadEmailModel,
   type QuizResultsAccessEmailModel,
 } from "@/lib/server/quizLeadEmail";
@@ -74,7 +75,9 @@ describe("buildQuizResultsAccessEmail", () => {
   it("states the specific initial staff/therapist contact and sharing authorization", () => {
     const email = buildQuizResultsAccessEmail(accessModel());
 
-    expect(email.subject).toBe("New Quiz Results Submission — Alex");
+    expect(email.subject).toBe(
+      "[LEAD 2/10 | VERY COLD] New Quiz Results Submission — Alex",
+    );
     for (const content of [email.text, email.html]) {
       expect(content).toContain("Alex");
       expect(content).toContain("alex@example.com");
@@ -93,6 +96,9 @@ describe("buildQuizResultsAccessEmail", () => {
       expect(content).toContain("I’m just exploring right now");
       expect(content).toContain("campaign: ottawa-therapy");
       expect(content).toMatch(/outbound click is not a confirmed/i);
+      expect(content).toMatch(/lead heat:\s*2\/10/i);
+      expect(content).toMatch(/treat this as information gathering/i);
+      expect(content).toMatch(/symptom severity.*earns no (?:lead )?points/i);
     }
   });
 
@@ -169,7 +175,7 @@ describe("buildQuizResultsAccessEmail", () => {
 describe("buildQuizLeadEmail", () => {
   it("uses the requested subject with the visitor's first name", () => {
     expect(buildQuizLeadEmail(model()).subject).toBe(
-      "Booking Help Requested — Alex",
+      "[LEAD 9/10 | BLAZING] Booking Help Requested — Alex",
     );
   });
 
@@ -178,7 +184,7 @@ describe("buildQuizLeadEmail", () => {
       model({ firstName: "Alex\r\nBcc: attacker@example.com" }),
     );
     expect(subject).toBe(
-      "Booking Help Requested — Alex Bcc: attacker@example.com",
+      "[LEAD 9/10 | BLAZING] Booking Help Requested — Alex Bcc: attacker@example.com",
     );
     expect(subject).not.toMatch(/[\r\n]/);
   });
@@ -202,6 +208,8 @@ describe("buildQuizLeadEmail", () => {
       expect(content).toMatch(/not confirmed/i);
       expect(content).toMatch(/no appointment is booked until/i);
       expect(content).toMatch(/outbound click is not a confirmed/i);
+      expect(content).toMatch(/lead heat:\s*9\/10/i);
+      expect(content).toMatch(/exceptional intent/i);
     }
   });
 
@@ -237,6 +245,43 @@ describe("buildQuizLeadEmail", () => {
   it("does not embed raw quiz answer keys", () => {
     const email = buildQuizLeadEmail(model());
     expect(email.text).not.toMatch(/worry_1|mood_1|gender_preference|"language"/i);
+  });
+
+  it("reserves 10/10 for every strongest observed booking-intent signal", () => {
+    const hottest = scoreQuizLeadHeat(
+      model({
+        intent: "ready_to_speak",
+      }),
+    );
+    expect(hottest).toMatchObject({
+      score: 10,
+      label: "SOLAR HOT",
+    });
+    expect(hottest.blockers).toEqual([]);
+  });
+
+  it("brutally keeps quiz-only curiosity cold and ignores symptom severity", () => {
+    const cold = scoreQuizLeadHeat(
+      accessModel({
+        phone: undefined,
+        intent: "exploring",
+        resultCategory: "Severe-looking result wording that must not affect heat",
+        scoreBand: "Highest symptom strain",
+      }),
+    );
+    expect(cold).toMatchObject({
+      score: 1,
+      label: "ICE COLD",
+      verdict: expect.stringMatching(/do not treat.*booking-ready/i),
+    });
+    expect(cold.blockers).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/not say.*ready/i),
+        expect.stringMatching(/no phone/i),
+        expect.stringMatching(/no Jane booking click/i),
+        expect.stringMatching(/no explicit booking-help request/i),
+      ]),
+    );
   });
 });
 
@@ -281,7 +326,7 @@ describe("buildQuizUserResultsEmail", () => {
     expect(email.bookingUrl).toBe("https://valisenmentalhealth.janeapp.com/");
   });
 
-  it("describes Dayong's clinic-level Jane fallback without implying personal availability", () => {
+  it("uses Dayong's direct Jane staff page and therapist-specific CTA", () => {
     const email = buildQuizUserResultsEmail({
       referenceId: "VQ-USER123456",
       firstName: "Alex",
@@ -293,14 +338,12 @@ describe("buildQuizUserResultsEmail", () => {
         "https://valisenmentalhealth.com/quiz#result=v1.VQ-USER123456.token",
     });
 
-    expect(email.bookingUrl).toBe("https://valisenmentalhealth.janeapp.com/");
+    expect(email.bookingUrl).toBe(
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
+    );
     for (const content of [email.text, email.html]) {
-      expect(content).toContain("View Valisen Consultation Times");
-      expect(content).toMatch(/clinic booking page in Jane/i);
-      expect(content).toMatch(/recommended match remains Dayong/i);
-      expect(content).not.toMatch(
-        /Dayong(?:’|&rsquo;|'|&#x27;)s availability|Book a Consultation with Dayong/i,
-      );
+      expect(content).toContain("Book a Consultation with Dayong");
+      expect(content).not.toMatch(/clinic booking page in Jane/i);
     }
   });
 });

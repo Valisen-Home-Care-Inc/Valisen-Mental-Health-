@@ -110,8 +110,9 @@ All four routes:
   verified booking configuration.
 - Matching is deterministic. Ties use the explicit stable order in
   `lib/matching.ts`, not the public therapist-grid order.
-- If no responsible match reaches the threshold, the results use a clinic/team
-  path instead of manufacturing a recommendation.
+- The strongest eligible therapist is always recommended. If the answers do
+  not separate the roster, the engine uses its documented stable order and
+  frames the result as a starting point to confirm during the free consultation.
 
 Scoring thresholds, result language, matching weights, and therapist metadata
 still require Valisen's clinical and operational approval.
@@ -123,7 +124,7 @@ and consultation facts used by matching, results, and visitor email.
 
 | Therapist ID | Verified consultation destination | Status |
 | --- | --- | --- |
-| `dayong-quan` | `https://valisenmentalhealth.janeapp.com/` | Verified clinic fallback; no therapist-specific staff URL is currently configured |
+| `dayong-quan` | `https://valisenmentalhealth.janeapp.com/#/staff_member/7` | Verified staff link |
 | `wilfred-bengnwi` | `https://valisenmentalhealth.janeapp.com/#/staff_member/6` | Verified staff link |
 | `tim-kahtava` | `https://valisenmentalhealth.janeapp.com/#/staff_member/5` | Verified staff link |
 | `ryann-simpson` | `https://valisenmentalhealth.janeapp.com/#/staff_member/8` | Verified staff link |
@@ -245,13 +246,18 @@ Three transactional email paths exist:
 1. **Internal results summary**: sent to `QUIZ_LEAD_TO_EMAIL` after a new result
    is persisted. It includes name, email, required phone, result category and
    score band, recommended therapist, human-readable intent, internal
-   reference, safe campaign attribution, and a snapshot of results/match views,
+   reference, safe campaign attribution, a conservative 1–10 lead-heat rating,
+   and a snapshot of results/match views,
    Jane clicks, CTA placement, and contact-help status. It prominently records
    the initial Valisen/therapist contact and sharing authorization and its
    exclusions only when both the stored copy and version exactly match the
    current authorization. Legacy or inconsistent records instead carry a
    prominent manual-review warning. The email includes a privacy-limited PDF
-   summary.
+   summary. Lead heat uses declared intent and observed booking actions only:
+   quiz completion, phone availability, a Jane click, an explicit booking-help
+   request, and exact proposed times. Symptom severity and auto-recorded
+   result/match views earn zero points. A 10/10 requires every strongest signal
+   and still does not mean a booking is confirmed.
 2. **Visitor results email**: sent to the submitted email address. It delivers
    the requested result heading, the same intent-adaptive CTA language as the
    page, the matched therapist's centralized Jane destination, and the private
@@ -488,8 +494,9 @@ test storage/mail adapters.
 
 ## Review before launch
 
-- **Business operations**: verify every Jane destination, especially Dayong's
-  clinic fallback, and reconfirm consultation price, duration, and format.
+- **Business operations**: verify every Jane staff destination, including
+  Dayong's staff-member 7 link, and reconfirm consultation price, duration,
+  and format.
 - **Privacy/legal**: approve the mandatory results-access contact/sharing
   authorization, the separate exact-time scheduling acknowledgement, private
   link/PDF handling, worksheet retention/deletion, campaign fields, and

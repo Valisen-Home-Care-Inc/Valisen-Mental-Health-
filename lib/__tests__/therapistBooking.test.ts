@@ -13,10 +13,10 @@ const EXPECTED_DESTINATIONS = [
   {
     slug: "dayong-quan",
     name: "Dayong Quan",
-    url: "https://valisenmentalhealth.janeapp.com/",
+    url: "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
     profileUrl: "/therapists/dayong-quan",
-    usesClinicFallback: true,
-    janeStaffId: undefined,
+    usesClinicFallback: false,
+    janeStaffId: "7",
   },
   {
     slug: "wilfred-bengnwi",
@@ -76,16 +76,23 @@ describe("central therapist booking configuration", () => {
     }
   });
 
-  it("documents Dayong's verified clinic fallback while preserving staff links for others", () => {
+  it("uses a therapist-specific Jane staff link for every therapist", () => {
     expect(CLINIC_JANE_BOOKING_URL).toBe(
       "https://valisenmentalhealth.janeapp.com/",
     );
     expect(getTherapistBookingConfig("dayong-quan")).toMatchObject({
-      consultationBookingUrl: CLINIC_JANE_BOOKING_URL,
-      usesClinicFallback: true,
+      consultationBookingUrl:
+        "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
+      usesClinicFallback: false,
+      janeStaffId: "7",
     });
 
-    for (const slug of ["wilfred-bengnwi", "tim-kahtava", "ryann-simpson"]) {
+    for (const slug of [
+      "dayong-quan",
+      "wilfred-bengnwi",
+      "tim-kahtava",
+      "ryann-simpson",
+    ]) {
       const config = getTherapistBookingConfig(slug);
       expect(config?.usesClinicFallback).toBe(false);
       expect(config?.consultationBookingUrl).toMatch(

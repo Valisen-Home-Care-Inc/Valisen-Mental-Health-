@@ -11,17 +11,17 @@
  *     metadata from lib/therapists.ts.
  *  3. Ties break deterministically: higher score → more selected-concern
  *     overlap → the explicit stable order below.
- *  4. If nothing meaningfully supports a suggestion, the engine returns
- *     "no clear match" rather than manufacturing one.
+ *  4. The strongest eligible therapist is always returned. When the answers
+ *     do not separate the roster, the stable tie-break order provides a
+ *     transparent starting point and the result copy tells the visitor to
+ *     confirm fit in the free consultation.
  *
  * There is no AI model, no randomness, and no hidden signal. Every reason
  * shown to the visitor is generated from a concrete (answer, verified
  * attribute) pair.
  *
- * 🔬 The weights and thresholds below are infrastructure defaults and are
- * flagged for Valisen's clinical review. Setting MATCHING_ENGINE_ENABLED to
- * false hides the "Suggested Match" card entirely (the results, score, and
- * full team list still work) — use this if the rules lose approval.
+ * 🔬 The weights below are infrastructure defaults and are flagged for
+ * Valisen's clinical review.
  */
 
 import {
@@ -42,9 +42,6 @@ import {
   isVerifiedValisenJaneUrl,
 } from "@/lib/therapistBooking";
 
-/** Feature flag — set to false to disable the suggested-match card. */
-export const MATCHING_ENGINE_ENABLED = true;
-
 /* ────────────────────────────────────────────────────────────────────────
  * Documented weights. Update these (not the engine code) to re-balance.
  * ──────────────────────────────────────────────────────────────────────── */
@@ -58,11 +55,11 @@ export const MATCHING_WEIGHTS = {
 } as const;
 
 /**
- * A suggestion is only made when the top therapist reaches this score —
- * i.e. at least one real signal (a supported dimension or a selected
- * concern) connects the visitor to the therapist.
+ * The public quiz always returns the strongest eligible therapist. A zero
+ * threshold makes that guarantee explicit while preserving the exported
+ * constant for operational documentation and older callers.
  */
-export const MIN_MATCH_SCORE = 2;
+export const MIN_MATCH_SCORE = 0;
 
 /** Maximum number of "why this may be a good fit" reasons shown/emailed. */
 export const MAX_REASONS = 4;
@@ -163,10 +160,6 @@ export function matchTherapist(
   /** Injectable for tests; defaults to the real roster. */
   allTherapists: Therapist[] = fullRoster,
 ): MatchResult {
-  if (!MATCHING_ENGINE_ENABLED) {
-    return { status: "no-clear-match", reason: "engine-disabled" };
-  }
-
   const roster = allTherapists.filter((t) => !t.comingSoon);
 
   // 1. Hard eligibility filters.
@@ -177,16 +170,17 @@ export function matchTherapist(
     return { status: "no-clear-match", reason: "no-eligible-therapist" };
   }
 
-  const candidates = baseline.filter((t) => {
+  const preferenceCandidates = baseline.filter((t) => {
     if (prefs.genderPreference !== "no-preference" && t.matching.gender !== prefs.genderPreference) {
       return false;
     }
     return true;
   });
-  if (candidates.length === 0) {
-    // Someone was eligible, but the visitor's firm preferences ruled everyone out.
-    return { status: "no-clear-match", reason: "preferences-unsatisfiable" };
-  }
+  // If a preference cannot be satisfied by the accepting roster, keep the
+  // visitor moving with the strongest available therapist instead of
+  // withholding a recommendation.
+  const candidates =
+    preferenceCandidates.length > 0 ? preferenceCandidates : baseline;
 
   // 2. Deterministic scoring from real signals only.
   const presentDimensions = outcome.scores
@@ -236,11 +230,6 @@ export function matchTherapist(
 
   const top = scored[0];
 
-  // 4. Refuse to manufacture a match from nothing.
-  if (top.score < MIN_MATCH_SCORE) {
-    return { status: "no-clear-match", reason: "no-supporting-signal" };
-  }
-
   return {
     status: "match",
     therapistSlug: top.therapist.slug,
@@ -274,6 +263,13 @@ function buildReasons(candidate: ScoredCandidate, prefs: MatchPreferences): Matc
     reasons.push({
       chip: "Preference respected",
       detail: `You preferred to work with ${label}, and ${firstName} matches that preference.`,
+    });
+  }
+
+  if (reasons.length === 0) {
+    reasons.push({
+      chip: "A place to start",
+      detail: `${firstName} is currently accepting new clients and was the strongest available result from the quiz’s stable comparison. A free consultation is the right place to confirm fit.`,
     });
   }
 

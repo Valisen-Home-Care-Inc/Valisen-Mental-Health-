@@ -82,6 +82,164 @@ type BuiltEmail = {
   html: string;
 };
 
+type QuizLeadHeatModel = QuizLeadStatusSnapshot & {
+  phone?: string;
+  contactPhone?: string;
+  preferredTimes?: string[];
+};
+
+export type QuizLeadHeatRating = {
+  score: number;
+  label: string;
+  verdict: string;
+  evidence: string[];
+  blockers: string[];
+};
+
+const INTENT_HEAT_POINTS: Record<QuizIntent, number> = {
+  exploring: 0,
+  see_recommended_therapist: 1,
+  brief_consultation: 2,
+  ready_to_speak: 3,
+};
+
+const LEAD_HEAT_LABELS = [
+  "",
+  "ICE COLD",
+  "VERY COLD",
+  "COLD",
+  "COOL",
+  "LUKEWARM",
+  "WARM",
+  "HOT",
+  "VERY HOT",
+  "BLAZING",
+  "SOLAR HOT",
+] as const;
+
+const LEAD_HEAT_VERDICTS = [
+  "",
+  "Quiz-only curiosity. Do not treat this as booking-ready.",
+  "Minimal intent. Treat this as information gathering.",
+  "Low intent. Interest is present; booking behavior is not.",
+  "Some stated intent, but no decisive booking action.",
+  "Mixed intent. Normal follow-up; no reason to rush.",
+  "Meaningful interest, still short of a high-intent action.",
+  "Strong intent. A real scheduling signal is present.",
+  "Very strong intent. Prioritize prompt human follow-up.",
+  "Exceptional intent across multiple booking signals.",
+  "Maximum observed intent: the strongest unconfirmed lead state in this funnel.",
+] as const;
+
+/**
+ * Conservative behavioral lead scoring for internal triage.
+ *
+ * Symptom severity and quiz result category are deliberately excluded: mental
+ * health strain is not purchase intent. Results and match views also receive
+ * zero points because the results page records them automatically.
+ */
+export function scoreQuizLeadHeat(
+  model: QuizLeadHeatModel,
+): QuizLeadHeatRating {
+  let score = 1;
+  const evidence = ["Completed the quiz (+1)"];
+  const blockers: string[] = [];
+  const intentPoints = INTENT_HEAT_POINTS[model.intent];
+  const hasPhone = Boolean(model.phone?.trim() || model.contactPhone?.trim());
+  const preferredTimesCount =
+    model.preferredTimes?.filter((time) => time.trim().length > 0).length ?? 0;
+
+  score += intentPoints;
+  evidence.push(
+    `${getQuizIntentLabel(model.intent)} (+${intentPoints})`,
+  );
+
+  if (hasPhone) {
+    score += 1;
+    evidence.push("Provided a usable phone channel (+1)");
+  } else {
+    blockers.push("No phone number was provided.");
+  }
+
+  if (model.janeBookingClicked) {
+    score += 2;
+    evidence.push("Clicked a Jane booking CTA (+2)");
+  } else {
+    blockers.push("No Jane booking click has been observed.");
+  }
+
+  if (model.contactHelpRequested) {
+    score += 2;
+    evidence.push("Explicitly requested booking help (+2)");
+  } else {
+    blockers.push("No explicit booking-help request has been completed.");
+  }
+
+  if (model.contactHelpRequested && preferredTimesCount >= 2) {
+    score += 1;
+    evidence.push("Supplied at least two exact consultation times (+1)");
+  } else {
+    blockers.push("No completed request with at least two exact times.");
+  }
+
+  if (model.intent !== "ready_to_speak") {
+    blockers.unshift("They did not say they are ready to speak with a therapist.");
+  }
+
+  const boundedScore = Math.max(1, Math.min(10, score));
+  return {
+    score: boundedScore,
+    label: LEAD_HEAT_LABELS[boundedScore],
+    verdict: LEAD_HEAT_VERDICTS[boundedScore],
+    evidence,
+    blockers,
+  };
+}
+
+function leadHeatSubject(rating: QuizLeadHeatRating): string {
+  return `[LEAD ${rating.score}/10 | ${rating.label}]`;
+}
+
+function leadHeatText(rating: QuizLeadHeatRating): string {
+  return `LEAD HEAT: ${rating.score}/10 — ${rating.label}
+Verdict: ${rating.verdict}
+Evidence:
+${rating.evidence.map((item) => `- ${item}`).join("\n")}
+Why this is not hotter:
+${rating.blockers.length > 0 ? rating.blockers.map((item) => `- ${item}`).join("\n") : "- Nothing. Every maximum-intent signal is present."}
+Guardrail: symptom severity is not lead intent and earns no points. Results/match views earn no points because they are recorded automatically. A Jane click is still not a confirmed booking.`;
+}
+
+function leadHeatHtml(rating: QuizLeadHeatRating): string {
+  const e = escapeHtml;
+  const palette =
+    rating.score <= 3
+      ? { border: "#7B98A8", background: "#F1F6F8", text: "#314B59" }
+      : rating.score <= 6
+        ? { border: "#C6A15B", background: "#FFF9EC", text: "#5B4727" }
+        : { border: "#C55A2D", background: "#FFF2EC", text: "#6F2E17" };
+  const evidence = rating.evidence
+    .map((item) => `<li>${e(item)}</li>`)
+    .join("");
+  const blockers = (
+    rating.blockers.length > 0
+      ? rating.blockers
+      : ["Nothing. Every maximum-intent signal is present."]
+  )
+    .map((item) => `<li>${e(item)}</li>`)
+    .join("");
+
+  return `<div style="margin:0 0 18px;border:3px solid ${palette.border};border-radius:10px;background:${palette.background};padding:15px 17px;color:${palette.text}">
+    <p style="margin:0 0 4px;font-size:20px;font-weight:800">Lead Heat: ${rating.score}/10 — ${e(rating.label)}</p>
+    <p style="margin:0 0 10px;font-weight:700">${e(rating.verdict)}</p>
+    <p style="margin:0 0 3px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px">Evidence</p>
+    <ul style="margin:0 0 10px;padding-left:20px">${evidence}</ul>
+    <p style="margin:0 0 3px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px">Why this is not hotter</p>
+    <ul style="margin:0 0 10px;padding-left:20px">${blockers}</ul>
+    <p style="margin:0;font-size:11px;line-height:1.5">Symptom severity earns no lead points. Results/match views earn no points because they are recorded automatically. A Jane click is not a confirmed booking.</p>
+  </div>`;
+}
+
 function subjectSafeFirstName(firstName: string): string {
   return firstName.replace(/[\r\n]+/g, " ").trim();
 }
@@ -137,10 +295,11 @@ function operationalStatusHtml(model: QuizLeadStatusSnapshot): string {
 export function buildQuizResultsAccessEmail(
   model: QuizResultsAccessEmailModel,
 ): BuiltEmail {
+  const leadHeat = scoreQuizLeadHeat(model);
   const therapistName =
     model.recommendedTherapistName ?? "No clear automated match";
   const phone = model.phone || "Not provided";
-  const subject = `New Quiz Results Submission — ${subjectSafeFirstName(model.firstName)}`;
+  const subject = `${leadHeatSubject(leadHeat)} New Quiz Results Submission — ${subjectSafeFirstName(model.firstName)}`;
   const adminLine = submissionText(model.referenceId, model.adminUrl);
   const e = escapeHtml;
   const contactSharingAuthorized =
@@ -170,6 +329,8 @@ Recorded consent version: ${model.privacyTextVersion}`;
   const text = `NEW QUIZ RESULTS SUBMISSION
 
 ${model.firstName} completed the mental-health quiz. Their recommended therapist is ${therapistName}.
+
+${leadHeatText(leadHeat)}
 
 ${authorizationText}
 
@@ -202,6 +363,7 @@ This message contains personal and quiz information submitted through the Valise
   </div>
   <div style="border:1px solid #e5e2dc;border-top:0;border-radius:0 0 12px 12px;padding:24px;background:#ffffff">
     <p style="margin:0 0 18px"><strong>${e(model.firstName)}</strong> completed the mental-health quiz. Their recommended therapist is <strong>${e(therapistName)}</strong>.</p>
+    ${leadHeatHtml(leadHeat)}
     ${authorizationHtml}
     <h3 style="margin:0 0 8px;font-size:13px;color:#1E6B6B;text-transform:uppercase;letter-spacing:1px">Contact Information</h3>
     <p style="margin:0 0 4px"><strong>First name:</strong> ${e(model.firstName)}</p>
@@ -226,6 +388,7 @@ This message contains personal and quiz information submitted through the Valise
 }
 
 export function buildQuizLeadEmail(model: QuizLeadEmailModel): BuiltEmail {
+  const leadHeat = scoreQuizLeadHeat(model);
   const therapistName =
     model.recommendedTherapistName ?? "No clear automated match";
   const phone = model.phone || "Not provided";
@@ -243,12 +406,14 @@ export function buildQuizLeadEmail(model: QuizLeadEmailModel): BuiltEmail {
         `<li><code>${escapeHtml(time)}</code> (${escapeHtml(model.timeZone)})</li>`,
     )
     .join("");
-  const subject = `Booking Help Requested — ${subjectSafeFirstName(model.firstName)}`;
+  const subject = `${leadHeatSubject(leadHeat)} Booking Help Requested — ${subjectSafeFirstName(model.firstName)}`;
   const e = escapeHtml;
 
   const text = `BOOKING HELP REQUEST
 
 ${model.firstName} explicitly asked Valisen to help with booking. Their recommended therapist is ${therapistName}.
+
+${leadHeatText(leadHeat)}
 
 CONTACT INFORMATION
 First name: ${model.firstName}
@@ -290,6 +455,7 @@ This message contains personal and quiz information submitted through the Valise
   </div>
   <div style="border:1px solid #e5e2dc;border-top:0;border-radius:0 0 12px 12px;padding:24px;background:#ffffff">
     <p style="margin:0 0 18px"><strong>${e(model.firstName)}</strong> explicitly asked Valisen to help with booking. Their recommended therapist is <strong>${e(therapistName)}</strong>.</p>
+    ${leadHeatHtml(leadHeat)}
     <h3 style="margin:0 0 8px;font-size:13px;color:#1E6B6B;text-transform:uppercase;letter-spacing:1px">Contact Preferences</h3>
     <p style="margin:0 0 4px"><strong>Email:</strong> ${e(model.email)}</p>
     <p style="margin:0 0 4px"><strong>Existing phone on submission:</strong> ${e(phone)}</p>

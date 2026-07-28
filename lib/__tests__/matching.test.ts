@@ -138,10 +138,20 @@ describe("matchTherapist — real roster", () => {
     }
   });
 
-  it("refuses to manufacture a match with no supporting signal", () => {
+  it("always recommends the strongest eligible therapist even without a separating signal", () => {
     const outcome = scoreQuiz(calmAnswers()); // mild, nothing selected
     const result = matchTherapist(outcome, NO_PREFS);
-    expect(result).toEqual({ status: "no-clear-match", reason: "no-supporting-signal" });
+    expect(result).toMatchObject({
+      status: "match",
+      therapistSlug: MATCHING_TIE_BREAK_ORDER[0],
+    });
+    if (result.status === "match") {
+      expect(result.reasons).toEqual([
+        expect.objectContaining({
+          chip: "A place to start",
+        }),
+      ]);
+    }
   });
 
   it("a single selected concern is enough signal to reach the threshold", () => {
@@ -159,7 +169,7 @@ describe("matchTherapist — real roster", () => {
     {
       therapistSlug: "dayong-quan",
       concern: "cultural-adjustment",
-      expectedUrl: "https://valisenmentalhealth.janeapp.com/",
+      expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
     },
     {
       therapistSlug: "wilfred-bengnwi",
@@ -264,7 +274,7 @@ describe("matchTherapist — hard eligibility filters (synthetic roster)", () =>
     expect(result).toMatchObject({ status: "match", therapistSlug: "ryann-simpson" });
   });
 
-  it("MIN_MATCH_SCORE guards against weak single-signal noise", () => {
-    expect(MIN_MATCH_SCORE).toBeGreaterThanOrEqual(1);
+  it("uses a zero threshold so every eligible quiz result gets a recommendation", () => {
+    expect(MIN_MATCH_SCORE).toBe(0);
   });
 });
