@@ -377,10 +377,11 @@ export default function ConsultationPage() {
                         onChange={(e) => set("preferredTherapist", e.target.value)}
                       >
                         <option value="">No Preference</option>
+                        <option value="ryann-simpson">Ryann Simpson</option>
                         <option value="wilfred-bengnwi">Wilfred Bengnwi</option>
+                        <option value="meryem-ibrahim">Meryem Ibrahim</option>
                         <option value="tim-kahtava">Tim Kahtava</option>
                         <option value="dayong-quan">Dayong Quan</option>
-                        <option value="ryann-simpson">Ryann Simpson</option>
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-ink-hint">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">

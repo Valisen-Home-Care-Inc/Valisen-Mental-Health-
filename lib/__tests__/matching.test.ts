@@ -103,6 +103,7 @@ describe("matchTherapist — real roster", () => {
     expect(MATCHING_TIE_BREAK_ORDER).toEqual([
       "ryann-simpson",
       "wilfred-bengnwi",
+      "meryem-ibrahim",
       "tim-kahtava",
       "dayong-quan",
     ]);
@@ -168,31 +169,36 @@ describe("matchTherapist — real roster", () => {
   it.each([
     {
       therapistSlug: "dayong-quan",
-      concern: "cultural-adjustment",
+      concerns: ["cultural-adjustment", "addiction"],
       expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
     },
     {
       therapistSlug: "wilfred-bengnwi",
-      concern: "addiction",
+      concerns: ["addiction", "couples-therapy"],
       expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/6",
     },
     {
+      therapistSlug: "meryem-ibrahim",
+      concerns: ["grief"],
+      expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/9",
+    },
+    {
       therapistSlug: "tim-kahtava",
-      concern: "grief",
+      concerns: ["grief", "couples-therapy"],
       expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
     },
     {
       therapistSlug: "ryann-simpson",
-      concern: "adhd",
+      concerns: ["adhd"],
       expectedUrl: "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
     },
   ] as const)(
     "can match $therapistSlug and maps it to its exact centralized booking destination",
-    ({ therapistSlug, concern, expectedUrl }) => {
+    ({ therapistSlug, concerns, expectedUrl }) => {
       const outcome = scoreQuiz(calmAnswers());
       const result = matchTherapist(outcome, {
         ...NO_PREFS,
-        concerns: [concern],
+        concerns: [...concerns],
       });
 
       expect(result).toMatchObject({ status: "match", therapistSlug });

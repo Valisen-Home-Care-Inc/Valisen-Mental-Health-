@@ -772,23 +772,24 @@ const FAQ_PAGES: Record<string, FAQPageEntry> = {
     question: "Do you offer therapy in languages other than English?",
     category: "About Valisen",
     categorySlug: "about-valisen",
-    metaTitle: "Therapy in English, French and Mandarin | Valisen Ottawa",
+    metaTitle: "Therapy in English, Arabic, French & Mandarin | Valisen",
     metaDescription:
-      "Valisen Mental Health offers therapy in English, French, and Mandarin — because the language you work in shapes the depth and safety of therapy.",
-    updatedDate: "2026-06-08",
+      "Valisen Mental Health offers therapy in English, Arabic, French, and Mandarin — because the language you work in shapes the depth and safety of therapy.",
+    updatedDate: "2026-07-29",
     intro:
-      "The language in which therapy happens is not a neutral detail. The depth of emotional access, the precision of self-expression, and the safety of the therapeutic relationship are all meaningfully affected by whether you are working in your first language. At Valisen, therapy is available in English, French, and Mandarin.",
+      "The language in which therapy happens is not a neutral detail. The depth of emotional access, the precision of self-expression, and the safety of the therapeutic relationship are all meaningfully affected by whether you are working in your first language. At Valisen, therapy is available in English, Arabic, French, and Mandarin.",
     sections: [
       {
         h2: "Languages currently available",
         paragraphs: [
-          "Our team currently offers therapy in English, French, and Mandarin. Dayong offers sessions in English and Mandarin, while Wilfred offers sessions in English and French. When booking, please indicate your language preference so we can match you with the right therapist.",
+          "Our team currently offers therapy in English, Arabic, French, and Mandarin. Meryem offers sessions in English and Arabic, Dayong offers sessions in English and Mandarin, and Wilfred offers sessions in English and French. When booking, please indicate your language preference so we can match you with the right therapist.",
         ],
       },
       {
         h2: "Why it matters",
         paragraphs: [
           "Many people who are fluent or highly proficient in English still find that certain experiences, emotions, or memories are encoded in their first language. This is especially true for childhood experiences, intergenerational patterns, and identity-related material. Working in the language that holds those experiences can make the therapeutic process significantly more effective.",
+          "For Arabic-speaking clients, working in Arabic can make it easier to explore culture, identity, faith, immigration or refugee experiences, family dynamics, and emotional concerns without translating every detail first.",
           "For Mandarin-speaking clients, working in Mandarin can make it easier to describe family dynamics, migration and cultural adjustment, and personal concerns without translating every detail first.",
         ],
         internalLinks: [

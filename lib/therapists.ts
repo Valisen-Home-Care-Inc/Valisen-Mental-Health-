@@ -5,14 +5,15 @@ export const CLINIC_JANE_BOOKING_URL =
 /** Clinic-wide range, including the planned lower-priced therapist. */
 export const THERAPY_SESSION_PRICE_MINIMUM = 160;
 export const THERAPY_SESSION_PRICE_MAXIMUM = 180;
-/** Exact fee for every therapist currently shown on the public roster. */
+/** Standard fee for active therapists other than Meryem Ibrahim. */
 export const CURRENT_THERAPIST_SESSION_PRICE = 180;
+export const MERYEM_IBRAHIM_SESSION_PRICE = 160;
 export const THERAPY_SESSION_DURATION_MINUTES = 50;
 export const CONSULTATION_PRICE = 0;
 export const CONSULTATION_DURATION_MINUTES = 20;
 export const THERAPY_PRICE_RANGE = `$${THERAPY_SESSION_PRICE_MINIMUM}–$${THERAPY_SESSION_PRICE_MAXIMUM} per ${THERAPY_SESSION_DURATION_MINUTES} minutes`;
 export const SESSION_RATE = `$${CURRENT_THERAPIST_SESSION_PRICE} per ${THERAPY_SESSION_DURATION_MINUTES} minutes`;
-export const SESSION_FEE_LABEL = `Paid therapy session: ${SESSION_RATE}`;
+export const MERYEM_IBRAHIM_SESSION_RATE = `$${MERYEM_IBRAHIM_SESSION_PRICE} per ${THERAPY_SESSION_DURATION_MINUTES} minutes`;
 export const CONSULTATION_LABEL = `Free ${CONSULTATION_DURATION_MINUTES}-minute consultation`;
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -132,9 +133,10 @@ export type Therapist = {
 function standardLogistics(
   sessionFormat = "Virtual therapy available across Ontario",
   provinceEligibility = "Ontario residents",
+  sessionRate = SESSION_RATE,
 ): DetailItem[] {
   return [
-    { label: "Session Fee", value: SESSION_RATE },
+    { label: "Session Fee", value: sessionRate },
     {
       label: "Free Consultation",
       value: "Book directly through Jane or call Valisen if you need help choosing a therapist",
@@ -151,6 +153,7 @@ function standardLogistics(
 const THERAPIST_DISPLAY_ORDER = [
   "ryann-simpson",
   "wilfred-bengnwi",
+  "meryem-ibrahim",
   "tim-kahtava",
   "dayong-quan",
 ];
@@ -446,6 +449,171 @@ export const therapists: Therapist[] = [
         "emotional infidelity recovery therapy",
         "attachment injuries therapy",
         "registered psychotherapist Ontario",
+      ],
+    },
+  },
+  {
+    slug: "meryem-ibrahim",
+    name: "Meryem Ibrahim",
+    credentials: "Registered Psychotherapist (Qualifying)",
+    credentialSummary: "Registered Psychotherapist (Qualifying)",
+    initials: "MI",
+    photo: "/meryem-ibrahim.png",
+    comingSoon: false,
+    availability: "Accepting new clients",
+    acceptingNewClients: true,
+    profileUrl: "/therapists/meryem-ibrahim",
+    consultationBookingUrl:
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/9",
+    usesClinicBookingFallback: false,
+    janeStaffId: "9",
+    consultationPrice: CONSULTATION_PRICE,
+    consultationDurationMinutes: CONSULTATION_DURATION_MINUTES,
+    consultationFormat: "Phone",
+    therapySessionPriceMinimum: MERYEM_IBRAHIM_SESSION_PRICE,
+    therapySessionPriceMaximum: MERYEM_IBRAHIM_SESSION_PRICE,
+    therapySessionDurationMinutes: THERAPY_SESSION_DURATION_MINUTES,
+    formats: ["Virtual"],
+    jurisdictions: ["Ontario"],
+    populationsServed: ["Individual adults (18+)"],
+    approachStyles: ["Practical / structured", "Reflective / exploratory"],
+    matching: {
+      gender: "woman",
+      concernTags: [
+        "anxiety",
+        "depression",
+        "trauma",
+        "stress-burnout",
+        "grief",
+        "relationship-challenges",
+        "life-transitions",
+        "cultural-adjustment",
+      ],
+      dimensions: ["worry", "mood", "stress", "relationships"],
+      populations: ["adults-18-plus"],
+      lastVerifiedAt: "2026-07-29",
+    },
+    rate: MERYEM_IBRAHIM_SESSION_RATE,
+    primaryConcerns:
+      "Anxiety, Depression, Trauma, Stress, Grief, Relationship Challenges, and Life Transitions",
+    headline:
+      "Compassionate, Culturally Responsive Therapy in English and Arabic",
+    cardStatement:
+      "Meryem is a Registered Psychotherapist (Qualifying) who works with adults experiencing anxiety, depression, trauma, stress, grief, relationship challenges, and life transitions. She offers a compassionate, non-judgmental space and provides psychotherapy in English and Arabic.",
+    specialties: [
+      "Anxiety",
+      "Depression",
+      "Trauma",
+      "Stress and burnout",
+      "Grief",
+      "Relationship challenges",
+      "Life transitions",
+      "Culturally responsive therapy",
+    ],
+    languages: ["English", "Arabic"],
+    sessionTypes: ["Virtual therapy", "Ontario"],
+    featureLabel: "Arabic-speaking therapist",
+    featuredHero: {
+      badge: "Therapy in English and Arabic",
+      headline:
+        "Compassionate Therapy for Anxiety, Trauma, Grief, and Life Transitions",
+      description:
+        "Culturally responsive therapy in English and Arabic for adults navigating anxiety, depression, trauma, stress, grief, relationship challenges, and major life changes.",
+      ctaLabel: "View Meryem's profile",
+    },
+    intro: [
+      "Meryem believes healing begins when people feel safe, heard, and genuinely understood. Her goal is to provide a compassionate, non-judgmental space where clients can explore their experiences, gain insight, and move toward meaningful change at their own pace.",
+      "She works with adults experiencing anxiety, depression, trauma, stress, grief, relationship challenges, and life transitions. Her approach is grounded in Cognitive Behavioural Therapy (CBT), Dialectical Behaviour Therapy (DBT), solution-focused therapy, and trauma-informed, culturally responsive care.",
+      "Meryem has experience working with diverse communities, including immigrants and refugees, and understands the impact culture, identity, faith, and life experiences can have on mental health. Arabic is her first language, and she provides psychotherapy in both Arabic and English.",
+      "Together, Meryem and her clients work to understand emotions, identify unhelpful patterns, strengthen coping skills, and build resilience. She welcomes adults who feel overwhelmed, stuck, or simply want a supportive place to reflect and grow.",
+    ],
+    areasOfSupport: [
+      {
+        title: "Anxiety",
+        description:
+          "Support for worry, overthinking, tension, overwhelm, and patterns that make it difficult to feel settled.",
+      },
+      {
+        title: "Depression",
+        description:
+          "Therapy for low mood, disconnection, reduced motivation, and the emotional weight that can make daily life harder.",
+      },
+      {
+        title: "Trauma",
+        description:
+          "Trauma-informed care that prioritizes safety, choice, pacing, and a compassionate understanding of how past experiences affect the present.",
+      },
+      {
+        title: "Stress",
+        description:
+          "Practical and reflective support for pressure, emotional exhaustion, coping difficulties, and feeling overwhelmed.",
+      },
+      {
+        title: "Grief",
+        description:
+          "A non-judgmental space to process loss, changing roles, and the emotions that can accompany grief.",
+      },
+      {
+        title: "Relationship Challenges",
+        description:
+          "Support for adults navigating communication concerns, recurring patterns, boundaries, and relationship stress.",
+      },
+      {
+        title: "Life Transitions",
+        description:
+          "Therapy through changes in identity, relationships, work, family roles, migration, and other significant life experiences.",
+      },
+      {
+        title: "Cultural Adjustment",
+        description:
+          "Culturally responsive support that recognizes the influence of culture, identity, faith, immigration, and refugee experiences on mental health.",
+      },
+    ],
+    therapyStyle: {
+      summary:
+        "Compassionate, non-judgmental, collaborative, and culturally responsive.",
+      paragraphs: [
+        "Meryem tailors therapy to each client's needs, strengths, values, and goals. Her work draws from CBT, DBT, solution-focused therapy, and trauma-informed care while respecting the pace at which each person feels ready to work.",
+        "Sessions can focus on understanding emotions, identifying unhelpful patterns, strengthening coping skills, and building resilience. Meryem aims to create a space where clients feel heard and can express themselves comfortably in English or Arabic.",
+      ],
+      tags: [
+        "CBT",
+        "DBT",
+        "Solution-focused therapy",
+        "Trauma-informed",
+        "Culturally responsive",
+      ],
+    },
+    credentialsList: [
+      {
+        label: "Registration",
+        value: "Registered Psychotherapist (Qualifying)",
+      },
+      { label: "Client Population", value: "Individual adults (18+)" },
+      { label: "Languages", value: "English and Arabic" },
+      {
+        label: "Approaches",
+        value:
+          "CBT, DBT, solution-focused therapy, trauma-informed care, and culturally responsive care",
+      },
+    ],
+    logistics: standardLogistics(
+      "Virtual therapy available across Ontario",
+      "Ontario residents",
+      MERYEM_IBRAHIM_SESSION_RATE,
+    ),
+    seo: {
+      title:
+        "Meryem Ibrahim | Arabic-Speaking RP (Qualifying) in Ontario",
+      description:
+        "Meryem Ibrahim is a Registered Psychotherapist (Qualifying) offering therapy in English and Arabic for anxiety, depression, trauma, stress, grief, relationship challenges, and life transitions. Sessions are $160 per 50 minutes.",
+      keywords: [
+        "Arabic-speaking therapist Ontario",
+        "Arabic therapy Ontario",
+        "Registered Psychotherapist Qualifying Ontario",
+        "trauma-informed therapist Ontario",
+        "culturally responsive therapy Ontario",
+        "virtual therapy in Arabic",
       ],
     },
   },

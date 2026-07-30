@@ -124,10 +124,11 @@ and consultation facts used by matching, results, and visitor email.
 
 | Therapist ID | Verified consultation destination | Status |
 | --- | --- | --- |
-| `dayong-quan` | `https://valisenmentalhealth.janeapp.com/#/staff_member/7` | Verified staff link |
-| `wilfred-bengnwi` | `https://valisenmentalhealth.janeapp.com/#/staff_member/6` | Verified staff link |
-| `tim-kahtava` | `https://valisenmentalhealth.janeapp.com/#/staff_member/5` | Verified staff link |
 | `ryann-simpson` | `https://valisenmentalhealth.janeapp.com/#/staff_member/8` | Verified staff link |
+| `wilfred-bengnwi` | `https://valisenmentalhealth.janeapp.com/#/staff_member/6` | Verified staff link |
+| `meryem-ibrahim` | `https://valisenmentalhealth.janeapp.com/#/staff_member/9` | Verified staff link |
+| `tim-kahtava` | `https://valisenmentalhealth.janeapp.com/#/staff_member/5` | Verified staff link |
+| `dayong-quan` | `https://valisenmentalhealth.janeapp.com/#/staff_member/7` | Verified staff link |
 
 The configuration also carries the stable therapist ID/name, profile path,
 service format, languages, and only explicitly verified consultation facts.

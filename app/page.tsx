@@ -242,8 +242,9 @@ export default function HomePage() {
                 <li className="flex gap-2.5">
                   <Check size={15} className="mt-1 shrink-0 text-teal" aria-hidden="true" />
                   The clinic-wide fee range is $160–$180 for a 50-minute
-                  session. Every therapist currently listed above is $180;
-                  confirm the selected service in Jane before booking.
+                  session. Meryem&apos;s fee is $160 and each other therapist
+                  currently listed above is $180; confirm the selected service
+                  in Jane before booking.
                 </li>
                 <li className="flex gap-2.5">
                   <Check size={15} className="mt-1 shrink-0 text-teal" aria-hidden="true" />

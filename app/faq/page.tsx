@@ -182,7 +182,7 @@ const CATEGORIES: FAQCategory[] = [
         slug: "languages-offered",
         question: "Do you offer therapy in languages other than English?",
         shortAnswer:
-          "Our team currently offers therapy in English, French, and Mandarin. Dayong provides therapy in English and Mandarin, and Wilfred provides therapy in English and French. Filter by language on our therapists page to find the right fit.",
+          "Our team currently offers therapy in English, Arabic, French, and Mandarin. Meryem provides therapy in English and Arabic, Dayong in English and Mandarin, and Wilfred in English and French. Filter by language on our therapists page to find the right fit.",
       },
       {
         slug: "therapist-credentials",

@@ -1,7 +1,7 @@
 # Valisen Mental Health — Google Ads Launch Package
 
-**Prepared:** 2026-06-06
-**Source:** Live crawl of valisenmentalhealth.com (home, anxiety, depression, therapists, insurance, services, about)
+**Prepared:** 2026-07-29
+**Source:** Valisen's current centralized therapist roster and website content
 **Use:** Hand directly to the Google Ads account builder. Self-contained. No follow-up needed.
 
 ---
@@ -9,7 +9,7 @@
 ## 1. Website Analysis Summary
 
 ### What the site is
-Valisen Mental Health is an **Ottawa-based virtual therapy practice serving all of Ontario**. Care is delivered by **Registered Psychotherapists (RP)** and **Registered Social Workers (RSW/MSW)**. Booking is self-serve through the **Jane** platform or by phone (**613-707-0333**). No referral, no intake forms, no waitlist. Session fee is **$180/hour**. A **free 20-minute phone consultation** is the primary lead magnet.
+Valisen Mental Health is an **Ottawa-based virtual therapy practice serving all of Ontario**. Care is delivered by **Registered Psychotherapists (RP and RP Qualifying)** and **Registered Social Workers (RSW/MSW)**. Booking is self-serve through the **Jane** platform or by phone (**613-707-0333**). No referral, no intake forms, no waitlist. Sessions are **$160–$180 per 50 minutes**. A **free 20-minute phone consultation** is the primary lead magnet.
 
 ### Conditions / problems named on-site
 Anxiety (worry, racing thoughts, panic), Depression, Trauma, Grief, Stress & burnout, Self-esteem, Relationship problems, Life transitions, Neurodiversity-affirming care, Veterans' mental health, Youth mental health, Family support, Cultural adjustment, Addiction.
@@ -27,7 +27,7 @@ Anxiety (worry, racing thoughts, panic), Depression, Trauma, Grief, Stress & bur
 - **No referral, no waitlist** — "usually available within a few days"
 - Free 20-minute consultation, "no commitment"
 - Direct booking via Jane — choose your own therapist
-- **Languages: English, Mandarin, French, Hebrew, Yiddish, ASL** (Mandarin via Dayong Quan — currently "coming soon")
+- **Languages: English, Arabic, French, and Mandarin**
 
 ### Conversion language already on-site
 "Book Free Consultation", "Take the first step", "Browse and book directly", "Choose who feels right for you", "Free 20-minute call", "Ready to get started?"
@@ -35,14 +35,15 @@ Anxiety (worry, racing thoughts, panic), Depression, Trauma, Grief, Stress & bur
 ### Therapist roster (for ad/keyword relevance)
 | Therapist | Credentials | Languages | Notable specialties |
 |---|---|---|---|
-| Wilfred Bengnwi | RP, M.A., PhD | English | Couples, attachment, trauma, anxiety, addiction |
+| Ryann Simpson | RSW | English | Anxiety, perfectionism, people-pleasing, ADHD, self-esteem, life transitions |
+| Wilfred Bengnwi | RP, M.A., PhD | English, French | Couples, attachment, trauma, anxiety, addiction |
+| Meryem Ibrahim | RP (Qualifying) | **Arabic**, English | Anxiety, depression, trauma, stress, grief, relationships, life transitions |
 | Tim Kahtava | RP | English | Anxiety, depression, trauma, couples, family, coping skills |
-| Natasha Azoulay | MSW, RSW | English, French, Hebrew, Yiddish, ASL | Trauma, anxiety, depression, youth, veterans, neurodiversity |
-| Dayong Quan | RP, MACP | **Mandarin**, English | Anxiety, depression, burnout, addiction, mindfulness, cultural adjustment — **Coming soon** |
+| Dayong Quan | RP, MACP | **Mandarin**, English | Anxiety, depression, burnout, addiction, mindfulness, cultural adjustment |
 
 ### What's STRONG (lean into these in ads)
 - Free 20-min consult + no waitlist + no referral = unusually low-friction offer
-- Multilingual roster (Mandarin/French/ASL) — near-zero competing advertisers in Ottawa
+- Multilingual roster (Arabic/Mandarin/French) — near-zero competing advertisers in Ottawa
 - Real insurance fit for employed adults with group benefits
 - Clear RP/RSW regulatory credibility
 
@@ -50,7 +51,7 @@ Anxiety (worry, racing thoughts, panic), Depression, Trauma, Grief, Stress & bur
 1. **No PSHCP / federal public-servant language on-site.** Group C below includes PSHCP keywords because PSHCP genuinely reimburses RP/RSW and Ottawa is federal-employee dense — but **add a PSHCP line to the /insurance page before driving those clicks**, or Quality Score and conversion rate on those terms will suffer.
 2. **No direct billing** — site uses a receipt/reimbursement model only. "Direct billing" searchers will bounce; it's added as a negative.
 3. **They are NOT psychologists** (RP/RSW only). "Psychologist" searches are treated cautiously — see negatives note.
-4. **Mandarin therapist is "Coming soon."** Mandarin ads can run (strong differentiator) but route to a consult/waitlist; do not promise immediate availability.
+4. **Therapist fees differ.** Meryem's sessions are $160 per 50 minutes; the other currently listed therapists are $180. Keep the overall advertised range at $160–$180 and use exact fees on therapist-specific ads.
 5. **Couples, family, addiction, and youth ARE offered** (per therapist profiles) — these are deliberately NOT added as negatives. Young-child therapy is not offered, so "child" stays negative.
 
 ---
@@ -424,7 +425,9 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 3. Covered by most group benefit plans. Receipts provided for easy reimbursement.
 4. Support for anxiety, depression and stress, wherever you are. Get started today.
 
-> **Optional Campaign 4 — Mandarin (high-ROI, near-zero competition).** Run only once Dayong Quan is live, or route to a consult/waitlist. Sample headlines (≤30): "Mandarin Therapist Ottawa", "普通话心理咨询", "Mandarin Speaking Therapist", "Online Therapy in Mandarin", "Book a Free 20-Min Call". Keep this separate so reporting isolates the differentiator.
+> **Optional Campaign 4 — Mandarin (high-ROI, near-zero competition).** Route directly to Dayong Quan's profile or free-consultation booking page. Sample headlines (≤30): "Mandarin Therapist Ottawa", "普通话心理咨询", "Mandarin Speaking Therapist", "Online Therapy in Mandarin", "Book a Free 20-Min Call". Keep this separate so reporting isolates the differentiator.
+>
+> **Optional Campaign 5 — Arabic (high-ROI, near-zero competition).** Route directly to Meryem Ibrahim's profile or free-consultation booking page. Sample headlines (≤30): "Arabic Therapist Ottawa", "Arabic Speaking Therapist", "Online Therapy in Arabic", "Culturally Responsive Care", "Book a Free 20-Min Call".
 
 ---
 
@@ -446,7 +449,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 8. **Quality Score baseline check.** After ads are approved and a few impressions accrue, add the Quality Score, Expected CTR, Ad Relevance, and Landing Page Experience columns. Flag any keyword scoring **≤4/10**; fix by tightening ad group theme (one theme per ad group) and matching headline copy to the keyword. Target 7+.
 
-9. **Ad group structure.** One tight theme per ad group (Anxiety / Depression / RP-general / Online / Insurance / Mandarin). Each ad group: 1 RSA (15 headlines, 4 descriptions from Section 4) + 5–15 closely-themed keywords. Pin the primary-keyword headline to Position 1 in at least one slot for relevance.
+9. **Ad group structure.** One tight theme per ad group (Anxiety / Depression / RP-general / Online / Insurance / Mandarin / Arabic). Each ad group: 1 RSA (15 headlines, 4 descriptions from Section 4) + 5–15 closely-themed keywords. Pin the primary-keyword headline to Position 1 in at least one slot for relevance.
 
 10. **Sitelinks, callouts & extensions.** Add: Sitelinks (Our Therapists, Insurance, Book Free Consultation, Anxiety Therapy); Callouts (Free 20-Min Consult, No Waitlist, No Referral, Virtual Across Ontario, RP & RSW); a **Call extension** with 613-707-0333; Structured Snippet (Services: Anxiety, Depression, Trauma, Grief, Couples). Extensions lift CTR and Ad Rank at no extra cost.
 
@@ -456,4 +459,4 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 ---
 
-*End of package. Everything above maps to live site content as of the 2026-06-06 crawl. Flagged gaps (PSHCP copy, direct billing, Mandarin "coming soon") are the only items requiring a business decision before spend.*
+*End of package. Therapist roster, languages, and fees were updated from the centralized site configuration on 2026-07-29. Flagged gaps (PSHCP copy and direct billing) require a business decision before spend.*

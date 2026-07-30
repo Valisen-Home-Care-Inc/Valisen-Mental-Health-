@@ -11,12 +11,12 @@ import { therapists } from "@/lib/therapists";
 
 const EXPECTED_DESTINATIONS = [
   {
-    slug: "dayong-quan",
-    name: "Dayong Quan",
-    url: "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
-    profileUrl: "/therapists/dayong-quan",
+    slug: "ryann-simpson",
+    name: "Ryann Simpson",
+    url: "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
+    profileUrl: "/therapists/ryann-simpson",
     usesClinicFallback: false,
-    janeStaffId: "7",
+    janeStaffId: "8",
   },
   {
     slug: "wilfred-bengnwi",
@@ -27,6 +27,14 @@ const EXPECTED_DESTINATIONS = [
     janeStaffId: "6",
   },
   {
+    slug: "meryem-ibrahim",
+    name: "Meryem Ibrahim",
+    url: "https://valisenmentalhealth.janeapp.com/#/staff_member/9",
+    profileUrl: "/therapists/meryem-ibrahim",
+    usesClinicFallback: false,
+    janeStaffId: "9",
+  },
+  {
     slug: "tim-kahtava",
     name: "Tim Kahtava",
     url: "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
@@ -35,16 +43,26 @@ const EXPECTED_DESTINATIONS = [
     janeStaffId: "5",
   },
   {
-    slug: "ryann-simpson",
-    name: "Ryann Simpson",
-    url: "https://valisenmentalhealth.janeapp.com/#/staff_member/8",
-    profileUrl: "/therapists/ryann-simpson",
+    slug: "dayong-quan",
+    name: "Dayong Quan",
+    url: "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
+    profileUrl: "/therapists/dayong-quan",
     usesClinicFallback: false,
-    janeStaffId: "8",
+    janeStaffId: "7",
   },
 ] as const;
 
 describe("central therapist booking configuration", () => {
+  it("keeps Meryem third in the active public roster", () => {
+    expect(therapists.map(({ slug }) => slug)).toEqual([
+      "ryann-simpson",
+      "wilfred-bengnwi",
+      "meryem-ibrahim",
+      "tim-kahtava",
+      "dayong-quan",
+    ]);
+  });
+
   it("maps every real therapist to the exact verified Jane destination", () => {
     expect(Object.keys(THERAPIST_BOOKING_CONFIG).sort()).toEqual(
       therapists.map(({ slug }) => slug).sort(),
@@ -88,10 +106,11 @@ describe("central therapist booking configuration", () => {
     });
 
     for (const slug of [
-      "dayong-quan",
-      "wilfred-bengnwi",
-      "tim-kahtava",
       "ryann-simpson",
+      "wilfred-bengnwi",
+      "meryem-ibrahim",
+      "tim-kahtava",
+      "dayong-quan",
     ]) {
       const config = getTherapistBookingConfig(slug);
       expect(config?.usesClinicFallback).toBe(false);

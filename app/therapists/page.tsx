@@ -34,6 +34,7 @@ export const metadata: Metadata = {
     "therapists Ontario",
     "registered psychotherapist Ontario",
     "virtual therapy Ontario",
+    "Arabic-speaking therapist Ontario",
     "Mandarin-speaking therapist Ontario",
   ],
 };

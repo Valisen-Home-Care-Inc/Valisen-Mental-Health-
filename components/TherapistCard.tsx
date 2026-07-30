@@ -4,7 +4,7 @@ import { ArrowRight, CalendarDays, DollarSign, Languages, Video } from "lucide-r
 import Badge from "@/components/Badge";
 import BookingNote from "@/components/BookingNote";
 import { getTherapistIntakeUrl } from "@/lib/intake";
-import { SESSION_FEE_LABEL, type Therapist } from "@/lib/therapists";
+import { formatTherapySession, type Therapist } from "@/lib/therapists";
 
 export default function TherapistCard({ therapist }: { therapist: Therapist }) {
   const firstName = therapist.name.split(" ")[0];
@@ -103,7 +103,7 @@ export default function TherapistCard({ therapist }: { therapist: Therapist }) {
           </li>
           <li className="flex items-center gap-2.5">
             <DollarSign size={15} className="shrink-0 text-teal" aria-hidden="true" />
-            <span>{SESSION_FEE_LABEL}</span>
+            <span>Paid therapy session: {formatTherapySession(therapist)}</span>
           </li>
         </ul>
 

@@ -43,6 +43,7 @@ export type FinderConcernId = (typeof FINDER_CONCERNS)[number]["id"];
 export const FINDER_PREFERENCES = [
   { id: "individual", label: "Individual therapy" },
   { id: "couples-family", label: "Couples or family therapy" },
+  { id: "arabic", label: "Therapy in Arabic" },
   { id: "mandarin", label: "Therapy in Mandarin" },
   { id: "structured", label: "A practical, structured approach" },
   { id: "exploratory", label: "A reflective, exploratory approach" },
@@ -92,6 +93,12 @@ function scorePreference(
     )
   ) {
     return { points: 3, reason: "Works with couples or families." };
+  }
+  if (
+    preference === "arabic" &&
+    therapist.languages.includes("Arabic")
+  ) {
+    return { points: 4, reason: "Offers therapy in Arabic and English." };
   }
   if (
     preference === "mandarin" &&

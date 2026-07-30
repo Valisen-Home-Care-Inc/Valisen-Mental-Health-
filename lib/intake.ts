@@ -11,10 +11,11 @@ export const INTAKE_NOTE =
   "Jane booking opens in a new tab. A Jane click records an outbound booking step, not a confirmed appointment.";
 
 export const SPECIFIC_THERAPIST_VALUES = [
-  "dayong-quan",
-  "wilfred-bengnwi",
-  "tim-kahtava",
   "ryann-simpson",
+  "wilfred-bengnwi",
+  "meryem-ibrahim",
+  "tim-kahtava",
+  "dayong-quan",
 ] as const;
 
 export type SpecificTherapistSlug = (typeof SPECIFIC_THERAPIST_VALUES)[number];
@@ -24,10 +25,11 @@ const PREFERRED_THERAPIST_VALUES = ["flexible", ...SPECIFIC_THERAPIST_VALUES] as
 
 const PREFERRED_THERAPIST_LABELS = {
   flexible: "Flexible / No preference",
-  "dayong-quan": "Dayong Quan",
-  "wilfred-bengnwi": "Wilfred Bengnwi",
-  "tim-kahtava": "Tim Kahtava",
   "ryann-simpson": "Ryann Simpson",
+  "wilfred-bengnwi": "Wilfred Bengnwi",
+  "meryem-ibrahim": "Meryem Ibrahim",
+  "tim-kahtava": "Tim Kahtava",
+  "dayong-quan": "Dayong Quan",
 } satisfies Record<PreferredTherapistValue, string>;
 
 export const PREFERRED_THERAPIST_OPTIONS: Array<{

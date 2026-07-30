@@ -39,6 +39,19 @@ describe("lightweight therapist finder", () => {
     );
   });
 
+  it("uses Arabic preference and concern metadata to focus on Meryem", () => {
+    const recommendations = recommendTherapists("transitions-culture", [
+      "arabic",
+    ]);
+
+    expect(recommendations).toHaveLength(1);
+    expect(recommendations[0].therapist.slug).toBe("meryem-ibrahim");
+    expect(recommendations[0].therapist.languages).toEqual(["English", "Arabic"]);
+    expect(recommendations[0].therapist.consultationBookingUrl).toBe(
+      "https://valisenmentalhealth.janeapp.com/#/staff_member/9",
+    );
+  });
+
   it("does not manufacture a match when the visitor is unsure and has no preference", () => {
     expect(recommendTherapists("unsure", ["no-preference"])).toEqual([]);
   });
@@ -68,7 +81,7 @@ describe("lightweight therapist finder", () => {
     );
 
     expect(matching.map(({ slug }) => slug).sort()).toEqual(
-      ["tim-kahtava", "wilfred-bengnwi"].sort(),
+      ["meryem-ibrahim", "tim-kahtava", "wilfred-bengnwi"].sort(),
     );
     expect([...matching, ...other]).toHaveLength(roster.length);
   });
@@ -82,11 +95,12 @@ describe("pricing source of truth", () => {
     );
 
     for (const therapist of roster) {
-      expect(therapist.therapySessionPriceMinimum).toBe(180);
-      expect(therapist.therapySessionPriceMaximum).toBe(180);
+      const expectedPrice = therapist.slug === "meryem-ibrahim" ? 160 : 180;
+      expect(therapist.therapySessionPriceMinimum).toBe(expectedPrice);
+      expect(therapist.therapySessionPriceMaximum).toBe(expectedPrice);
       expect(therapist.therapySessionDurationMinutes).toBe(50);
       expect(formatTherapySession(therapist)).toBe(
-        "$180 per 50 minutes",
+        `$${expectedPrice} per 50 minutes`,
       );
       expect(formatConsultation(therapist)).toBe(
         "Free 20-minute consultation",
@@ -117,10 +131,11 @@ describe("verified therapist languages", () => {
         ]),
       ),
     ).toEqual({
-      "dayong-quan": ["English", "Mandarin"],
-      "wilfred-bengnwi": ["English", "French"],
-      "tim-kahtava": ["English"],
       "ryann-simpson": ["English"],
+      "wilfred-bengnwi": ["English", "French"],
+      "meryem-ibrahim": ["English", "Arabic"],
+      "tim-kahtava": ["English"],
+      "dayong-quan": ["English", "Mandarin"],
     });
   });
 });

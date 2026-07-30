@@ -72,6 +72,7 @@ export const MAX_REASONS = 4;
 export const MATCHING_TIE_BREAK_ORDER = [
   "ryann-simpson",
   "wilfred-bengnwi",
+  "meryem-ibrahim",
   "tim-kahtava",
   "dayong-quan",
 ] as const;
