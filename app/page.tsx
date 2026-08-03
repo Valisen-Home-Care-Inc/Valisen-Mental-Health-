@@ -173,7 +173,7 @@ export default function HomePage() {
               number="02"
               icon={<MessageCircle size={20} aria-hidden="true" />}
               title="Choose a free consultation"
-              body="See current Jane availability and select a time with the therapist you want to meet."
+              body="Share your availability and therapist preference so our team can coordinate the consultation."
             />
             <ProcessCard
               number="03"
@@ -334,7 +334,7 @@ export default function HomePage() {
             </TrackedLink>
           </div>
           <p className="mt-5 text-[11px] text-white/45">
-            Therapist-specific booking links open securely in Jane in a new tab.
+            Consultation requests are coordinated and confirmed by the Valisen team.
           </p>
         </div>
       </section>

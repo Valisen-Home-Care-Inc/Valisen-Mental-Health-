@@ -58,7 +58,7 @@ const STEPS = [
   {
     n: "02",
     title: "Book online",
-    body: "Book through Jane or call our team to discuss next steps and what to check with your benefits provider.",
+    body: "Request a consultation or call our team to discuss next steps and what to check with your benefits provider.",
   },
   {
     n: "03",
@@ -288,7 +288,7 @@ export default function InsurancePage() {
       <CTASection
         dark
         headline="Ready to get started?"
-        subtext="Book directly through Jane or call us if you have general insurance questions."
+        subtext="Request a consultation or call us if you have general insurance questions."
       />
       <Footer />
     </main>

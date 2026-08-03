@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import Script from "next/script";
+import GlobalFunnelClickTracker from "@/components/GlobalFunnelClickTracker";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -154,6 +155,7 @@ export default function RootLayout({
         {/* End Google Tag Manager */}
       </head>
       <body>
+        <GlobalFunnelClickTracker />
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe

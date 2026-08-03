@@ -176,7 +176,7 @@ const CATEGORIES: FAQCategory[] = [
         slug: "how-to-book",
         question: "How do I book a consultation or my first session?",
         shortAnswer:
-          "Browse our therapist profiles, choose who feels right for you, and book a free 20-minute consultation directly with them through Jane — no referral or intake form needed. Sessions are typically available within a few days.",
+          "Browse our therapist profiles, choose who feels right for you, and request a free 20-minute consultation. Share your availability and Valisen will coordinate the next step with you. No referral is needed.",
       },
       {
         slug: "languages-offered",

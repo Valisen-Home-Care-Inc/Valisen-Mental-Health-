@@ -63,6 +63,7 @@ export default function TrackedLink({
     className,
     onClick: handleClick,
     "aria-label": ariaLabel,
+    "data-funnel-tracked": "true",
   };
 
   if (newTab) {

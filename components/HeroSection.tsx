@@ -1,9 +1,9 @@
 import Image from "next/image";
-import { ArrowRight, Check, ExternalLink, Phone, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Phone, Sparkles } from "lucide-react";
 import TrackedLink from "@/components/TrackedLink";
+import { MATCHING_FORM_URL } from "@/lib/intake";
 import {
   CONSULTATION_DURATION_MINUTES,
-  CLINIC_JANE_BOOKING_URL,
   getActiveTherapists,
   getTherapyPriceSummary,
 } from "@/lib/therapists";
@@ -87,16 +87,15 @@ export default function HeroSection() {
           </div>
 
           <TrackedLink
-            href={CLINIC_JANE_BOOKING_URL}
-            event="hero_booking_clicked"
+            href={MATCHING_FORM_URL}
+            event="consultation_request_clicked"
+            secondaryEvent="hero_booking_clicked"
             page="homepage"
             placement="hero_booking"
-            janeClick
-            newTab
             className="btn-dark mt-3 min-h-[48px] w-full justify-center px-7 sm:w-auto lg:min-h-[50px]"
           >
             Book Free Consultation
-            <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+            <ArrowRight size={14} className="ml-2" aria-hidden="true" />
           </TrackedLink>
 
           <TrackedLink

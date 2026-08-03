@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
+import { trackQuizEvent } from "@/lib/analytics";
 import {
   MAX_EMAIL_LENGTH,
   MAX_FIRST_NAME_LENGTH,
@@ -52,6 +53,7 @@ export default function ResultsAccessForm({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
+  const startedRef = useRef(false);
 
   const valuesValid = {
     firstName: firstName.trim().length > 0,
@@ -75,6 +77,7 @@ export default function ResultsAccessForm({
   };
 
   useEffect(() => {
+    trackQuizEvent("quiz_access_form_viewed");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     cardRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
     const timer = window.setTimeout(
@@ -85,13 +88,21 @@ export default function ResultsAccessForm({
   }, []);
 
   function markTouched(field: FieldName) {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      trackQuizEvent("quiz_access_form_started");
+    }
     setTouched((current) => ({ ...current, [field]: true }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTouched({ firstName: true, email: true, phone: true, privacy: true });
-    if (!canSubmit || submittingRef.current) return;
+    if (!canSubmit) {
+      trackQuizEvent("quiz_access_form_validation_failed");
+      return;
+    }
+    if (submittingRef.current) return;
 
     submittingRef.current = true;
     setSubmitting(true);

@@ -38,7 +38,7 @@ const VALUES = [
   },
   {
     title: "Responsiveness",
-    body: "When you've decided to ask for help, the next step should feel clear. Browse our therapist profiles, choose who feels right, and book directly — no intake or referral required.",
+    body: "When you've decided to ask for help, the next step should feel clear. Browse our therapist profiles, choose who feels right, and send a short consultation request — no referral required.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="2" />
@@ -84,8 +84,8 @@ export default function AboutPage() {
               Registered Social Workers provide virtual sessions directly to clients across Ontario.
             </p>
             <p>
-              Browse our therapist profiles, choose who feels right for you, and book directly
-              through Jane. Your care is provided by a regulated clinician on our team from
+              Browse our therapist profiles, choose who feels right for you, and request a free
+              consultation. Your care is provided by a regulated clinician on our team from
               day one.
             </p>
             <p>
@@ -127,7 +127,7 @@ export default function AboutPage() {
             Book with Valisen
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] text-ink-secondary">
-            Book directly through Jane or call us if you would like help choosing a therapist.
+            Request a consultation or call us if you would like help choosing a therapist.
           </p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link

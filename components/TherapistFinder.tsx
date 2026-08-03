@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CalendarDays, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Check } from "lucide-react";
 import { useMemo, useState } from "react";
 import TrackedLink from "@/components/TrackedLink";
 import { trackFunnelEvent, trackFunnelViewOnce } from "@/lib/analytics";
+import { getConsultationRequestUrl } from "@/lib/intake";
 import {
   FINDER_CONCERNS,
   FINDER_NEXT_STEPS,
@@ -264,18 +265,19 @@ export default function TherapistFinder({
                   {showMobileResultAction && recommendations[0] ? (
                     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md md:hidden">
                       <TrackedLink
-                        href={recommendations[0].therapist.consultationBookingUrl}
-                        event="therapist_recommendation_jane_clicked"
+                        href={getConsultationRequestUrl(
+                          recommendations[0].therapist.slug,
+                          "finder_mobile",
+                        )}
+                        event="consultation_request_clicked"
                         page={page}
                         placement="mobile_sticky"
                         finderUsed
-                        janeClick
-                        newTab
                         className="btn-primary min-h-12 w-full justify-center"
                       >
                         Book with{" "}
                         {recommendations[0].therapist.name.split(" ")[0]}
-                        <ExternalLink size={15} className="ml-2" aria-hidden="true" />
+                        <ArrowRight size={15} className="ml-2" aria-hidden="true" />
                       </TrackedLink>
                     </div>
                   ) : null}
@@ -460,18 +462,16 @@ function RecommendationCard({
           </dl>
           <div className="mt-5 flex flex-col gap-2.5">
             <TrackedLink
-              href={therapist.consultationBookingUrl}
-              event="therapist_recommendation_jane_clicked"
+              href={getConsultationRequestUrl(therapist.slug, "finder_result")}
+              event="consultation_request_clicked"
               page={page}
               placement="finder_result"
               finderUsed
-              janeClick
-              newTab
               className="btn-primary min-h-12 w-full justify-center px-4"
             >
               <CalendarDays size={16} className="mr-2" aria-hidden="true" />
               Book a Free Consultation with {firstName}
-              <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+              <ArrowRight size={14} className="ml-2" aria-hidden="true" />
             </TrackedLink>
             <TrackedLink
               href={therapist.profileUrl}
@@ -485,7 +485,7 @@ function RecommendationCard({
             </TrackedLink>
           </div>
           <p className="mt-3 text-center text-[11px] text-ink-hint">
-            Booking opens securely in Jane in a new tab.
+            Valisen will coordinate and confirm the consultation with you.
           </p>
         </div>
       </div>

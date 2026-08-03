@@ -287,10 +287,10 @@ describe("buildQuizLeadEmail", () => {
 
 describe("buildQuizUserResultsEmail", () => {
   it.each([
-    ["ready_to_speak", "Choose a Consultation Time"],
-    ["brief_consultation", "Book a Consultation with Tim"],
-    ["see_recommended_therapist", "Book a Consultation with Tim"],
-    ["exploring", "See Consultation Times"],
+    ["ready_to_speak", "Request My Free Consultation"],
+    ["brief_consultation", "Request a Consultation with Tim"],
+    ["see_recommended_therapist", "Request a Consultation with Tim"],
+    ["exploring", "Request a Free Consultation"],
   ] as const)("uses adaptive CTA copy for %s", (intent, cta) => {
     const email = buildQuizUserResultsEmail({
       referenceId: "VQ-USER123456",
@@ -306,14 +306,14 @@ describe("buildQuizUserResultsEmail", () => {
     expect(email.text).toContain(cta);
     expect(email.html).toContain(cta);
     expect(email.bookingUrl).toBe(
-      "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
+      "https://valisenmentalhealth.com/consultation?therapist=tim-kahtava&source=quiz_results_email",
     );
     expect(email.text).toContain("#result=");
     expect(email.text).toContain("does not subscribe you to promotional email");
     expect(email.text).not.toMatch(/newsletter|special offer/i);
   });
 
-  it("falls back to the verified clinic Jane page without a match", () => {
+  it("falls back to the clinic consultation request without a match", () => {
     const email = buildQuizUserResultsEmail({
       referenceId: "VQ-USER123456",
       firstName: "Alex",
@@ -323,10 +323,12 @@ describe("buildQuizUserResultsEmail", () => {
       privateResultsUrl:
         "https://valisenmentalhealth.com/quiz#result=v1.VQ-USER123456.token",
     });
-    expect(email.bookingUrl).toBe("https://valisenmentalhealth.janeapp.com/");
+    expect(email.bookingUrl).toBe(
+      "https://valisenmentalhealth.com/consultation?source=quiz_results_email",
+    );
   });
 
-  it("uses Dayong's direct Jane staff page and therapist-specific CTA", () => {
+  it("uses Dayong's preselected consultation request and therapist-specific CTA", () => {
     const email = buildQuizUserResultsEmail({
       referenceId: "VQ-USER123456",
       firstName: "Alex",
@@ -339,10 +341,10 @@ describe("buildQuizUserResultsEmail", () => {
     });
 
     expect(email.bookingUrl).toBe(
-      "https://valisenmentalhealth.janeapp.com/#/staff_member/7",
+      "https://valisenmentalhealth.com/consultation?therapist=dayong-quan&source=quiz_results_email",
     );
     for (const content of [email.text, email.html]) {
-      expect(content).toContain("Book a Consultation with Dayong");
+      expect(content).toContain("Request a Consultation with Dayong");
       expect(content).not.toMatch(/clinic booking page in Jane/i);
     }
   });

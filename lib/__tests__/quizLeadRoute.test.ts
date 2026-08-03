@@ -295,7 +295,7 @@ describe("POST /api/quiz-lead", () => {
     );
     expect(userResultsMessages()[0].to).toBe("alex@example.com");
     expect(userResultsMessages()[0].text).toContain(
-      "valisenmentalhealth.janeapp.com",
+      "valisenmentalhealth.com/consultation?therapist=meryem-ibrahim",
     );
     expect(userResultsMessages()[0].text).toContain("#result=");
     expect(userResultsMessages()[0].text).toContain(

@@ -12,7 +12,7 @@ describe("responsive directory CTA behavior", () => {
     });
   });
 
-  it("switches to the active therapist-specific Jane action", () => {
+  it("switches to the therapist-specific consultation request", () => {
     const tim = therapists.find(
       (therapist) => therapist.slug === "tim-kahtava",
     );
@@ -21,8 +21,8 @@ describe("responsive directory CTA behavior", () => {
     expect(getDirectoryMobileAction(tim)).toEqual({
       kind: "booking",
       label: "Book Free Consultation with Tim",
-      href: "https://valisenmentalhealth.janeapp.com/#/staff_member/5",
-      external: true,
+      href: "/consultation?therapist=tim-kahtava&source=directory_mobile",
+      external: false,
     });
   });
 

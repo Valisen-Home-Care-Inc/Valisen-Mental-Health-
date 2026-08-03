@@ -7,7 +7,6 @@ import {
   CalendarDays,
   CheckCircle,
   Clock,
-  ExternalLink,
   GraduationCap,
   Languages,
   MapPin,
@@ -54,22 +53,20 @@ export default function TherapistProfile({ therapist }: { therapist: Therapist }
           href={intakeHref}
           buttonLabel={CONSULTATION_CTA_LABEL}
           headline="Not sure if this therapist is the right fit?"
-          subtext="Book directly through Jane or call us if you would like help choosing a therapist."
+          subtext="Send your consultation preferences and our team will coordinate the next step with you."
         />
       )}
       {!therapist.comingSoon && therapist.acceptingNewClients ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md md:hidden">
           <TrackedLink
-            href={therapist.consultationBookingUrl}
-            event="jane_booking_clicked"
+            href={intakeHref}
+            event="consultation_request_clicked"
             page="therapist_profile"
             placement="mobile_sticky"
-            janeClick
-            newTab
             className="btn-primary min-h-12 w-full justify-center"
           >
             Book Free Consultation with {therapist.name.split(" ")[0]}
-            <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+            <ArrowRight size={14} className="ml-2" aria-hidden="true" />
           </TrackedLink>
         </div>
       ) : null}
@@ -128,16 +125,14 @@ function Hero({ therapist, intakeHref }: { therapist: Therapist; intakeHref: str
             ) : (
               <TrackedLink
                 href={intakeHref}
-                event="jane_booking_clicked"
+                event="consultation_request_clicked"
                 page="therapist_profile"
                 placement="profile"
-                janeClick
-                newTab
                 className="btn-primary justify-center"
               >
                 <CalendarDays size={16} className="mr-2" aria-hidden="true" />
                 {CONSULTATION_CTA_LABEL}
-                <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+                <ArrowRight size={14} className="ml-2" aria-hidden="true" />
               </TrackedLink>
             )}
             <Link href="/therapists" className="btn-outline justify-center">
@@ -362,11 +357,9 @@ function DetailPanel({
         <div className="mt-6 border-t border-hairline pt-5">
           <TrackedLink
             href={intakeHref}
-            event="jane_booking_clicked"
+            event="consultation_request_clicked"
             page="therapist_profile"
             placement="profile"
-            janeClick
-            newTab
             className="btn-primary w-full justify-center"
           >
             {CONSULTATION_CTA_LABEL}

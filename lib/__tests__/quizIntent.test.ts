@@ -82,7 +82,7 @@ describe("intent-adaptive result presentation", () => {
     {
       intent: "ready_to_speak",
       heading: "Your next step is ready",
-      ctaLabel: "Choose a Consultation Time",
+      ctaLabel: "Request My Free Consultation",
       bookingHeading: undefined,
       showConsultationExpectations: false,
       resultLeadsJourney: false,
@@ -90,7 +90,7 @@ describe("intent-adaptive result presentation", () => {
     {
       intent: "brief_consultation",
       heading: "A brief consultation is a good place to start",
-      ctaLabel: "Book a Consultation with Ryann",
+      ctaLabel: "Request a Consultation with Ryann",
       bookingHeading: undefined,
       showConsultationExpectations: true,
       resultLeadsJourney: false,
@@ -98,7 +98,7 @@ describe("intent-adaptive result presentation", () => {
     {
       intent: "see_recommended_therapist",
       heading: "Meet your recommended therapist",
-      ctaLabel: "Book a Consultation with Ryann",
+      ctaLabel: "Request a Consultation with Ryann",
       bookingHeading: undefined,
       showConsultationExpectations: false,
       resultLeadsJourney: false,
@@ -106,7 +106,7 @@ describe("intent-adaptive result presentation", () => {
     {
       intent: "exploring",
       heading: "Here’s what stood out in your answers",
-      ctaLabel: "See Consultation Times",
+      ctaLabel: "Request a Free Consultation",
       bookingHeading: "You don’t have to figure out the next step alone",
       showConsultationExpectations: false,
       resultLeadsJourney: true,
@@ -144,13 +144,13 @@ describe("intent-adaptive result presentation", () => {
 
   it("uses consultation-specific reassurance only on the consultation-first route", () => {
     const brief = getIntentRoutePresentation("brief_consultation", "Ryann");
-    expect(brief.ctaHelper).toMatch(/does not obligate you to continue/i);
+    expect(brief.ctaHelper).toMatch(/no obligation to continue/i);
 
     for (const intent of QUIZ_INTENT_VALUES.filter(
       (value) => value !== "brief_consultation",
     )) {
       expect(getIntentRoutePresentation(intent, "Ryann").ctaHelper).not.toMatch(
-        /obligate/i,
+        /obligation/i,
       );
     }
   });
@@ -170,15 +170,15 @@ describe("intent-adaptive result presentation", () => {
         usesClinicBookingFallback: true,
       });
 
-      expect(presentation.ctaLabel).toBe("View Valisen Consultation Times");
+      expect(presentation.ctaLabel).toBe("Request a Valisen Consultation");
       expect(presentation.ctaHelper).toMatch(
-        /opens Valisen’s clinic booking page in Jane/i,
+        /Valisen will help coordinate the consultation/i,
       );
       expect(presentation.ctaHelper).toMatch(
         /recommended match remains Dayong/i,
       );
       expect(presentation.ctaHelper).not.toMatch(
-        /Dayong’s availability|book a consultation with Dayong/i,
+        /Dayong’s availability|book a consultation with Dayong|Jane/i,
       );
     },
   );

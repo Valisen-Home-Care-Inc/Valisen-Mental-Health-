@@ -210,7 +210,7 @@ export default function ServicesPage() {
             Find a therapist who fits
           </h2>
           <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-[1.6] text-canvas/75">
-            Book directly through Jane or call us if you would like help choosing a therapist.
+            Send a consultation request or call us if you would like help choosing a therapist.
           </p>
           <div className="mt-8">
             <Link

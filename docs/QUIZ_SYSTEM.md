@@ -1,12 +1,13 @@
-# Valisen Quiz-to-Jane Booking System
+# Valisen Quiz-to-Consultation System
 
 This document describes quiz version `5.0.0`: the self-reflection score,
-therapist matching, intent-adaptive results, Jane booking journey, private
+therapist matching, intent-adaptive results, consultation-request journey, private
 result delivery, optional contact help, persistence, email, and analytics.
 
-The primary conversion is an outbound click to the verified Jane consultation
-page for the matched therapist. A Jane click is not treated as a confirmed
-appointment.
+The primary conversion is an internal click to the consultation-request form,
+with the matched therapist preselected when available. Jane remains an
+explicitly secondary self-scheduling route. Neither a consultation request nor
+a Jane click is treated as a confirmed appointment.
 
 ## User journey
 
@@ -41,10 +42,10 @@ appointment.
    already-saved result.
 6. **Intent-adaptive result**: one reusable results component changes its
    hierarchy and CTA wording for the selected intent. Intent does not change
-   the score or therapist match. Every route keeps one dominant Jane CTA above
+   the score or therapist match. Every route keeps one dominant consultation-request CTA above
    the detailed score explanation.
-7. **Jane booking**: the primary CTA opens the matched therapist's verified
-   Jane destination in a new tab. A mobile sticky CTA appears only after the
+7. **Consultation request**: the primary CTA opens `/consultation` with the
+   matched therapist preselected. A mobile sticky CTA appears only after the
    original CTA has scrolled above the viewport and is hidden while contact
    help is open.
 8. **Contact-help fallback**: “Can’t find a suitable time? Share your time
@@ -73,16 +74,16 @@ function so their CTA wording cannot drift.
 
 | Intent enum | Result hierarchy | Primary CTA |
 | --- | --- | --- |
-| `ready_to_speak` | Booking and compact matched-therapist card first | **Choose a Consultation Time** |
-| `brief_consultation` | Consultation explanation and expectations first | **Book a Consultation with {first name}** |
-| `see_recommended_therapist` | Therapist profile and factual match reasons first | **Book a Consultation with {first name}** |
-| `exploring` | Short result snapshot, then a gentle matched-therapist bridge | **See Consultation Times** |
+| `ready_to_speak` | Booking and compact matched-therapist card first | **Request My Free Consultation** |
+| `brief_consultation` | Consultation explanation and expectations first | **Request a Consultation with {first name}** |
+| `see_recommended_therapist` | Therapist profile and factual match reasons first | **Request a Consultation with {first name}** |
+| `exploring` | Short result snapshot, then a gentle matched-therapist bridge | **Request a Free Consultation** |
 
 All four routes:
 
 - retain the same server-calculated result and deterministic match;
-- place the matched Jane CTA before the long score breakdown;
-- explain that Jane displays times and handles appointment selection;
+- place the matched consultation CTA before the long score breakdown;
+- explain that Valisen coordinates the request and confirmation;
 - keep the therapist directory, alternative therapists, and retake action
   visually below the primary journey;
 - use progressive disclosure for detailed dimension results;
@@ -207,7 +208,7 @@ automatic same-session restoration may not be.
 
 ## Contact-help scheduling acknowledgement and form
 
-The fallback is secondary to Jane and is not opened or submitted
+The exact-time help form is secondary to the main consultation request and is not opened or submitted
 automatically. It collects:
 
 - preferred contact method: `phone`, `text`, or `email`;
@@ -261,7 +262,7 @@ Three transactional email paths exist:
    and still does not mean a booking is confirmed.
 2. **Visitor results email**: sent to the submitted email address. It delivers
    the requested result heading, the same intent-adaptive CTA language as the
-   page, the matched therapist's centralized Jane destination, and the private
+   page, the matched therapist's preselected consultation-request destination, and the private
    return link. It is transactional and does not subscribe the visitor to
    promotional email.
 3. **Internal contact-help request**: sent only after the separate scheduling
@@ -309,11 +310,16 @@ The quiz uses the site's existing `window.dataLayer` architecture through
 Browser data-layer events are:
 
 - `quiz_started`;
+- `quiz_question_viewed`;
+- `quiz_question_answered`;
+- `quiz_back_clicked`;
+- `quiz_access_form_viewed`;
 - `quiz_completed`;
 - `quiz_intent_selected`;
 - `lead_details_submitted`;
 - `results_viewed`;
 - `therapist_match_viewed`;
+- `consultation_request_clicked`;
 - `jane_booking_clicked`;
 - `contact_help_opened`; and
 - `contact_help_submitted`.

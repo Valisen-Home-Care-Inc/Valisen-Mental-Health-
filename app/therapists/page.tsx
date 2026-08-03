@@ -13,8 +13,8 @@ import NavBar from "@/components/NavBar";
 import TherapistDirectoryExperience from "@/components/TherapistDirectoryExperience";
 import TherapistFinder from "@/components/TherapistFinder";
 import TrackedLink from "@/components/TrackedLink";
+import { MATCHING_FORM_URL } from "@/lib/intake";
 import {
-  CLINIC_JANE_BOOKING_URL,
   CONSULTATION_DURATION_MINUTES,
   THERAPY_PRICE_RANGE,
   getAcceptingTherapists,
@@ -98,12 +98,10 @@ export default function TherapistsPage() {
                   <ArrowRight size={17} className="ml-2" aria-hidden="true" />
                 </TrackedLink>
                 <TrackedLink
-                  href={CLINIC_JANE_BOOKING_URL}
-                  event="directory_jane_clicked"
+                  href={MATCHING_FORM_URL}
+                  event="consultation_request_clicked"
                   page="therapist_directory"
                   placement="hero_booking"
-                  janeClick
-                  newTab
                   className="btn-dark min-h-[52px] justify-center px-7 sm:hidden"
                 >
                   Book Free Consultation
@@ -120,12 +118,10 @@ export default function TherapistsPage() {
                 </TrackedLink>
               </div>
               <TrackedLink
-                href={CLINIC_JANE_BOOKING_URL}
-                event="directory_jane_clicked"
+                href={MATCHING_FORM_URL}
+                event="consultation_request_clicked"
                 page="therapist_directory"
                 placement="hero_booking"
-                janeClick
-                newTab
                 className="btn-dark mt-3 hidden min-h-[52px] justify-center px-7 sm:inline-flex"
               >
                 Book Free Consultation
@@ -234,7 +230,7 @@ export default function TherapistsPage() {
             <DirectoryStep
               icon={<ExternalLink size={19} aria-hidden="true" />}
               title="Book the therapist you selected"
-              body="Open that therapist’s verified Jane destination and choose an available free consultation time."
+              body="Send your preferred availability and our team will coordinate the free consultation with you."
             />
           </div>
         </div>
