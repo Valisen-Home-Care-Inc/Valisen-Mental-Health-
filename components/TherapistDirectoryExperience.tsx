@@ -5,13 +5,13 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
-  ExternalLink,
   Scale,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import TrackedLink from "@/components/TrackedLink";
 import { trackFunnelEvent } from "@/lib/analytics";
+import { getConsultationRequestUrl } from "@/lib/intake";
 import {
   FINDER_CONCERNS,
   therapistMatchesConcern,
@@ -276,15 +276,13 @@ export default function TherapistDirectoryExperience() {
         {mobileAction.kind === "booking" ? (
           <TrackedLink
             href={mobileAction.href}
-            event="directory_jane_clicked"
+            event="consultation_request_clicked"
             page="therapist_directory"
             placement="mobile_sticky"
-            janeClick
-            newTab
             className="btn-primary min-h-12 w-full justify-center"
           >
             {mobileAction.label}
-            <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+            <ArrowRight size={14} className="ml-2" aria-hidden="true" />
           </TrackedLink>
         ) : (
           <a
@@ -446,7 +444,7 @@ function DirectoryCard({
                   Free {therapist.consultationDurationMinutes}-minute consultation
                 </p>
                 <p className="mt-1 text-[10px] leading-4 text-white/58">
-                  Phone · Choose a live time in Jane
+                  Phone · Valisen coordinates the time with you
                 </p>
               </div>
             </div>
@@ -513,21 +511,15 @@ function DirectoryCard({
           <div className="mt-4 grid gap-2.5 sm:grid-cols-2 md:mt-5 lg:mt-auto lg:pt-5">
             {therapist.acceptingNewClients ? (
               <TrackedLink
-                href={therapist.consultationBookingUrl}
-                event={
-                  page === "homepage"
-                    ? "jane_booking_clicked"
-                    : "directory_jane_clicked"
-                }
+                href={getConsultationRequestUrl(therapist.slug, "therapist_card")}
+                event="consultation_request_clicked"
                 page={page}
                 placement="therapist_card"
-                janeClick
-                newTab
                 className="btn-primary min-h-12 justify-center px-4 text-[13px]"
               >
                 <CalendarDays size={15} className="mr-2" aria-hidden="true" />
                 Book Free Consultation
-                <ExternalLink size={13} className="ml-2" aria-hidden="true" />
+                <ArrowRight size={13} className="ml-2" aria-hidden="true" />
               </TrackedLink>
             ) : (
               <span className="inline-flex min-h-12 items-center justify-center rounded-full bg-black/5 px-4 text-[13px] font-semibold text-ink-secondary">
@@ -545,7 +537,7 @@ function DirectoryCard({
             </TrackedLink>
           </div>
           <p className="mt-2.5 hidden text-[10.5px] text-ink-hint sm:block md:mt-3">
-            Consultation booking opens in Jane in a new tab.
+            Send a request and Valisen will coordinate the consultation with you.
           </p>
         </div>
       </div>
@@ -641,16 +633,14 @@ function ComparisonResults({
               />
             </dl>
             <TrackedLink
-              href={therapist.consultationBookingUrl}
-              event="directory_jane_clicked"
+              href={getConsultationRequestUrl(therapist.slug, "comparison")}
+              event="consultation_request_clicked"
               page="therapist_directory"
               placement="comparison"
-              janeClick
-              newTab
               className="btn-primary mt-6 min-h-12 w-full justify-center px-4 text-[13px]"
             >
               Book Free Consultation
-              <ExternalLink size={13} className="ml-2" aria-hidden="true" />
+              <ArrowRight size={13} className="ml-2" aria-hidden="true" />
             </TrackedLink>
             <TrackedLink
               href={therapist.profileUrl}

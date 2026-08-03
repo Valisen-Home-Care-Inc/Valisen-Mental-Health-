@@ -82,6 +82,11 @@ export default function PrivacyPolicyPage() {
                   Name, email address, and phone number on the quiz results-access form; plus any
                   contact preferences you separately provide when asking for booking help
                 </li>
+                <li>
+                  Name, email address, optional phone number, therapy type, preferred therapist,
+                  broad weekday availability, optional message, referral source, and the exact
+                  consent record when you request a free consultation
+                </li>
                 <li>Reason for seeking therapy and general mental health concerns</li>
                 <li>
                   Answers you choose to submit through our educational self-reflection quiz,
@@ -99,8 +104,10 @@ export default function PrivacyPolicyPage() {
                   action
                 </li>
                 <li>
-                  Administrative funnel timestamps, such as when results were viewed, a Jane
-                  booking link was opened, or the booking-help form was opened
+                  Privacy-limited funnel events, such as the page or quiz question reached,
+                  consultation CTA clicks, form step reached, results views, and secondary Jane
+                  link clicks. These events do not contain quiz answers, contact details, concern
+                  categories, scores, or free-text messages
                 </li>
                 <li>Insurance provider information (if applicable)</li>
                 <li>Communication preferences</li>
@@ -128,7 +135,7 @@ export default function PrivacyPolicyPage() {
                 <li>To communicate with you about your care</li>
                 <li>
                   To save and display quiz results, generate a therapist recommendation, email the
-                  requested results and matched Jane booking link to you, generate a private
+                  requested results and matched consultation next step to you, generate a private
                   results PDF when you request one, contact you by email, phone, or text about
                   your result, therapist match, consultations, scheduling, and related therapy
                   services, share your contact details and relevant quiz summary with the
@@ -153,8 +160,8 @@ export default function PrivacyPolicyPage() {
             <Section title="5. Consent">
               <p>
                 We obtain your consent before collecting personal information. By submitting our
-                intake form, you consent to the collection and use of your information as
-                described in this policy.
+                intake or consultation-request form, you consent to the collection and use of
+                your information as described in this policy.
               </p>
               <p className="mt-3">
                 The quiz results-access form requires an unchecked acknowledgement before the quiz
@@ -201,8 +208,9 @@ export default function PrivacyPolicyPage() {
               <ul className="ml-5 mt-3 list-disc space-y-1">
                 <li>
                   <strong className="text-ink">Service providers:</strong> Trusted third-party
-                  vendors (e.g., secure form processing, email delivery) who are contractually bound
-                  to protect your information and use it only to provide services to us.
+                  vendors (e.g., secure form processing, email delivery, Cloudflare Turnstile bot
+                  verification, and access-controlled spreadsheet storage) who are contractually
+                  bound to protect your information and use it only to provide services to us.
                 </li>
                 <li>
                   <strong className="text-ink">Insurance providers:</strong> With your explicit
@@ -256,6 +264,7 @@ export default function PrivacyPolicyPage() {
                 <li>Encrypted data transmission (TLS/HTTPS) for all web communications</li>
                 <li>Secure, access-controlled systems</li>
                 <li>Role-based access so only authorized administrative staff can view intake records</li>
+                <li>Cloudflare Turnstile verification, server-side validation, honeypots, origin checks, payload limits, and rate limits on consultation submissions</li>
                 <li>Confidentiality agreements with all staff and contractors</li>
               </ul>
             </Section>
@@ -268,7 +277,8 @@ export default function PrivacyPolicyPage() {
               <ul className="ml-5 mt-3 list-disc space-y-1">
                 <li>
                   <strong className="text-ink">Essential browser storage:</strong> Necessary for
-                  functions such as restoring a private quiz result during the browser session.
+                  functions such as restoring a private quiz result and maintaining a random,
+                  per-tab funnel session during the browser session.
                   This can include the private result capability and the derived{" "}
                   <code>safetyFlagged</code> true/false value on your device; it does not include
                   your raw safety-check answer.
@@ -291,6 +301,14 @@ export default function PrivacyPolicyPage() {
                   scores, finder choices, therapist recommendations, concern categories, written
                   responses, safety answers, names, email addresses, and phone numbers are not
                   sent in quiz or therapist-finder analytics events.
+                </li>
+                <li>
+                  <strong className="text-ink">First-party funnel measurement:</strong> A random
+                  session identifier and sequence number let us update a session summary and an
+                  event log in our access-controlled Google Sheet. This shows the last page, quiz
+                  question, or consultation step reached and whether a consultation CTA or
+                  secondary Jane link was clicked. The event endpoint rejects contact information,
+                  quiz answers, scores, safety answers, and written messages.
                 </li>
               </ul>
               <p className="mt-3">

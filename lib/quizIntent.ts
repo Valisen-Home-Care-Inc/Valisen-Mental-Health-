@@ -100,10 +100,10 @@ export function getIntentRoutePresentation(
         supportingCopy: firstName
           ? `Based on your answers, we matched you with ${firstName}, who works with the areas that stood out most strongly for you.`
           : "Your answers can help the Valisen team guide you toward an appropriate therapist and consultation time.",
-        ctaLabel: "Choose a Consultation Time",
+        ctaLabel: "Request My Free Consultation",
         ctaHelper: firstName
-          ? `View ${firstName}’s availability and select a time securely through Jane.`
-          : "View the clinic’s consultation options and select a time securely through Jane.",
+          ? `Send your preferences and Valisen will coordinate a consultation with ${firstName}.`
+          : "Send your preferences and Valisen will coordinate a consultation with you.",
         showConsultationExpectations: false,
         resultLeadsJourney: false,
       };
@@ -117,10 +117,10 @@ export function getIntentRoutePresentation(
           ? `You can ask questions, explain what you’re looking for and see whether ${firstName} feels like the right fit before deciding what comes next.`
           : "You can ask questions, explain what you’re looking for and let the Valisen team help you decide what comes next.",
         ctaLabel: firstName
-          ? `Book a Consultation with ${firstName}`
-          : "Choose a Consultation Time",
+          ? `Request a Consultation with ${firstName}`
+          : "Request a Free Consultation",
         ctaHelper:
-          "Choose a time securely through Jane. Booking a consultation does not obligate you to continue.",
+          "Share when you are available and our team will coordinate the call. There is no obligation to continue.",
         showConsultationExpectations: true,
         resultLeadsJourney: false,
       };
@@ -136,9 +136,9 @@ export function getIntentRoutePresentation(
           ? `Your answers suggest ${firstName} may be a useful person to speak with. The match is a starting point, not a clinical recommendation or a guaranteed fit.`
           : "Your answers did not point to one clear match. You can still view consultation times and choose a therapist who feels right for you.",
         ctaLabel: firstName
-          ? `Book a Consultation with ${firstName}`
-          : "Choose a Consultation Time",
-        ctaHelper: "See available times and choose what works for you.",
+          ? `Request a Consultation with ${firstName}`
+          : "Request a Free Consultation",
+        ctaHelper: "Tell us what works for you and our team will coordinate the next step.",
         showConsultationExpectations: false,
         resultLeadsJourney: false,
       };
@@ -151,8 +151,8 @@ export function getIntentRoutePresentation(
         supportingCopy:
           "Start with the short snapshot below. You can open the full score explanation whenever you’re ready.",
         bookingHeading: "You don’t have to figure out the next step alone",
-        ctaLabel: "See Consultation Times",
-        ctaHelper: "See available times and choose what works for you.",
+        ctaLabel: "Request a Free Consultation",
+        ctaHelper: "Tell us what works for you and our team will coordinate the next step.",
         showConsultationExpectations: false,
         resultLeadsJourney: true,
       };
@@ -165,10 +165,10 @@ export function getIntentRoutePresentation(
 
   return {
     ...presentation,
-    ctaLabel: "View Valisen Consultation Times",
+    ctaLabel: "Request a Valisen Consultation",
     ctaHelper: firstName
-      ? `This opens Valisen’s clinic booking page in Jane. Your recommended match remains ${firstName}; the clinic can help connect you with them.`
-      : "This opens Valisen’s clinic booking page in Jane so you can review the clinic’s consultation options.",
+      ? `Your recommended match remains ${firstName}; Valisen will help coordinate the consultation with them.`
+      : "Share your availability and Valisen will help coordinate the consultation.",
   };
 }
 

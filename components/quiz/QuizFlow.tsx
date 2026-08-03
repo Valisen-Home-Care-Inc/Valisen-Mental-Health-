@@ -208,6 +208,16 @@ export default function QuizFlow() {
   const isLast = index === TOTAL_QUESTIONS - 1;
   const progress = Math.round((index / (TOTAL_QUESTIONS - 1)) * 100);
 
+  useEffect(() => {
+    if (phase !== "quiz") return;
+    trackQuizEvent("quiz_question_viewed", {
+      quizStep: index,
+      campaignSource: attribution.source,
+      campaignName: attribution.campaign,
+      deviceCategory: getDeviceCategory(),
+    });
+  }, [attribution.campaign, attribution.source, index, phase]);
+
   function finish(finalAnswers: Answers) {
     setAnswers(finalAnswers);
     const selectedIntent = finalAnswers.intent;
@@ -248,6 +258,12 @@ export default function QuizFlow() {
     const next: Answers = { ...answers, [q.id]: value };
     setAnswers(next);
     markStarted();
+    trackQuizEvent("quiz_question_answered", {
+      quizStep: index,
+      campaignSource: attribution.source,
+      campaignName: attribution.campaign,
+      deviceCategory: getDeviceCategory(),
+    });
 
     if (q.kind === "intent" && isQuizIntent(value)) {
       setIntent(value);
@@ -286,6 +302,12 @@ export default function QuizFlow() {
   }
 
   function continueFromMulti() {
+    trackQuizEvent("quiz_question_answered", {
+      quizStep: index,
+      campaignSource: attribution.source,
+      campaignName: attribution.campaign,
+      deviceCategory: getDeviceCategory(),
+    });
     advance(answers);
   }
 
@@ -298,6 +320,7 @@ export default function QuizFlow() {
 
   function goBack() {
     clearTimeout(advanceTimer.current);
+    trackQuizEvent("quiz_back_clicked", { quizStep: index });
     setIndex((current) => Math.max(0, current - 1));
   }
 

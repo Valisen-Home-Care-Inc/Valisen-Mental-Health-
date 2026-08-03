@@ -12,9 +12,16 @@ import {
   captureCampaignAttribution,
   type CampaignAttribution,
 } from "@/lib/campaignAttribution";
+import { recordFirstPartyFunnelEvent } from "@/lib/funnelTracking";
 
 export type QuizEvent =
   | "quiz_page_viewed"
+  | "quiz_question_viewed"
+  | "quiz_question_answered"
+  | "quiz_back_clicked"
+  | "quiz_access_form_viewed"
+  | "quiz_access_form_started"
+  | "quiz_access_form_validation_failed"
   | "quiz_started"
   | "quiz_progressed"
   | "quiz_completed"
@@ -22,6 +29,7 @@ export type QuizEvent =
   | "lead_details_submitted"
   | "results_viewed"
   | "therapist_match_viewed"
+  | "consultation_request_clicked"
   | "jane_booking_clicked"
   | "contact_help_opened"
   | "contact_help_submitted"
@@ -77,9 +85,22 @@ export type FunnelEvent =
   | "request_help_opened"
   | "request_help_submitted"
   | "quiz_clicked"
+  | "consultation_page_viewed"
+  | "consultation_form_started"
+  | "consultation_step_viewed"
+  | "consultation_form_validation_failed"
+  | "consultation_request_clicked"
+  | "consultation_request_submitted"
+  | "consultation_jane_secondary_clicked"
   | "jane_booking_clicked";
 
-export type FunnelPage = "homepage" | "therapist_directory" | "therapist_profile";
+export type FunnelPage =
+  | "homepage"
+  | "therapist_directory"
+  | "therapist_profile"
+  | "quiz"
+  | "consultation"
+  | "sitewide";
 
 export type FunnelCtaPlacement =
   | "hero_primary"
@@ -92,12 +113,16 @@ export type FunnelCtaPlacement =
   | "comparison"
   | "mobile_sticky"
   | "profile"
+  | "navigation"
+  | "consultation_primary"
+  | "consultation_secondary"
   | "final_primary"
   | "final_secondary";
 
 export type SafeFunnelEventProperties = {
   page: FunnelPage;
   ctaPlacement?: FunnelCtaPlacement;
+  therapistId?: string;
   landingPageVariant?: "default" | "paid";
   finderUsed?: boolean;
   funnelStep?: number;
@@ -198,6 +223,7 @@ export function trackQuizEvent(
   const w = window as DataLayerWindow;
   w.dataLayer = w.dataLayer || [];
   w.dataLayer.push(payload);
+  recordFirstPartyFunnelEvent(event, { ...payload, page: "quiz" });
 }
 
 /**
@@ -222,6 +248,8 @@ export function trackFunnelEvent(
   if (properties.ctaPlacement) {
     payload.cta_placement = properties.ctaPlacement;
   }
+  const therapistId = cleanEventValue(properties.therapistId, 80);
+  if (therapistId) payload.therapist_id = therapistId;
   if (properties.landingPageVariant) {
     payload.landing_page_variant = properties.landingPageVariant;
   }
@@ -252,6 +280,7 @@ export function trackFunnelEvent(
   const w = window as DataLayerWindow;
   w.dataLayer = w.dataLayer || [];
   w.dataLayer.push(payload);
+  recordFirstPartyFunnelEvent(event, payload);
 }
 
 export function trackFunnelViewOnce(

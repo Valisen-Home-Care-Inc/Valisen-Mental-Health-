@@ -18,9 +18,9 @@ import {
   type QuizIntent,
 } from "@/lib/quizIntent";
 import {
-  CLINIC_JANE_BOOKING_URL,
   getTherapistBookingConfig,
 } from "@/lib/therapistBooking";
+import { getConsultationRequestUrl } from "@/lib/intake";
 
 export type QuizLeadStatusSnapshot = {
   intent: QuizIntent;
@@ -502,8 +502,13 @@ export function buildQuizUserResultsEmail(
     therapistFirstName,
     { usesClinicBookingFallback: therapist?.usesClinicFallback },
   );
-  const bookingUrl =
-    therapist?.consultationBookingUrl ?? CLINIC_JANE_BOOKING_URL;
+  const bookingUrl = new URL(
+    getConsultationRequestUrl(
+      model.recommendedTherapistSlug,
+      "quiz_results_email",
+    ),
+    process.env.NEXT_PUBLIC_SITE_URL || "https://valisenmentalhealth.com",
+  ).toString();
   const subject = `Your Valisen quiz result and next step`;
   const expectations = presentation.showConsultationExpectations
     ? `\nDuring a consultation you can:\n- Discuss what brought you here\n- Ask about the therapist's approach, availability and fees\n- Decide whether the fit feels right\n`

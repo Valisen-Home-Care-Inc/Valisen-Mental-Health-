@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import Logo from "./Logo";
 import { ChevronDown } from "lucide-react";
-import { CLINIC_JANE_BOOKING_URL } from "@/lib/therapists";
+import TrackedLink from "@/components/TrackedLink";
+import { MATCHING_FORM_URL } from "@/lib/intake";
 
 const FINDER_URL = "/therapists#therapist-finder";
 
@@ -27,7 +28,7 @@ const FAQ_CATEGORIES = [
 export default function NavBar({
   hideBookingCta = false,
 }: {
-  /** Quiz/results pages provide a personalized Jane action instead. */
+  /** Quiz/results pages provide their own personalized consultation action. */
   hideBookingCta?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -82,14 +83,15 @@ export default function NavBar({
 
           {!hideBookingCta ? (
             <li>
-              <a
-                href={CLINIC_JANE_BOOKING_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+              <TrackedLink
+                href={MATCHING_FORM_URL}
+                event="consultation_request_clicked"
+                page="sitewide"
+                placement="navigation"
                 className="btn-dark"
               >
                 Book Free Consultation
-              </a>
+              </TrackedLink>
             </li>
           ) : null}
         </ul>
@@ -167,15 +169,16 @@ export default function NavBar({
 
             {!hideBookingCta ? (
               <li className="pt-2">
-                <a
-                  href={CLINIC_JANE_BOOKING_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <TrackedLink
+                  href={MATCHING_FORM_URL}
+                  event="consultation_request_clicked"
+                  page="sitewide"
+                  placement="navigation"
                   className="btn-dark w-full justify-center"
                   onClick={() => setOpen(false)}
                 >
                   Book Free Consultation
-                </a>
+                </TrackedLink>
                 <p className="mt-2 px-1 text-center text-[13px] leading-[1.5] text-ink-secondary">
                   Need help choosing?{" "}
                   <Link

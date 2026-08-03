@@ -12,6 +12,7 @@
     "screenshots:quiz": "node scripts/quiz-results-screenshots.mjs",
     "screenshots:funnel": "node scripts/funnel-screenshots.mjs",
     "screenshots:possibility": "node scripts/possibility-builder-screenshots.mjs",
+    "screenshots:consultation": "node scripts/consultation-screenshots.mjs",
     "typecheck": "tsc --noEmit",
     "screenshot": "node screenshot.js"
   },

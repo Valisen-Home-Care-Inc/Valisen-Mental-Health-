@@ -5,13 +5,13 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  ExternalLink,
   Phone,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import TrackedLink from "@/components/TrackedLink";
+import { getConsultationRequestUrl } from "@/lib/intake";
 import {
   trackFunnelEvent,
   trackFunnelViewOnce,
@@ -756,17 +756,15 @@ function Recommendation({
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <TrackedLink
-                href={therapist.consultationBookingUrl}
-                event="recommendation_jane_clicked"
-                secondaryEvent="jane_booking_clicked"
+                href={getConsultationRequestUrl(therapist.slug, "possibility_result")}
+                event="consultation_request_clicked"
                 page="homepage"
                 placement="finder_result"
                 finderUsed
-                newTab
                 className="btn-primary min-h-[52px] flex-1 justify-center px-5"
               >
                 Book My Free Consultation with {firstName}
-                <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+                <ArrowRight size={14} className="ml-2" aria-hidden="true" />
               </TrackedLink>
               <TrackedLink
                 href={therapist.profileUrl}
@@ -780,8 +778,8 @@ function Recommendation({
               </TrackedLink>
             </div>
             <p className="mt-3 text-center text-[11px] leading-5 text-ink-hint">
-              View available times and choose a 20-minute phone consultation
-              securely through Jane. Jane opens in a new tab.
+              Send your preferences and Valisen will coordinate a 20-minute
+              phone consultation with you.
             </p>
           </div>
         </div>
@@ -802,17 +800,15 @@ function Recommendation({
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md md:hidden">
         <TrackedLink
-          href={therapist.consultationBookingUrl}
-          event="recommendation_jane_clicked"
-          secondaryEvent="jane_booking_clicked"
+          href={getConsultationRequestUrl(therapist.slug, "possibility_mobile")}
+          event="consultation_request_clicked"
           page="homepage"
           placement="mobile_sticky"
           finderUsed
-          newTab
           className="btn-primary min-h-12 w-full justify-center"
         >
           Book Free Consultation with {firstName}
-          <ExternalLink size={14} className="ml-2" aria-hidden="true" />
+          <ArrowRight size={14} className="ml-2" aria-hidden="true" />
         </TrackedLink>
       </div>
     </>

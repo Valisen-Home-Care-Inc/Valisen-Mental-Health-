@@ -59,6 +59,7 @@ import {
   type QuizIntent,
 } from "@/lib/quizIntent";
 import type { CampaignAttribution } from "@/lib/campaignAttribution";
+import { getConsultationRequestUrl } from "@/lib/intake";
 import {
   getDeviceCategory,
   trackQuizEvent,
@@ -474,27 +475,20 @@ function BookingAction({
       <a
         ref={ctaRef}
         href={bookingUrl}
-        target="_blank"
-        rel="noopener noreferrer"
         onClick={onClick}
         className="btn-primary mt-4 min-h-[58px] w-full justify-center px-5 text-center text-[15px] leading-[1.3]"
-        aria-label={
-          booking?.usesClinicFallback
-            ? `${label}; opens Valisen’s clinic booking page in Jane in a new tab`
-            : `${label}${therapistName ? ` for ${therapistName}` : ""}; opens Jane in a new tab`
-        }
+        aria-label={`${label}${therapistName ? ` for ${therapistName}` : ""}`}
       >
         <CalendarDays size={18} className="mr-2 shrink-0" aria-hidden="true" />
         {label}
-        <ExternalLink size={15} className="ml-2 shrink-0" aria-hidden="true" />
-        <span className="sr-only"> (opens Jane in a new tab)</span>
+        <ArrowRight size={15} className="ml-2 shrink-0" aria-hidden="true" />
       </a>
       <p className="mt-3 text-center text-[12.5px] leading-[1.55] text-ink-secondary">
         {helper}
       </p>
       <p className="mt-1.5 text-center text-[11.5px] leading-[1.5] text-ink-hint">
-        You will see available times in Jane and can choose one securely. Opening Jane does not
-        confirm a booking.
+        Valisen will use your availability to coordinate the consultation. Your request is not a
+        confirmed appointment until our team follows up.
       </p>
     </div>
   );
@@ -1581,8 +1575,9 @@ export default function ResultsReveal({
     : undefined;
   const consultationBooking =
     booking ?? getTherapistBookingConfig("dayong-quan");
-  const bookingUrl =
+  const janeBookingUrl =
     consultationBooking?.consultationBookingUrl ?? CLINIC_JANE_BOOKING_URL;
+  const bookingUrl = getConsultationRequestUrl(suggested?.slug, "quiz_result");
   const therapistId = booking?.therapistId ?? "clinic";
   const reasons = match.status === "match" ? match.reasons : [];
   const presentation = getIntentRoutePresentation(
@@ -1646,6 +1641,13 @@ export default function ResultsReveal({
   function handleJaneClick(placement: JaneCtaPlacement) {
     trackQuizEvent("jane_booking_clicked", analyticsProperties(placement));
     recordEngagement("jane_booking_clicked", placement);
+  }
+
+  function handleConsultationClick(placement: JaneCtaPlacement) {
+    trackQuizEvent(
+      "consultation_request_clicked",
+      analyticsProperties(placement),
+    );
   }
 
   function handleTherapistProfileClick() {
@@ -1724,7 +1726,7 @@ export default function ResultsReveal({
           bookingUrl={bookingUrl}
           topConcerns={topConcerns}
           primaryCtaRef={primaryCtaRef}
-          onPrimaryBooking={() => handleJaneClick("results_primary")}
+          onPrimaryBooking={() => handleConsultationClick("results_primary")}
           onTherapistProfileClick={handleTherapistProfileClick}
         />
       </div>
@@ -1736,13 +1738,13 @@ export default function ResultsReveal({
         >
           <strong className="font-semibold text-ink">Your result is saved.</strong>{" "}
           We couldn&apos;t send the requested email yet, but you can continue here and use the
-          Jane booking link above.
+          consultation request above.
         </div>
       ) : null}
 
       <ContactHelp
         submissionToken={submissionToken}
-        bookingUrl={bookingUrl}
+        bookingUrl={janeBookingUrl}
         bookingLabel={presentation.ctaLabel}
         initialPhone={initialPhone}
         initialSent={initialContactHelpSent}
@@ -1765,8 +1767,8 @@ export default function ResultsReveal({
 
       <div className="mt-7 text-center">
         <p className="mx-auto max-w-[660px] text-[11.5px] leading-[1.6] text-ink-hint">
-          Booking is completed securely through Jane. Availability depends on current openings and
-          applicable professional requirements.
+          Consultation requests are coordinated by Valisen and are not confirmed appointments.
+          Returning clients and visitors who prefer immediate self-scheduling can still use Jane.
           {referenceId ? (
             <>
               {" "}
@@ -1800,15 +1802,12 @@ export default function ResultsReveal({
           >
             <a
               href={bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => handleJaneClick("mobile_sticky")}
+              onClick={() => handleConsultationClick("mobile_sticky")}
               className="btn-primary min-h-[54px] w-full justify-center text-center text-[15px]"
-              aria-label="Choose a Consultation Time in Jane; opens in a new tab"
+              aria-label="Request a free consultation"
             >
               <CalendarDays size={17} className="mr-2" aria-hidden="true" />
-              Choose a Consultation Time
-              <span className="sr-only"> (opens Jane in a new tab)</span>
+              Request a Free Consultation
             </a>
           </div>
         </div>

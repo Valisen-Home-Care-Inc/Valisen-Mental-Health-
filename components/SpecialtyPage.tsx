@@ -34,7 +34,7 @@ const FAQS = [
   {
     question: "How do I book a session?",
     answer:
-      "Browse our therapist profiles, choose who feels right for you, and book directly through Jane. You can also call Valisen if you would like help deciding who may be a good fit.",
+      "Browse our therapist profiles, choose who feels right for you, and request a free consultation. You can also call Valisen if you would like help deciding who may be a good fit.",
   },
   {
     question: "Do I need a referral from a doctor?",
@@ -159,7 +159,7 @@ function DarkCta() {
           Compare your next-step options
         </h2>
         <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.6] text-canvas/80">
-          Book directly through Jane or call us if you would like help choosing a therapist.
+          Request a consultation or call us if you would like help choosing a therapist.
         </p>
         <div className="mt-8">
           <Link
@@ -187,7 +187,7 @@ function ConsultationPanel() {
           Book your first appointment online.
         </h2>
         <p className="mt-3 text-[14px] leading-[1.6] text-ink-secondary">
-          Choose a therapist through Jane or call Valisen if you would like support deciding who
+          Choose a therapist in the request form or call Valisen if you would like support deciding who
           may be a good fit.
         </p>
       </div>
