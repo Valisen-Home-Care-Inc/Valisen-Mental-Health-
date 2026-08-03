@@ -59,6 +59,7 @@ import {
   type QuizIntent,
 } from "@/lib/quizIntent";
 import type { CampaignAttribution } from "@/lib/campaignAttribution";
+import { stageConsultationPrefill } from "@/lib/consultation";
 import { getConsultationRequestUrl } from "@/lib/intake";
 import {
   getDeviceCategory,
@@ -1540,6 +1541,7 @@ export default function ResultsReveal({
   referenceId,
   submissionToken,
   firstName,
+  initialEmail,
   initialPhone,
   intent,
   attribution,
@@ -1553,6 +1555,7 @@ export default function ResultsReveal({
   referenceId: string | null;
   submissionToken: string;
   firstName: string;
+  initialEmail: string;
   initialPhone: string;
   intent: QuizIntent;
   attribution: CampaignAttribution;
@@ -1644,6 +1647,15 @@ export default function ResultsReveal({
   }
 
   function handleConsultationClick(placement: JaneCtaPlacement) {
+    try {
+      stageConsultationPrefill(window.sessionStorage, {
+        firstName,
+        email: initialEmail,
+        phone: initialPhone,
+      });
+    } catch {
+      // Autofill is a convenience; navigation must still work in hardened browsers.
+    }
     trackQuizEvent(
       "consultation_request_clicked",
       analyticsProperties(placement),

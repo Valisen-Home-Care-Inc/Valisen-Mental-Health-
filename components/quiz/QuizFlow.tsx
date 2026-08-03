@@ -102,6 +102,7 @@ export default function QuizFlow() {
   const [referenceId, setReferenceId] = useState<string | null>(null);
   const [submissionToken, setSubmissionToken] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [contactHelpSent, setContactHelpSent] = useState(false);
   const [userEmailDeliveryFailed, setUserEmailDeliveryFailed] = useState(false);
@@ -342,6 +343,7 @@ export default function QuizFlow() {
     setReferenceId(null);
     setSubmissionToken(null);
     setFirstName("");
+    setEmail("");
     setPhone("");
     setContactHelpSent(false);
     setUserEmailDeliveryFailed(false);
@@ -398,6 +400,7 @@ export default function QuizFlow() {
     setReferenceId(body.referenceId);
     setSubmissionToken(body.submissionToken);
     setFirstName(details.firstName);
+    setEmail(details.email);
     setPhone(details.phone);
     setContactHelpSent(Boolean(body.contactHelpSent));
     setUserEmailDeliveryFailed(body.userResultsEmailSent === false);
@@ -441,6 +444,7 @@ export default function QuizFlow() {
           referenceId={referenceId}
           submissionToken={submissionToken}
           firstName={firstName}
+          initialEmail={email}
           initialPhone={phone}
           intent={intent}
           attribution={attribution}

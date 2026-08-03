@@ -42,9 +42,15 @@ All primary booking CTAs resolve to `/consultation`. Therapist-specific CTAs
 carry only an allow-listed therapist slug so the form can preselect that
 therapist. The form has two measured steps:
 
-1. contact and consultation context;
-2. broad Monday–Friday Toronto-time availability, exact coordination consent,
-   Cloudflare Turnstile, and submission.
+1. first name, last name, email, required phone number, and consultation context;
+2. broad Monday–Sunday Toronto-time availability (9AM–12PM, 12PM–4PM, or
+   4PM–8PM), exact coordination consent, Cloudflare Turnstile, and submission.
+
+When a visitor clicks the consultation CTA immediately after submitting the
+quiz results-access form, the browser stages the already-validated first name,
+email, and phone in a short-lived same-tab `sessionStorage` record. The
+consultation page consumes and deletes that record on arrival. Contact details
+never appear in the URL or the funnel-event payload.
 
 The Jane link remains visible below the form as the secondary path for
 returning clients or people who prefer immediate self-scheduling. A Jane click

@@ -26,12 +26,19 @@ import TrackedLink from "@/components/TrackedLink";
 import TurnstileWidget from "@/components/TurnstileWidget";
 import { trackFunnelEvent } from "@/lib/analytics";
 import {
+  CONSULTATION_AVAILABILITY_WINDOWS,
+  CONSULTATION_DAYS,
+  CONSULTATION_DAYS_LABEL,
+  consumeConsultationPrefill,
+  isValidConsultationPhone,
+  type ConsultationAvailability,
+} from "@/lib/consultation";
+import {
   SPECIFIC_THERAPIST_VALUES,
   getSecondaryJaneUrl,
   type SpecificTherapistSlug,
 } from "@/lib/intake";
 
-type Availability = "morning" | "afternoon" | "late_afternoon";
 type FormStep = 1 | 2;
 
 type ConsultationFormData = {
@@ -42,7 +49,7 @@ type ConsultationFormData = {
   therapyType: string;
   preferredTherapist: string;
   additionalInfo: string;
-  availability: Availability | "";
+  availability: ConsultationAvailability | "";
   consent: boolean;
   website: string;
 };
@@ -63,17 +70,24 @@ const INITIAL: ConsultationFormData = {
 };
 
 const AVAILABILITY_OPTIONS: Array<{
-  value: Availability;
+  value: ConsultationAvailability;
   time: string;
   label: string;
   icon: ReactNode;
 }> = [
-  { value: "morning", time: "10AM – 12PM", label: "Morning", icon: <Sunrise size={25} /> },
-  { value: "afternoon", time: "12PM – 4PM", label: "Afternoon", icon: <Sun size={25} /> },
+  {
+    value: "morning",
+    ...CONSULTATION_AVAILABILITY_WINDOWS.morning,
+    icon: <Sunrise size={25} />,
+  },
+  {
+    value: "afternoon",
+    ...CONSULTATION_AVAILABILITY_WINDOWS.afternoon,
+    icon: <Sun size={25} />,
+  },
   {
     value: "late_afternoon",
-    time: "4PM – 6PM",
-    label: "Late afternoon",
+    ...CONSULTATION_AVAILABILITY_WINDOWS.late_afternoon,
     icon: <Sunset size={25} />,
   },
 ];
@@ -144,12 +158,24 @@ export default function ConsultationPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const therapist = params.get("therapist");
-    if (
+    const preferredTherapist =
       therapist &&
       SPECIFIC_THERAPIST_VALUES.includes(therapist as SpecificTherapistSlug)
-    ) {
-      setData((current) => ({ ...current, preferredTherapist: therapist }));
+        ? therapist
+        : "";
+    let prefill: ReturnType<typeof consumeConsultationPrefill> = null;
+    try {
+      prefill = consumeConsultationPrefill(window.sessionStorage);
+    } catch {
+      // The form remains fully usable when browser storage is unavailable.
     }
+    setData((current) => ({
+      ...current,
+      preferredTherapist: preferredTherapist || current.preferredTherapist,
+      firstName: prefill?.firstName || current.firstName,
+      email: prefill?.email || current.email,
+      phone: prefill?.phone || current.phone,
+    }));
     const rawSource = params.get("source") || "direct";
     setSource(rawSource.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "direct");
     trackFunnelEvent("consultation_page_viewed", {
@@ -210,6 +236,11 @@ export default function ConsultationPage() {
       next.email = "Email address is required.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
       next.email = "Please enter a valid email address.";
+    }
+    if (!data.phone.trim()) {
+      next.phone = "Phone number is required.";
+    } else if (!isValidConsultationPhone(data.phone.trim())) {
+      next.phone = "Please enter a valid phone number.";
     }
     if (!data.therapyType) next.therapyType = "Please select a therapy type.";
     return next;
@@ -279,11 +310,11 @@ export default function ConsultationPage() {
           firstName: data.firstName.trim(),
           lastName: data.lastName.trim(),
           email: data.email.trim(),
-          phone: data.phone.trim() || undefined,
+          phone: data.phone.trim(),
           reason: data.therapyType,
           preferredTherapist: data.preferredTherapist || "flexible",
           notes: data.additionalInfo.trim() || undefined,
-          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          days: CONSULTATION_DAYS,
           timeOfDay: data.availability,
           consent: data.consent,
           consentLanguage: CONSENT_TEXT,
@@ -436,8 +467,8 @@ export default function ConsultationPage() {
                           <Field id="email" label="Email Address" required error={errors.email}>
                             <input id="email" type="email" inputMode="email" autoComplete="email" maxLength={254} value={data.email} onChange={(event) => set("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)} />
                           </Field>
-                          <Field id="phone" label="Phone Number (optional)">
-                            <input id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={data.phone} onChange={(event) => set("phone", event.target.value)} className={inputClass} />
+                          <Field id="phone" label="Phone Number" required error={errors.phone}>
+                            <input id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} required value={data.phone} onChange={(event) => set("phone", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} />
                           </Field>
                         </div>
                         <Field id="therapy-type" label="What type of therapy are you seeking?" required error={errors.therapyType}>
@@ -476,7 +507,7 @@ export default function ConsultationPage() {
                           </h2>
                           <p className="mt-2 flex items-center gap-2 text-[13.5px] text-ink-secondary">
                             <Clock3 size={15} className="text-teal" aria-hidden="true" />
-                            Monday to Friday · Toronto time
+                            {CONSULTATION_DAYS_LABEL} · Toronto time
                           </p>
                         </div>
 

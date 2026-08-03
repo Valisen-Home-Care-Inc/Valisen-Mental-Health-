@@ -12,9 +12,18 @@ function payload(overrides: Record<string, unknown> = {}) {
     firstName: "Alex",
     lastName: "Test",
     email: "alex@example.com",
+    phone: "416-555-0100",
     reason: "Individual Therapy",
     preferredTherapist: "flexible",
-    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    days: [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ],
     timeOfDay: "morning",
     consent: true,
     consentLanguage,
@@ -54,5 +63,16 @@ describe("consultation submission boundary", () => {
   it("requires the exact, versioned consultation consent", async () => {
     const response = await POST(request(payload({ consentLanguage: "I agree" })));
     expect(response.status).toBe(400);
+  });
+
+  it("requires a valid phone number", async () => {
+    const missing = await POST(request(payload({ phone: "" })));
+    expect(missing.status).toBe(400);
+    await expect(missing.json()).resolves.toMatchObject({
+      error: "Please provide a valid phone number.",
+    });
+
+    const invalid = await POST(request(payload({ phone: "call me" })));
+    expect(invalid.status).toBe(400);
   });
 });

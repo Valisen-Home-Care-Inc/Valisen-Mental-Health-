@@ -168,6 +168,10 @@ The results gate and the contact-help form serve different purposes:
   The in-memory post-submission view pre-fills the phone for phone/text; after a
   private-link restore, the API securely falls back to the phone already stored
   with the lead when the browser does not have it.
+- **Consultation handoff** stages the in-memory first name, email, and mandatory
+  phone in a short-lived, one-time same-tab `sessionStorage` record only when a
+  visitor clicks the consultation CTA. The consultation form consumes and
+  deletes it on arrival. No contact detail is added to the URL or analytics.
 
 The lead must be durably saved before the result is revealed. The returned raw
 submission token is kept in browser `sessionStorage`; only its hash is stored
@@ -462,6 +466,9 @@ key. There is intentionally no Jane webhook or booking-confirmation secret.
 - Raw answers and the calculated result are restricted to first-party
   persistence and operational result delivery. They are never analytics
   properties or Jane URL parameters.
+- The quiz-to-consultation contact prefill is written only on a consultation
+  CTA click, expires after 15 minutes, and is deleted as soon as the
+  consultation page reads it.
 - Results access records express, versioned, purpose-limited authorization for
   Valisen staff and the recommended/matched therapist to contact the visitor,
   and for Valisen to share the contact details and relevant quiz summary with

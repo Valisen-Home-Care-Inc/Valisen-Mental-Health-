@@ -9,6 +9,14 @@ import {
   type SpecificTherapistSlug,
 } from "@/lib/intake";
 import {
+  CONSULTATION_AVAILABILITY_WINDOWS,
+  CONSULTATION_DAYS,
+  CONSULTATION_DAYS_LABEL,
+  isConsultationAvailability,
+  isValidConsultationPhone,
+  type ConsultationAvailability,
+} from "@/lib/consultation";
+import {
   getCompletedSubmission,
   isRateLimited,
   markSubmissionCompleted,
@@ -30,12 +38,6 @@ const THERAPY_TYPES = new Set([
   "Child and Youth Therapy",
   "Not Sure",
 ]);
-const AVAILABILITY_LABELS = {
-  morning: "10AM – 12PM (Morning)",
-  afternoon: "12PM – 4PM (Afternoon)",
-  late_afternoon: "4PM – 6PM (Late afternoon)",
-} as const;
-
 const THERAPIST_EMAILS: Record<SpecificTherapistSlug, string | undefined> = {
   "ryann-simpson": process.env.RYANN_SIMPSON_EMAIL,
   "wilfred-bengnwi": process.env.WILFRED_BENGNWI_EMAIL,
@@ -95,12 +97,12 @@ type IntakePayload = {
   firstName: string;
   lastName: string;
   email: string;
-  phone?: string;
+  phone: string;
   reason: string;
   preferredTherapist?: string;
   notes?: string;
   days: string[];
-  timeOfDay: keyof typeof AVAILABILITY_LABELS;
+  timeOfDay: ConsultationAvailability;
   consent: true;
   consentLanguage: string;
   consentVersion: string;
@@ -184,10 +186,13 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const notes = cleanNotes(input.notes);
   const source = cleanSingleLine(input.source, 40).replace(/[^a-z0-9_-]/gi, "");
   const timeOfDay = input.timeOfDay;
-  const expectedDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const expectedDays = CONSULTATION_DAYS;
 
   if (!firstName || !lastName || !validEmail(email)) {
     return { error: "Please provide a valid name and email address." };
+  }
+  if (!isValidConsultationPhone(phone)) {
+    return { error: "Please provide a valid phone number." };
   }
   if (!THERAPY_TYPES.has(reason)) return { error: "Please select a therapy type." };
   if (
@@ -197,10 +202,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   ) {
     return { error: "Invalid consultation days." };
   }
-  if (
-    typeof timeOfDay !== "string" ||
-    !Object.prototype.hasOwnProperty.call(AVAILABILITY_LABELS, timeOfDay)
-  ) {
+  if (!isConsultationAvailability(timeOfDay)) {
     return { error: "Please choose a preferred time." };
   }
   if (
@@ -225,12 +227,12 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       firstName,
       lastName,
       email,
-      phone: phone || undefined,
+      phone,
       reason,
       preferredTherapist: cleanSingleLine(input.preferredTherapist, 40),
       notes: notes || undefined,
-      days: expectedDays,
-      timeOfDay: timeOfDay as keyof typeof AVAILABILITY_LABELS,
+      days: [...expectedDays],
+      timeOfDay,
       consent: true,
       consentLanguage: CONSENT_TEXT,
       consentVersion: CONSENT_VERSION,
@@ -379,7 +381,8 @@ export async function POST(request: NextRequest) {
     0,
     Math.round((Date.now() - payload.formStartedAt) / 1000),
   );
-  const availabilityLabel = AVAILABILITY_LABELS[payload.timeOfDay];
+  const availabilityLabel =
+    CONSULTATION_AVAILABILITY_WINDOWS[payload.timeOfDay].submissionLabel;
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
@@ -391,10 +394,10 @@ export async function POST(request: NextRequest) {
 Reference:               ${referenceId}
 Name:                    ${payload.firstName} ${payload.lastName}
 Email:                   ${payload.email}
-Phone:                   ${payload.phone || "Not provided"}
+Phone:                   ${payload.phone}
 Therapy type:            ${payload.reason}
 Preferred therapist:     ${preferredTherapistLabel}
-Preferred days:          Monday to Friday
+Preferred days:          ${CONSULTATION_DAYS_LABEL}
 Preferred time:          ${availabilityLabel} (Toronto time)
 CTA source:              ${payload.source || "direct"}
 Additional notes:        ${payload.notes || "None"}
@@ -447,12 +450,12 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     payload.firstName,
     payload.lastName,
     payload.email,
-    payload.phone || "",
+    payload.phone,
     "",
     payload.reason,
     preferredTherapistLabel,
     "Consented",
-    "Monday, Tuesday, Wednesday, Thursday, Friday",
+    CONSULTATION_DAYS.join(", "),
     availabilityLabel,
     payload.notes || "",
     referenceId,

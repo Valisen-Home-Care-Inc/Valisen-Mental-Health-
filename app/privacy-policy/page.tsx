@@ -83,8 +83,8 @@ export default function PrivacyPolicyPage() {
                   contact preferences you separately provide when asking for booking help
                 </li>
                 <li>
-                  Name, email address, optional phone number, therapy type, preferred therapist,
-                  broad weekday availability, optional message, referral source, and the exact
+                  Name, email address, phone number, therapy type, preferred therapist,
+                  broad weekly availability, optional message, referral source, and the exact
                   consent record when you request a free consultation
                 </li>
                 <li>Reason for seeking therapy and general mental health concerns</li>
@@ -96,6 +96,11 @@ export default function PrivacyPolicyPage() {
                   if you restore a result during the same browser session, only a derived{" "}
                   <code>safetyFlagged</code> true/false value may be retained temporarily in{" "}
                   <code>sessionStorage</code> on your device.
+                  When you continue directly from a quiz result to a consultation request, the
+                  first name, email address, and phone number you already provided may also be
+                  placed briefly in same-tab <code>sessionStorage</code> to prefill that form. The
+                  consultation form consumes and removes this one-time handoff, and the details
+                  are never placed in its URL or analytics events.
                 </li>
                 <li>
                   Records of privacy acknowledgements and optional scheduling-help requests,
