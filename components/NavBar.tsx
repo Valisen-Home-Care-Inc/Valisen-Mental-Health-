@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { href: "/therapists", label: "Therapists" },
   { href: "/insurance", label: "Insurance" },
   { href: "/about", label: "About" },
+  { href: "/resources", label: "Resources" },
 ];
 
 const FAQ_CATEGORIES = [

@@ -84,6 +84,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
+      url: `${BASE_URL}/resources`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.82,
+    },
+    {
+      url: `${BASE_URL}/resources/five-signs-of-perfectionism`,
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.78,
+    },
+    {
       url: `${BASE_URL}/privacy-policy`,
       lastModified: now,
       changeFrequency: "yearly",

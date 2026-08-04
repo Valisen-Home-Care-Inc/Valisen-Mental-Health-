@@ -19,6 +19,7 @@ const COL_COMPANY = [
   { href: "/about", label: "About Valisen" },
   { href: "/therapists", label: "Our Therapists" },
   { href: "/insurance", label: "Insurance" },
+  { href: "/resources", label: "Resources" },
 ];
 
 const COL_LEGAL = [
