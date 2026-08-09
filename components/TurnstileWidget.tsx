@@ -12,11 +12,15 @@ type TurnstileApi = {
       theme: "light" | "dark" | "auto";
       size: "normal" | "compact" | "flexible";
       appearance: "always" | "execute" | "interaction-only";
+      execution: "render" | "execute";
       callback: (token: string) => void;
       "expired-callback": () => void;
       "error-callback": () => void;
+      "timeout-callback": () => void;
+      "unsupported-callback": () => void;
     },
   ) => string;
+  execute: (container: HTMLElement) => void;
   remove: (widgetId: string) => void;
 };
 
@@ -31,15 +35,23 @@ const DEVELOPMENT_SITE_KEY = "1x00000000000000000000AA";
 export default function TurnstileWidget({
   action,
   onToken,
+  onError,
   resetKey = 0,
+  execution = "render",
+  executeKey = 0,
 }: {
   action: string;
   onToken: (token: string | null) => void;
+  onError?: () => void;
   resetKey?: number;
+  execution?: "render" | "execute";
+  executeKey?: number;
 }) {
   const reactId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const pendingExecutionRef = useRef(false);
+  const lastExecuteKeyRef = useRef(executeKey);
   const [scriptReady, setScriptReady] = useState(false);
   const [challengeError, setChallengeError] = useState(false);
   const siteKey =
@@ -60,7 +72,8 @@ export default function TurnstileWidget({
       action,
       theme: "light",
       size: "flexible",
-      appearance: "always",
+      appearance: execution === "execute" ? "execute" : "always",
+      execution,
       callback: (token) => {
         setChallengeError(false);
         onToken(token);
@@ -69,9 +82,24 @@ export default function TurnstileWidget({
       "error-callback": () => {
         setChallengeError(true);
         onToken(null);
+        onError?.();
+      },
+      "timeout-callback": () => {
+        setChallengeError(true);
+        onToken(null);
+        onError?.();
+      },
+      "unsupported-callback": () => {
+        setChallengeError(true);
+        onToken(null);
+        onError?.();
       },
     });
-  }, [action, onToken, siteKey]);
+    if (pendingExecutionRef.current && execution === "execute") {
+      pendingExecutionRef.current = false;
+      window.turnstile.execute(containerRef.current);
+    }
+  }, [action, execution, onError, onToken, siteKey]);
 
   useEffect(() => {
     if (scriptReady || window.turnstile) renderWidget();
@@ -82,6 +110,18 @@ export default function TurnstileWidget({
       }
     };
   }, [renderWidget, resetKey, scriptReady]);
+
+  useEffect(() => {
+    if (execution !== "execute" || executeKey === lastExecuteKeyRef.current) {
+      return;
+    }
+    lastExecuteKeyRef.current = executeKey;
+    if (containerRef.current && widgetIdRef.current && window.turnstile) {
+      window.turnstile.execute(containerRef.current);
+      return;
+    }
+    pendingExecutionRef.current = true;
+  }, [executeKey, execution]);
 
   if (!siteKey) {
     return (

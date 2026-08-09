@@ -176,6 +176,8 @@ export default function ConsultationPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [turnstileExecuteKey, setTurnstileExecuteKey] = useState(0);
+  const [verifyingSubmission, setVerifyingSubmission] = useState(false);
   const [source, setSource] = useState("direct");
   const [checkpointContext, setCheckpointContext] =
     useState<CheckpointSessionContext | null>(null);
@@ -189,6 +191,8 @@ export default function ConsultationPage() {
   const startedRef = useRef(false);
   const formStartedAtRef = useRef(0);
   const submissionIdRef = useRef(makeSubmissionId());
+  const turnstileTokenRef = useRef<string | null>(null);
+  const pendingSecureSubmitRef = useRef(false);
   const checkpointRepairTokenRef = useRef<string | null>(null);
   const checkpointRetryAttemptRef = useRef(0);
   const checkpointRetryTimerRef = useRef<number | null>(null);
@@ -400,10 +404,25 @@ export default function ConsultationPage() {
   }, [checkpointRepairToken, retryCheckpointAttribution]);
 
   const handleTurnstileToken = useCallback((token: string | null) => {
+    turnstileTokenRef.current = token;
     setTurnstileToken(token);
     if (token) {
       setErrors((current) => ({ ...current, turnstile: undefined }));
+      if (pendingSecureSubmitRef.current) {
+        pendingSecureSubmitRef.current = false;
+        setVerifyingSubmission(false);
+        window.setTimeout(() => formRef.current?.requestSubmit(), 0);
+      }
     }
+  }, []);
+
+  const handleTurnstileError = useCallback(() => {
+    pendingSecureSubmitRef.current = false;
+    setVerifyingSubmission(false);
+    setErrors((current) => ({
+      ...current,
+      turnstile: "Secure verification could not finish. Please try again.",
+    }));
   }, []);
 
   function markStarted() {
@@ -449,7 +468,6 @@ export default function ConsultationPage() {
     const next: FormErrors = {};
     if (!data.availability) next.availability = "Choose the time range that works best.";
     if (!data.consent) next.consent = "Please provide consent so we can coordinate with you.";
-    if (!turnstileToken) next.turnstile = "Please complete the secure verification.";
     return next;
   }
 
@@ -494,7 +512,16 @@ export default function ConsultationPage() {
       showErrors(next, 2);
       return;
     }
-    if (submitting || !turnstileToken) return;
+    if (submitting) return;
+    const secureToken = turnstileTokenRef.current;
+    if (!secureToken) {
+      if (verifyingSubmission || pendingSecureSubmitRef.current) return;
+      pendingSecureSubmitRef.current = true;
+      setVerifyingSubmission(true);
+      setErrors((current) => ({ ...current, turnstile: undefined }));
+      setTurnstileExecuteKey((current) => current + 1);
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
@@ -523,7 +550,7 @@ export default function ConsultationPage() {
             ? attributionFromCheckpointSession(checkpointContext)
             : undefined,
           website: data.website,
-          turnstileToken,
+          turnstileToken: secureToken,
         }),
       });
       const body = (await response.json().catch(() => null)) as
@@ -574,6 +601,7 @@ export default function ConsultationPage() {
       setSubmitError(
         error instanceof Error ? error.message : "Something went wrong. Please try again.",
       );
+      turnstileTokenRef.current = null;
       setTurnstileToken(null);
       setTurnstileResetKey((current) => current + 1);
     } finally {
@@ -851,20 +879,36 @@ export default function ConsultationPage() {
                         </div>
 
                         <div data-error={errors.turnstile ? true : undefined}>
-                          <TurnstileWidget action="consultation_request" onToken={handleTurnstileToken} resetKey={turnstileResetKey} />
+                          <TurnstileWidget
+                            action="consultation_request"
+                            execution="execute"
+                            executeKey={turnstileExecuteKey}
+                            onError={handleTurnstileError}
+                            onToken={handleTurnstileToken}
+                            resetKey={turnstileResetKey}
+                          />
+                          {!turnstileToken && !errors.turnstile ? (
+                            <p className="mt-2 text-center text-[11.5px] text-ink-hint">
+                              Protected by Cloudflare Turnstile. Verification runs when you submit.
+                            </p>
+                          ) : null}
                           {errors.turnstile ? <p role="alert" className="mt-2 text-[12px] text-red-700">{errors.turnstile}</p> : null}
                         </div>
 
                         {submitError ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{submitError}</div> : null}
 
                         <div className="grid grid-cols-[auto_1fr] gap-3">
-                          <button type="button" onClick={() => { setErrors({}); setStep(1); trackFunnelEvent("consultation_step_viewed", { page: "consultation", ctaPlacement: "consultation_primary", funnelStep: 1 }); }} className="btn-outline min-h-[54px] px-5">
+                          <button type="button" disabled={verifyingSubmission} onClick={() => { setErrors({}); setStep(1); trackFunnelEvent("consultation_step_viewed", { page: "consultation", ctaPlacement: "consultation_primary", funnelStep: 1 }); }} className="btn-outline min-h-[54px] px-5 disabled:cursor-wait disabled:opacity-60">
                             <ArrowLeft size={16} className="mr-2" aria-hidden="true" />
                             Back
                           </button>
-                          <button type="submit" disabled={submitting || !turnstileToken} className="btn-primary min-h-[54px] w-full justify-center text-[15px]">
-                            {submitting ? "Submitting…" : "Submit Request"}
-                            {!submitting ? <ArrowRight size={17} className="ml-2" aria-hidden="true" /> : null}
+                          <button type="submit" disabled={submitting || verifyingSubmission} className="btn-primary min-h-[54px] w-full justify-center text-[15px]">
+                            {submitting
+                              ? "Submitting…"
+                              : verifyingSubmission
+                                ? "Securing request…"
+                                : "Submit Request"}
+                            {!submitting && !verifyingSubmission ? <ArrowRight size={17} className="ml-2" aria-hidden="true" /> : null}
                           </button>
                         </div>
                       </div>
