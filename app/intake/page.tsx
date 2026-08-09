@@ -6,13 +6,14 @@ export const metadata = {
   description: "Request a free consultation with the Valisen Mental Health team.",
 };
 
-export default function IntakePage({
+export default async function IntakePage({
   searchParams,
 }: {
-  searchParams?: { therapist?: string | string[] };
+  searchParams?: Promise<{ therapist?: string | string[] }>;
 }) {
-  const therapist = Array.isArray(searchParams?.therapist)
-    ? searchParams?.therapist[0]
-    : searchParams?.therapist;
+  const resolvedSearchParams = await searchParams;
+  const therapist = Array.isArray(resolvedSearchParams?.therapist)
+    ? resolvedSearchParams?.therapist[0]
+    : resolvedSearchParams?.therapist;
   redirect(getConsultationRequestUrl(therapist, "legacy_intake"));
 }

@@ -4,9 +4,9 @@ import TherapistProfile from "@/components/TherapistProfile";
 import { getTherapistBySlug, therapists } from "@/lib/therapists";
 
 type PageProps = {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 };
 
 export function generateStaticParams() {
@@ -15,8 +15,9 @@ export function generateStaticParams() {
   }));
 }
 
-export function generateMetadata({ params }: PageProps): Metadata {
-  const therapist = getTherapistBySlug(params.slug);
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const therapist = getTherapistBySlug(slug);
 
   if (!therapist) {
     return {
@@ -41,8 +42,9 @@ export function generateMetadata({ params }: PageProps): Metadata {
   };
 }
 
-export default function TherapistPage({ params }: PageProps) {
-  const therapist = getTherapistBySlug(params.slug);
+export default async function TherapistPage({ params }: PageProps) {
+  const { slug } = await params;
+  const therapist = getTherapistBySlug(slug);
 
   if (!therapist) {
     notFound();

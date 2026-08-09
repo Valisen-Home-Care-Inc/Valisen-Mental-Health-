@@ -853,12 +853,13 @@ export function generateStaticParams() {
   return Object.keys(FAQ_PAGES).map((slug) => ({ slug }));
 }
 
-export function generateMetadata({
+export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
-}): Metadata {
-  const page = FAQ_PAGES[params.slug];
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const page = FAQ_PAGES[slug];
   if (!page) return {};
   return {
     title: page.metaTitle,
@@ -869,8 +870,9 @@ export function generateMetadata({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function FAQEntryPage({ params }: { params: { slug: string } }) {
-  const page = FAQ_PAGES[params.slug];
+export default async function FAQEntryPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const page = FAQ_PAGES[slug];
   if (!page) notFound();
 
   const related = page.relatedSlugs

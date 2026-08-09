@@ -32,9 +32,16 @@ export function isRateLimited(
 
 /* ── Idempotency: clientSubmissionId → referenceId of the completed send ── */
 
-type IdempotencyRecord = { referenceId: string; expiresAt: number };
+export type CompletedSubmissionRecord = {
+  referenceId: string;
+  expiresAt: number;
+  checkpointAttribution?: {
+    checkpointCode: string;
+    sessionId: string;
+  };
+};
 
-const completed = new Map<string, IdempotencyRecord>();
+const completed = new Map<string, CompletedSubmissionRecord>();
 const IDEMPOTENCY_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export function getCompletedSubmission(
@@ -46,13 +53,37 @@ export function getCompletedSubmission(
   return record.referenceId;
 }
 
+export function getCompletedSubmissionRecord(
+  clientSubmissionId: string,
+  now: number = Date.now(),
+): CompletedSubmissionRecord | null {
+  const record = completed.get(clientSubmissionId);
+  if (!record || record.expiresAt <= now) return null;
+  return {
+    ...record,
+    ...(record.checkpointAttribution
+      ? { checkpointAttribution: { ...record.checkpointAttribution } }
+      : {}),
+  };
+}
+
 export function markSubmissionCompleted(
   clientSubmissionId: string,
   referenceId: string,
   now: number = Date.now(),
+  checkpointAttribution?: {
+    checkpointCode: string;
+    sessionId: string;
+  },
 ): void {
   if (completed.size > 5000) pruneExpired(completed, now);
-  completed.set(clientSubmissionId, { referenceId, expiresAt: now + IDEMPOTENCY_TTL_MS });
+  completed.set(clientSubmissionId, {
+    referenceId,
+    expiresAt: now + IDEMPOTENCY_TTL_MS,
+    ...(checkpointAttribution
+      ? { checkpointAttribution: { ...checkpointAttribution } }
+      : {}),
+  });
 }
 
 function pruneExpired(map: Map<string, { resetAt?: number; expiresAt?: number }>, now: number) {

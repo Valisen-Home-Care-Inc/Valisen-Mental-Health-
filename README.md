@@ -9,3 +9,6 @@ Money Bag Making Machine
 - [Consultation and funnel tracking](docs/FUNNEL_TRACKING.md) — consultation
   routing, Turnstile defenses, dynamic session/event sheets, dashboard, and
   drop-off interpretation.
+- [Mental Battery Checkpoints](docs/MENTAL_BATTERY_CHECKPOINTS.md) — permanent
+  NFC/QR routes, local-only wellness scoring, transactional placement history,
+  private analytics/CRM dashboard, QR operations, security, and deployment.

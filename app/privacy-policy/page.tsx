@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 const EFFECTIVE_DATE = "July 26, 2026";
-const LAST_UPDATED = "July 26, 2026";
+const LAST_UPDATED = "August 6, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -269,7 +269,7 @@ export default function PrivacyPolicyPage() {
                 <li>Encrypted data transmission (TLS/HTTPS) for all web communications</li>
                 <li>Secure, access-controlled systems</li>
                 <li>Role-based access so only authorized administrative staff can view intake records</li>
-                <li>Cloudflare Turnstile verification, server-side validation, honeypots, origin checks, payload limits, and rate limits on consultation submissions</li>
+                <li>Cloudflare Turnstile verification, server-side validation, honeypots, origin checks, payload limits, and rate limits on consultation submissions and private checkpoint-admin sign-in</li>
                 <li>Confidentiality agreements with all staff and contractors</li>
               </ul>
             </Section>
@@ -299,6 +299,22 @@ export default function PrivacyPolicyPage() {
                   campaign fields may be retained in session storage to understand the non-clinical
                   source of a visit. UTM terms remain first-party and are not copied into analytics
                   events because a term could contain health-related wording.
+                </li>
+                <li>
+                  <strong className="text-ink">Mental Battery Checkpoints:</strong> The four
+                  check-in answers and the resulting battery score are calculated in your browser
+                  and are not sent to or stored by Valisen. We record only allow-listed journey
+                  events, such as starting, completing a step, viewing the result, or choosing a
+                  therapist-support option. These events use a random identifier kept for the
+                  current browser tab and may include the permanent checkpoint and active
+                  placement identifiers. They do not include names, contact details, answers,
+                  free text, IP addresses, full user agents, device fingerprints, advertising
+                  identifiers, or location coordinates. Google marketing tags are disabled on
+                  checkpoint pages and remain disabled for that browser tab while its checkpoint
+                  session continues into consultation or therapist browsing. If you later choose
+                  to submit the separate consultation form, that voluntary request may be
+                  associated with the checkpoint session and placement, but not with your Mental
+                  Battery answers.
                 </li>
                 <li>
                   <strong className="text-ink">Analytics cookies:</strong> We may use

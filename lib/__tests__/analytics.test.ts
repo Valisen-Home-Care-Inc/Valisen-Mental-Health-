@@ -6,6 +6,7 @@ import {
   type SafeFunnelEventProperties,
   type SafeQuizEventProperties,
 } from "@/lib/analytics";
+import { CHECKPOINT_SESSION_STORAGE_KEY } from "@/lib/checkpoints/session";
 
 const originalWindow = globalThis.window;
 
@@ -117,6 +118,26 @@ describe("privacy-safe quiz analytics", () => {
 });
 
 describe("privacy-safe acquisition funnel analytics", () => {
+  it("suppresses quiz and general analytics throughout an active checkpoint journey", () => {
+    const dataLayer = installWindow(390);
+    window.sessionStorage.setItem(
+      CHECKPOINT_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+        checkpointCode: "VMH-04",
+      }),
+    );
+
+    trackQuizEvent("quiz_page_viewed");
+    trackFunnelEvent("consultation_page_viewed", {
+      page: "consultation",
+      ctaPlacement: "consultation_primary",
+    });
+
+    expect(dataLayer).toEqual([]);
+  });
+
   it("emits only allow-listed context and never copies finder answers or contact data", () => {
     const dataLayer = installWindow(390);
     const properties = {

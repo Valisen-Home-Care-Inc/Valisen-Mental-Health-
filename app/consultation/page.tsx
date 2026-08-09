@@ -7,6 +7,8 @@ import {
   Check,
   Clock3,
   ExternalLink,
+  Link2,
+  RefreshCw,
   Sun,
   Sunrise,
   Sunset,
@@ -25,6 +27,25 @@ import NavBar from "@/components/NavBar";
 import TrackedLink from "@/components/TrackedLink";
 import TurnstileWidget from "@/components/TurnstileWidget";
 import { trackFunnelEvent } from "@/lib/analytics";
+import { trackCheckpointEvent } from "@/lib/checkpoints/analytics";
+import {
+  checkpointAttributionRetryDelay,
+  clearPendingCheckpointAttributionRepair,
+  isCheckpointAttributionRepairRetryable,
+  isCheckpointAttributionRepairSaved,
+  normalizeCheckpointAttributionRepairToken,
+  persistPendingCheckpointAttributionRepair,
+  readPendingCheckpointAttributionRepair,
+} from "@/lib/checkpoints/attributionRepair";
+import {
+  attributionFromCheckpointSession,
+} from "@/lib/checkpoints/consultationAttribution";
+import {
+  clearCheckpointSession,
+  getCheckpointSessionStorage,
+  readCheckpointSession,
+  type CheckpointSessionContext,
+} from "@/lib/checkpoints/session";
 import {
   CONSULTATION_AVAILABILITY_WINDOWS,
   CONSULTATION_DAYS,
@@ -40,6 +61,12 @@ import {
 } from "@/lib/intake";
 
 type FormStep = 1 | 2;
+type CheckpointAttributionStatus =
+  | "none"
+  | "pending"
+  | "retrying"
+  | "paused"
+  | "saved";
 
 type ConsultationFormData = {
   firstName: string;
@@ -150,12 +177,116 @@ export default function ConsultationPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [source, setSource] = useState("direct");
+  const [checkpointContext, setCheckpointContext] =
+    useState<CheckpointSessionContext | null>(null);
+  const [checkpointAttributionStatus, setCheckpointAttributionStatus] =
+    useState<CheckpointAttributionStatus>("none");
+  const [checkpointRepairToken, setCheckpointRepairToken] = useState<
+    string | null
+  >(null);
+  const [checkpointRetryCycle, setCheckpointRetryCycle] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const startedRef = useRef(false);
-  const formStartedAtRef = useRef(Date.now());
+  const formStartedAtRef = useRef(0);
   const submissionIdRef = useRef(makeSubmissionId());
+  const checkpointRepairTokenRef = useRef<string | null>(null);
+  const checkpointRetryAttemptRef = useRef(0);
+  const checkpointRetryTimerRef = useRef<number | null>(null);
+  const checkpointRetryInFlightRef = useRef(false);
+  const checkpointRetryAllowedRef = useRef(true);
+  const checkpointRetryAbortRef = useRef<AbortController | null>(null);
+  const checkpointRepairMountedRef = useRef(false);
+
+  const markCheckpointAttributionSaved = useCallback(() => {
+    const storage = getCheckpointSessionStorage();
+    clearPendingCheckpointAttributionRepair(storage);
+    clearCheckpointSession(storage);
+    checkpointRepairTokenRef.current = null;
+    checkpointRetryAttemptRef.current = 0;
+    checkpointRetryAllowedRef.current = false;
+    setCheckpointRepairToken(null);
+    setCheckpointAttributionStatus("saved");
+  }, []);
+
+  const retryCheckpointAttribution = useCallback(
+    async (repairToken: string) => {
+      if (
+        checkpointRetryInFlightRef.current ||
+        checkpointRepairTokenRef.current !== repairToken
+      ) {
+        return;
+      }
+
+      checkpointRetryInFlightRef.current = true;
+      setCheckpointAttributionStatus("retrying");
+      const controller = new AbortController();
+      checkpointRetryAbortRef.current = controller;
+      let requestTimedOut = false;
+      const requestTimeout = window.setTimeout(() => {
+        requestTimedOut = true;
+        controller.abort();
+      }, 15_000);
+      try {
+        const response = await fetch("/api/checkpoint-attribution-retry", {
+          method: "POST",
+          credentials: "same-origin",
+          referrerPolicy: "no-referrer",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repairToken }),
+          signal: controller.signal,
+        });
+        const body = (await response.json().catch(() => null)) as unknown;
+        if (
+          checkpointRepairTokenRef.current !== repairToken ||
+          !checkpointRepairMountedRef.current
+        ) {
+          return;
+        }
+        if (response.ok && isCheckpointAttributionRepairSaved(body)) {
+          markCheckpointAttributionSaved();
+          return;
+        }
+
+        checkpointRetryAllowedRef.current =
+          isCheckpointAttributionRepairRetryable(body, response.status);
+        setCheckpointAttributionStatus(
+          checkpointRetryAllowedRef.current ? "pending" : "paused",
+        );
+        if (checkpointRetryAllowedRef.current) {
+          checkpointRetryAttemptRef.current += 1;
+          setCheckpointRetryCycle((current) => current + 1);
+        }
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.name === "AbortError" &&
+          !requestTimedOut
+        ) {
+          return;
+        }
+        if (
+          checkpointRepairTokenRef.current === repairToken &&
+          checkpointRepairMountedRef.current
+        ) {
+          checkpointRetryAllowedRef.current = true;
+          checkpointRetryAttemptRef.current += 1;
+          setCheckpointAttributionStatus("pending");
+          setCheckpointRetryCycle((current) => current + 1);
+        }
+      } finally {
+        window.clearTimeout(requestTimeout);
+        if (checkpointRetryAbortRef.current === controller) {
+          checkpointRetryAbortRef.current = null;
+        }
+        checkpointRetryInFlightRef.current = false;
+      }
+    },
+    [markCheckpointAttributionSaved],
+  );
 
   useEffect(() => {
+    checkpointRepairMountedRef.current = true;
+    formStartedAtRef.current = Date.now();
     const params = new URLSearchParams(window.location.search);
     const therapist = params.get("therapist");
     const preferredTherapist =
@@ -163,11 +294,30 @@ export default function ConsultationPage() {
       SPECIFIC_THERAPIST_VALUES.includes(therapist as SpecificTherapistSlug)
         ? therapist
         : "";
+    const sessionStorage = getCheckpointSessionStorage();
+    const pendingRepairToken = readPendingCheckpointAttributionRepair(
+      sessionStorage,
+    );
+    if (pendingRepairToken) {
+      checkpointRepairTokenRef.current = pendingRepairToken;
+      checkpointRetryAttemptRef.current = 0;
+      checkpointRetryAllowedRef.current = true;
+      setCheckpointRepairToken(pendingRepairToken);
+      setCheckpointAttributionStatus("pending");
+      setSubmitted(true);
+    }
     let prefill: ReturnType<typeof consumeConsultationPrefill> = null;
     try {
-      prefill = consumeConsultationPrefill(window.sessionStorage);
+      prefill = sessionStorage
+        ? consumeConsultationPrefill(sessionStorage)
+        : null;
     } catch {
       // The form remains fully usable when browser storage is unavailable.
+    }
+    const checkpointSession = readCheckpointSession(sessionStorage);
+    if (checkpointSession) {
+      setCheckpointContext(checkpointSession);
+      void trackCheckpointEvent(checkpointSession, "consultation_started");
     }
     setData((current) => ({
       ...current,
@@ -176,7 +326,9 @@ export default function ConsultationPage() {
       email: prefill?.email || current.email,
       phone: prefill?.phone || current.phone,
     }));
-    const rawSource = params.get("source") || "direct";
+    const rawSource = checkpointSession
+      ? "mental_battery_checkpoint"
+      : params.get("source") || "direct";
     setSource(rawSource.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "direct");
     trackFunnelEvent("consultation_page_viewed", {
       page: "consultation",
@@ -198,7 +350,54 @@ export default function ConsultationPage() {
           ? therapist
           : undefined,
     });
+    return () => {
+      checkpointRepairMountedRef.current = false;
+      if (checkpointRetryTimerRef.current !== null) {
+        window.clearTimeout(checkpointRetryTimerRef.current);
+        checkpointRetryTimerRef.current = null;
+      }
+      checkpointRetryAbortRef.current?.abort();
+      checkpointRetryAbortRef.current = null;
+    };
   }, []);
+
+  useEffect(() => {
+    if (
+      !checkpointRepairToken ||
+      !checkpointRetryAllowedRef.current ||
+      checkpointAttributionStatus !== "pending"
+    ) {
+      return;
+    }
+    const delay = checkpointAttributionRetryDelay(
+      checkpointRetryAttemptRef.current,
+    );
+    checkpointRetryTimerRef.current = window.setTimeout(() => {
+      checkpointRetryTimerRef.current = null;
+      void retryCheckpointAttribution(checkpointRepairToken);
+    }, delay);
+    return () => {
+      if (checkpointRetryTimerRef.current !== null) {
+        window.clearTimeout(checkpointRetryTimerRef.current);
+        checkpointRetryTimerRef.current = null;
+      }
+    };
+  }, [
+    checkpointAttributionStatus,
+    checkpointRepairToken,
+    checkpointRetryCycle,
+    retryCheckpointAttribution,
+  ]);
+
+  const retryCheckpointAttributionNow = useCallback(() => {
+    if (!checkpointRepairToken || checkpointRetryInFlightRef.current) return;
+    if (checkpointRetryTimerRef.current !== null) {
+      window.clearTimeout(checkpointRetryTimerRef.current);
+      checkpointRetryTimerRef.current = null;
+    }
+    checkpointRetryAllowedRef.current = true;
+    void retryCheckpointAttribution(checkpointRepairToken);
+  }, [checkpointRepairToken, retryCheckpointAttribution]);
 
   const handleTurnstileToken = useCallback((token: string | null) => {
     setTurnstileToken(token);
@@ -320,12 +519,20 @@ export default function ConsultationPage() {
           consentLanguage: CONSENT_TEXT,
           consentVersion: CONSENT_VERSION,
           source,
+          checkpointAttribution: checkpointContext
+            ? attributionFromCheckpointSession(checkpointContext)
+            : undefined,
           website: data.website,
           turnstileToken,
         }),
       });
       const body = (await response.json().catch(() => null)) as
-        | { ok?: boolean; error?: string }
+        | {
+            ok?: boolean;
+            error?: string;
+            checkpointAttributionSaved?: boolean;
+            checkpointAttributionRepairToken?: string;
+          }
         | null;
       if (!response.ok || !body?.ok) {
         throw new Error(body?.error || "Something went wrong. Please try again.");
@@ -337,6 +544,32 @@ export default function ConsultationPage() {
         funnelStep: 2,
         funnelCompleted: true,
       });
+      if (checkpointContext) {
+        if (body.checkpointAttributionSaved === true) {
+          markCheckpointAttributionSaved();
+        } else {
+          const repairToken = normalizeCheckpointAttributionRepairToken(
+            body.checkpointAttributionRepairToken,
+          );
+          if (repairToken) {
+            persistPendingCheckpointAttributionRepair(
+              getCheckpointSessionStorage(),
+              repairToken,
+            );
+            checkpointRepairTokenRef.current = repairToken;
+            checkpointRetryAttemptRef.current = 0;
+            checkpointRetryAllowedRef.current = true;
+            setCheckpointRepairToken(repairToken);
+            setCheckpointAttributionStatus("pending");
+          } else {
+            // The consultation is already confirmed. Keep the anonymous
+            // checkpoint session intact if the server could not provide a
+            // bounded repair capability, and avoid an uncontrolled retry loop.
+            checkpointRetryAllowedRef.current = false;
+            setCheckpointAttributionStatus("paused");
+          }
+        }
+      }
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : "Something went wrong. Please try again.",
@@ -418,6 +651,79 @@ export default function ConsultationPage() {
                       coordinate your free consultation. Your requested time range is a preference,
                       not a confirmed appointment yet.
                     </p>
+                    {checkpointAttributionStatus !== "none" ? (
+                      <div
+                        className={`mt-6 w-full max-w-[460px] rounded-2xl border px-4 py-4 text-left ${
+                          checkpointAttributionStatus === "saved"
+                            ? "border-[#c7ded4] bg-[#edf6f1]"
+                            : "border-[#d8ded8] bg-[#f7f8f5]"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${
+                              checkpointAttributionStatus === "saved"
+                                ? "bg-[#d7ebe2] text-[#216957]"
+                                : "bg-white text-[#4f746d] shadow-sm"
+                            }`}
+                          >
+                            {checkpointAttributionStatus === "retrying" ? (
+                              <RefreshCw
+                                size={15}
+                                className="animate-spin motion-reduce:animate-none"
+                                aria-hidden="true"
+                              />
+                            ) : checkpointAttributionStatus === "saved" ? (
+                              <Check size={16} aria-hidden="true" />
+                            ) : (
+                              <Link2 size={15} aria-hidden="true" />
+                            )}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div
+                              role="status"
+                              aria-live="polite"
+                              aria-atomic="true"
+                              aria-busy={
+                                checkpointAttributionStatus === "retrying"
+                              }
+                            >
+                              <p className="text-[13px] font-semibold text-ink">
+                                {checkpointAttributionStatus === "saved"
+                                  ? "Anonymous checkpoint source linked"
+                                  : checkpointAttributionStatus === "retrying"
+                                    ? "Finishing the anonymous source link"
+                                    : "Your request is confirmed"}
+                              </p>
+                              <p className="mt-1 text-[12px] leading-5 text-ink-secondary">
+                                {checkpointAttributionStatus === "saved"
+                                  ? "The Mental Battery checkpoint source is now connected. No questionnaire answers were included."
+                                  : checkpointAttributionStatus === "paused"
+                                    ? "We could not finish the anonymous checkpoint source link automatically. This does not affect your consultation request, and no questionnaire answers are involved."
+                                    : "We are connecting the Mental Battery checkpoint source in the background. This does not affect your consultation request, and no questionnaire answers are included."}
+                              </p>
+                            </div>
+                            {checkpointRepairToken &&
+                            (checkpointAttributionStatus === "pending" ||
+                              checkpointAttributionStatus === "retrying") ? (
+                              <button
+                                type="button"
+                                onClick={retryCheckpointAttributionNow}
+                                disabled={
+                                  checkpointAttributionStatus === "retrying"
+                                }
+                                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-[#bfcfc9] bg-white px-4 text-[12px] font-semibold text-teal-dark transition hover:border-teal/45 hover:bg-[#fbfdfc] disabled:cursor-wait disabled:opacity-60"
+                              >
+                                <RefreshCw size={14} aria-hidden="true" />
+                                {checkpointAttributionStatus === "retrying"
+                                  ? "Linking source…"
+                                  : "Retry source link now"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <form ref={formRef} onSubmit={handleSubmit} noValidate className="scroll-mt-24">
@@ -578,6 +884,16 @@ export default function ConsultationPage() {
                     placement="consultation_secondary"
                     janeClick
                     newTab
+                    onClick={() => {
+                      if (checkpointContext) {
+                        void trackCheckpointEvent(
+                          checkpointContext,
+                          "external_booking_clicked",
+                          undefined,
+                          "beacon",
+                        );
+                      }
+                    }}
                     className="inline-flex items-center font-semibold text-teal-dark underline decoration-teal/35 underline-offset-4"
                   >
                     Book directly on Jane

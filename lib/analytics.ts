@@ -13,6 +13,10 @@ import {
   type CampaignAttribution,
 } from "@/lib/campaignAttribution";
 import { recordFirstPartyFunnelEvent } from "@/lib/funnelTracking";
+import {
+  getCheckpointSessionStorage,
+  readCheckpointSession,
+} from "@/lib/checkpoints/session";
 
 export type QuizEvent =
   | "quiz_page_viewed"
@@ -146,6 +150,10 @@ type DataLayerWindow = Window & { dataLayer?: Record<string, unknown>[] };
 
 const firedViewEvents = new Set<string>();
 
+function hasActiveCheckpointSession(): boolean {
+  return Boolean(readCheckpointSession(getCheckpointSessionStorage()));
+}
+
 function cleanEventValue(
   value: string | undefined,
   maxLength = 120,
@@ -171,6 +179,7 @@ export function trackQuizEvent(
   propertiesOrStep: SafeQuizEventProperties | number = {},
 ) {
   if (typeof window === "undefined") return;
+  if (hasActiveCheckpointSession()) return;
   const properties: SafeQuizEventProperties =
     typeof propertiesOrStep === "number"
       ? { quizStep: propertiesOrStep }
@@ -236,6 +245,7 @@ export function trackFunnelEvent(
   properties: SafeFunnelEventProperties,
 ) {
   if (typeof window === "undefined") return;
+  if (hasActiveCheckpointSession()) return;
 
   const attribution =
     properties.attribution ?? captureCampaignAttribution(window.location.search);

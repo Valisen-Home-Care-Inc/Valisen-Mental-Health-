@@ -2,41 +2,50 @@
   "name": "valisen-therapy-website",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "test:quiz-ui": "node scripts/quiz-flow-smoke.mjs",
     "screenshots:quiz": "node scripts/quiz-results-screenshots.mjs",
     "screenshots:funnel": "node scripts/funnel-screenshots.mjs",
     "screenshots:possibility": "node scripts/possibility-builder-screenshots.mjs",
     "screenshots:consultation": "node scripts/consultation-screenshots.mjs",
+    "test:checkpoints-ui": "node scripts/checkpoint-system-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "screenshot": "node screenshot.js"
   },
   "dependencies": {
     "googleapis": "^171.4.0",
     "lucide-react": "^1.11.0",
-    "next": "14.2.15",
-    "nodemailer": "^8.0.7",
+    "next": "16.3.0",
+    "nodemailer": "^9.0.4",
     "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/nodemailer": "^8.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.15",
-    "postcss": "^8.4.38",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "16.3.0",
+    "postcss": "^8.5.26",
     "puppeteer": "^22.15.0",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.2",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "qs": "6.15.3"
   }
 }

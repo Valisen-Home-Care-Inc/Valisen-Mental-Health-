@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   getCompletedSubmission,
+  getCompletedSubmissionRecord,
   isRateLimited,
   markSubmissionCompleted,
   resetRateLimitState,
@@ -40,6 +41,22 @@ describe("idempotency records", () => {
 
   it("returns null for unknown ids", () => {
     expect(getCompletedSubmission("never-seen")).toBeNull();
+  });
+
+  it("retains privacy-minimal checkpoint context for safe attribution repair", () => {
+    const now = 1_000_000;
+    markSubmissionCompleted("client-checkpoint", "VC-11111111", now, {
+      checkpointCode: "VMH-04",
+      sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+    });
+
+    expect(getCompletedSubmissionRecord("client-checkpoint", now)).toMatchObject({
+      referenceId: "VC-11111111",
+      checkpointAttribution: {
+        checkpointCode: "VMH-04",
+        sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+      },
+    });
   });
 
   it("expires records after the TTL", () => {

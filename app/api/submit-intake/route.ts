@@ -17,13 +17,28 @@ import {
   type ConsultationAvailability,
 } from "@/lib/consultation";
 import {
-  getCompletedSubmission,
+  getCompletedSubmissionRecord,
   isRateLimited,
   markSubmissionCompleted,
 } from "@/lib/server/rateLimit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
+import {
+  CHECKPOINT_CONSULTATION_SOURCE,
+  parseCheckpointConsultationAttribution,
+  type CheckpointConsultationAttribution,
+} from "@/lib/checkpoints/consultationAttribution";
+import {
+  createCheckpointAttributionRepairToken,
+  recordCheckpointAttribution,
+} from "@/lib/server/checkpointAttributionRepair";
+import {
+  hasJsonContentType,
+  isSameOriginRequest,
+  readBoundedJson,
+} from "@/lib/server/httpRequestSecurity";
 
 export const runtime = "nodejs";
+export { recordCheckpointAttribution } from "@/lib/server/checkpointAttributionRepair";
 
 const CLINIC_EMAIL = "info@valisenmentalhealth.com";
 const MAX_BODY_BYTES = 24_000;
@@ -69,6 +84,10 @@ const HEADER_ROW = [
   "CTA Source",
   "Bot Verification",
   "Form Duration Seconds",
+  "Checkpoint Code",
+  "Checkpoint Placement ID",
+  "Checkpoint Session ID",
+  "Checkpoint Attribution Status",
 ];
 
 const ALLOWED_KEYS = new Set([
@@ -87,6 +106,7 @@ const ALLOWED_KEYS = new Set([
   "consentLanguage",
   "consentVersion",
   "source",
+  "checkpointAttribution",
   "website",
   "turnstileToken",
 ]);
@@ -107,6 +127,7 @@ type IntakePayload = {
   consentLanguage: string;
   consentVersion: string;
   source?: string;
+  checkpointAttribution?: CheckpointConsultationAttribution;
   website?: string;
   turnstileToken: string;
 };
@@ -145,20 +166,6 @@ function validSubmissionId(value: unknown): value is string {
   return typeof value === "string" && /^[a-zA-Z0-9-]{16,80}$/.test(value);
 }
 
-function validOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  try {
-    const requestHost =
-      request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-      request.headers.get("host")?.trim() ||
-      request.nextUrl.host;
-    return new URL(origin).host === requestHost;
-  } catch {
-    return false;
-  }
-}
-
 function badRequest(error: string, status = 400) {
   return NextResponse.json(
     { error },
@@ -185,6 +192,21 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const reason = cleanSingleLine(input.reason, 80);
   const notes = cleanNotes(input.notes);
   const source = cleanSingleLine(input.source, 40).replace(/[^a-z0-9_-]/gi, "");
+  const checkpointAttribution = parseCheckpointConsultationAttribution(
+    input.checkpointAttribution,
+  );
+  if (
+    input.checkpointAttribution !== undefined &&
+    !checkpointAttribution
+  ) {
+    return { error: "Invalid checkpoint attribution." };
+  }
+  if (
+    checkpointAttribution &&
+    source !== CHECKPOINT_CONSULTATION_SOURCE
+  ) {
+    return { error: "Invalid checkpoint source." };
+  }
   const timeOfDay = input.timeOfDay;
   const expectedDays = CONSULTATION_DAYS;
 
@@ -237,6 +259,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       consentLanguage: CONSENT_TEXT,
       consentVersion: CONSENT_VERSION,
       source: source || "direct",
+      checkpointAttribution: checkpointAttribution || undefined,
       website: cleanSingleLine(input.website, 200),
       turnstileToken: typeof input.turnstileToken === "string" ? input.turnstileToken : "",
     },
@@ -269,28 +292,37 @@ async function appendToSheet(values: string[]): Promise<boolean> {
     const spreadsheetId = process.env.GOOGLE_SHEET_ID ?? "";
     const existing = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "A1:R1",
+      range: "A1:V1",
     });
     const firstRow = existing.data.values?.[0] ?? [];
-    const knownPrefix = HEADER_ROW.slice(0, Math.min(firstRow.length, 12));
+    const knownPrefix = HEADER_ROW.slice(
+      0,
+      Math.min(firstRow.length, HEADER_ROW.length),
+    );
     const compatible = knownPrefix.every((header, index) => firstRow[index] === header);
-    if (
-      firstRow.length === 0 ||
-      firstRow[7] === "Format" ||
-      (compatible && firstRow.length < HEADER_ROW.length)
-    ) {
+    if (firstRow.length === 0 || firstRow[7] === "Format") {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "A1:R1",
+        range: "A1:V1",
         valueInputOption: "RAW",
         requestBody: { values: [HEADER_ROW] },
       });
     } else if (!compatible) {
       throw new Error("incompatible intake worksheet header");
+    } else if (firstRow.length < HEADER_ROW.length) {
+      // Append new schema columns without rewriting existing operational
+      // headings or moving any lead data.
+      const firstMissingColumn = String.fromCharCode(65 + firstRow.length);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${firstMissingColumn}1:V1`,
+        valueInputOption: "RAW",
+        requestBody: { values: [HEADER_ROW.slice(firstRow.length)] },
+      });
     }
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "A:R",
+      range: "A:V",
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [values] },
@@ -305,21 +337,47 @@ async function appendToSheet(values: string[]): Promise<boolean> {
   }
 }
 
+function createRepairTokenIfNeeded(
+  attribution: CheckpointConsultationAttribution | undefined,
+  referenceId: string,
+  attributionSaved: boolean,
+): string | undefined {
+  if (!attribution || attributionSaved) return undefined;
+  const token = createCheckpointAttributionRepairToken({ attribution, referenceId });
+  if (!token) {
+    console.error(
+      "submit-intake: checkpoint attribution is pending but CHECKPOINT_ATTRIBUTION_REPAIR_SECRET is missing or invalid",
+    );
+    return undefined;
+  }
+  return token;
+}
+
+function sameCheckpointAttribution(
+  left: { checkpointCode: string; sessionId: string } | undefined,
+  right: CheckpointConsultationAttribution | undefined,
+): boolean {
+  if (!left || !right) return !left && !right;
+  return (
+    left.checkpointCode === right.checkpointCode &&
+    left.sessionId === right.sessionId
+  );
+}
+
 export async function POST(request: NextRequest) {
-  const contentLength = Number(request.headers.get("content-length") || "0");
-  if (contentLength > MAX_BODY_BYTES) return badRequest("Request is too large.", 413);
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+  if (!hasJsonContentType(request)) {
     return badRequest("Content-Type must be application/json.", 415);
   }
-  if (!validOrigin(request)) return badRequest("Invalid request origin.", 403);
+  if (!isSameOriginRequest(request)) return badRequest("Invalid request origin.", 403);
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return badRequest("Invalid JSON body.");
+  const body = await readBoundedJson(request, MAX_BODY_BYTES);
+  if (!body.ok) {
+    return badRequest(
+      body.reason === "too_large" ? "Request is too large." : "Invalid JSON body.",
+      body.reason === "too_large" ? 413 : 400,
+    );
   }
-  const parsed = parsePayload(body);
+  const parsed = parsePayload(body.value);
   if (!parsed.payload) return badRequest(parsed.error || "Invalid request.");
   const payload = parsed.payload;
 
@@ -331,18 +389,48 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const completedReference = getCompletedSubmission(payload.clientSubmissionId);
-  if (completedReference) {
-    return NextResponse.json(
-      { ok: true, referenceId: completedReference, duplicate: true },
-      { headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
   const ip = requestIp(request);
   if (isRateLimited(`consultation:${ip}`, 5, 60 * 60 * 1000)) {
     return badRequest("Too many requests. Please try again later or call us.", 429);
   }
+
+  const completedSubmission = getCompletedSubmissionRecord(
+    payload.clientSubmissionId,
+  );
+  if (completedSubmission) {
+    if (
+      !sameCheckpointAttribution(
+        completedSubmission.checkpointAttribution,
+        payload.checkpointAttribution,
+      )
+    ) {
+      return badRequest("Submission identifier is already in use.", 409);
+    }
+    const checkpoint = await recordCheckpointAttribution(
+      payload.checkpointAttribution,
+      completedSubmission.referenceId,
+    );
+    const checkpointAttributionRepairToken = createRepairTokenIfNeeded(
+      payload.checkpointAttribution,
+      completedSubmission.referenceId,
+      checkpoint.saved,
+    );
+    return NextResponse.json(
+      {
+        ok: true,
+        referenceId: completedSubmission.referenceId,
+        duplicate: true,
+        checkpointAttributionSaved: payload.checkpointAttribution
+          ? checkpoint.saved
+          : undefined,
+        ...(checkpointAttributionRepairToken
+          ? { checkpointAttributionRepairToken }
+          : {}),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const verification = await verifyTurnstile(
     request,
     payload.turnstileToken,
@@ -400,6 +488,7 @@ Preferred therapist:     ${preferredTherapistLabel}
 Preferred days:          ${CONSULTATION_DAYS_LABEL}
 Preferred time:          ${availabilityLabel} (Toronto time)
 CTA source:              ${payload.source || "direct"}
+${payload.checkpointAttribution ? `Mental Battery checkpoint: ${payload.checkpointAttribution.checkpointCode}\nCheckpoint session:       ${payload.checkpointAttribution.sessionId}` : ""}
 Additional notes:        ${payload.notes || "None"}
 
 CONSULTATION COORDINATION CONSENT
@@ -445,6 +534,16 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     }
   }
 
+  const checkpoint = await recordCheckpointAttribution(
+    payload.checkpointAttribution,
+    referenceId,
+  );
+  const checkpointAttributionRepairToken = createRepairTokenIfNeeded(
+    payload.checkpointAttribution,
+    referenceId,
+    checkpoint.saved,
+  );
+
   const savedToSheet = await appendToSheet([
     timestamp,
     payload.firstName,
@@ -464,11 +563,39 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     payload.source || "direct",
     "Turnstile verified",
     String(durationSeconds),
+    payload.checkpointAttribution?.checkpointCode || "",
+    checkpoint.placementId,
+    payload.checkpointAttribution?.sessionId || "",
+    payload.checkpointAttribution
+      ? checkpoint.saved
+        ? "Attributed"
+        : "Attribution pending"
+      : "Not applicable",
   ]);
 
-  markSubmissionCompleted(payload.clientSubmissionId, referenceId);
+  markSubmissionCompleted(
+    payload.clientSubmissionId,
+    referenceId,
+    Date.now(),
+    payload.checkpointAttribution
+      ? {
+          checkpointCode: payload.checkpointAttribution.checkpointCode,
+          sessionId: payload.checkpointAttribution.sessionId,
+        }
+      : undefined,
+  );
   return NextResponse.json(
-    { ok: true, referenceId, savedToSheet },
+    {
+      ok: true,
+      referenceId,
+      savedToSheet,
+      checkpointAttributionSaved: payload.checkpointAttribution
+        ? checkpoint.saved
+        : undefined,
+      ...(checkpointAttributionRepairToken
+        ? { checkpointAttributionRepairToken }
+        : {}),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
