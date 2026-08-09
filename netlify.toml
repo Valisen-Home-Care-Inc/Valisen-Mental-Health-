@@ -1,0 +1,4 @@
+[build.environment]
+  # This value is the site's public canonical URL and is intentionally embedded
+  # in generated pages. Keep secret scanning enabled for every credential.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SITE_URL"
