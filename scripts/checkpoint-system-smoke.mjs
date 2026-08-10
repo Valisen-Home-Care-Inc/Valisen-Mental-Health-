@@ -415,8 +415,19 @@ try {
       fullPage: true,
     });
     if (width === 390) {
-      await page.click('a[href="/consultation?source=mental_battery_checkpoint"]');
-      await page.waitForFunction(() => window.location.pathname === "/consultation");
+      const [handoffResponse] = await Promise.all([
+        page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 60_000 }),
+        page.click('a[href="/consultation?source=mental_battery_checkpoint"]'),
+      ]);
+      const handoffCsp = handoffResponse?.headers()["content-security-policy"] || "";
+      if (
+        new URL(page.url()).pathname !== "/consultation" ||
+        /frame-src\s+'none'/i.test(handoffCsp)
+      ) {
+        throw new Error(
+          `Checkpoint consultation handoff retained the private checkpoint CSP: ${handoffCsp}`,
+        );
+      }
       await page.waitForSelector("form");
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 500));
       if (state.marketingRequests.length) {

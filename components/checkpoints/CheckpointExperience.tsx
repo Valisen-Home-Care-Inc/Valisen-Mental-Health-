@@ -352,7 +352,7 @@ export default function CheckpointExperience({
                   you choose to continue.
                 </p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
-                  <Link
+                  <a
                     href="/consultation?source=mental_battery_checkpoint"
                     onClick={() =>
                       void recordEvent(
@@ -368,7 +368,7 @@ export default function CheckpointExperience({
                       aria-hidden="true"
                       className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none"
                     />
-                  </Link>
+                  </a>
                   <Link
                     href="/therapists"
                     onClick={() =>
