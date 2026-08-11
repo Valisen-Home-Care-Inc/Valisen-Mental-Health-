@@ -71,9 +71,14 @@ export const MAX_SUBMISSION_TOKEN_LENGTH = 256;
 export const MAX_CONTACT_MESSAGE_LENGTH = 1_000;
 export const MAX_CTA_PLACEMENT_LENGTH = 64;
 export const MAX_CONTACT_TIME_ZONE_LENGTH = 80;
+export const MAX_TURNSTILE_TOKEN_LENGTH = 2_048;
 export const MIN_PREFERRED_CONTACT_TIMES = 2;
 export const MAX_PREFERRED_CONTACT_TIMES = 4;
 export const MAX_PREFERRED_TIME_FUTURE_DAYS = 365;
+
+/** Distinct server-verified Cloudflare Turnstile actions for each public write. */
+export const QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION = "quiz_results_access";
+export const QUIZ_CONTACT_HELP_TURNSTILE_ACTION = "quiz_contact_help";
 
 export const CONTACT_METHOD_VALUES = ["phone", "text", "email"] as const;
 export type ContactMethod = (typeof CONTACT_METHOD_VALUES)[number];
@@ -320,6 +325,12 @@ export type QuizLeadAccessPayload = {
   /** Derived from the required `answers.intent` value after allow-listing. */
   intent: QuizIntent;
   attribution: CampaignAttribution;
+  /** Anonymous first-party session key; never contains quiz/contact data. */
+  funnelSessionId?: string;
+  /** Anonymous per-retake key used only for first-party journey attribution. */
+  quizAttemptId?: string;
+  /** Single-use Cloudflare Turnstile response, verified by the API. */
+  turnstileToken: string;
   /** Honeypot. Human visitors leave this blank. */
   website?: string;
 };
@@ -340,6 +351,8 @@ export type QuizContactConsentPayload = {
   consentLanguage: string;
   /** Honeypot. Human visitors leave this blank. */
   website?: string;
+  /** Single-use Cloudflare Turnstile response, verified by the API. */
+  turnstileToken: string;
 };
 
 export type QuizEngagementPayload = {
@@ -467,8 +480,35 @@ export function validateQuizLeadAccessPayload(
   }
   const input = body as Record<string, unknown>;
 
+  const allowedKeys = new Set([
+    "clientSubmissionId",
+    "quizVersion",
+    "firstName",
+    "email",
+    "phone",
+    "privacyAcknowledged",
+    "privacyLanguage",
+    "privacyTextVersion",
+    "answers",
+    "attribution",
+    "funnelSessionId",
+    "quizAttemptId",
+    "turnstileToken",
+    "website",
+  ]);
+  if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
+    return { ok: false, error: "Invalid quiz result fields." };
+  }
+
   if (typeof input.website === "string" && input.website.trim() !== "") {
     return { ok: false, error: "honeypot" };
+  }
+  if (
+    typeof input.turnstileToken !== "string" ||
+    input.turnstileToken.length < 1 ||
+    input.turnstileToken.length > MAX_TURNSTILE_TOKEN_LENGTH
+  ) {
+    return { ok: false, error: "Secure verification is required." };
   }
   if (
     typeof input.clientSubmissionId !== "string" ||
@@ -535,6 +575,27 @@ export function validateQuizLeadAccessPayload(
     return { ok: false, error: "Invalid campaign attribution." };
   }
 
+  const funnelSessionId =
+    typeof input.funnelSessionId === "string" &&
+    /^fs-[A-Za-z0-9-]{16,90}$/.test(input.funnelSessionId)
+      ? input.funnelSessionId
+      : undefined;
+  if (input.funnelSessionId !== undefined && !funnelSessionId) {
+    return { ok: false, error: "Invalid funnel session." };
+  }
+
+  const quizAttemptId =
+    typeof input.quizAttemptId === "string" &&
+    /^qa-[A-Za-z0-9-]{16,90}$/.test(input.quizAttemptId)
+      ? input.quizAttemptId
+      : undefined;
+  if (input.quizAttemptId !== undefined && !quizAttemptId) {
+    return { ok: false, error: "Invalid quiz attempt." };
+  }
+  if (quizAttemptId && !funnelSessionId) {
+    return { ok: false, error: "A quiz attempt requires its funnel session." };
+  }
+
   return {
     ok: true,
     data: {
@@ -549,6 +610,9 @@ export function validateQuizLeadAccessPayload(
       answers,
       intent,
       attribution,
+      funnelSessionId,
+      quizAttemptId,
+      turnstileToken: input.turnstileToken,
     },
   };
 }
@@ -575,6 +639,7 @@ export function validateQuizContactConsentEnvelope(
     "consentGranted",
     "consentLanguage",
     "website",
+    "turnstileToken",
   ]);
   if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
     return { ok: false, error: "Invalid contact request fields." };
@@ -582,6 +647,13 @@ export function validateQuizContactConsentEnvelope(
 
   if (typeof input.website === "string" && input.website.trim() !== "") {
     return { ok: false, error: "honeypot" };
+  }
+  if (
+    typeof input.turnstileToken !== "string" ||
+    input.turnstileToken.length < 1 ||
+    input.turnstileToken.length > MAX_TURNSTILE_TOKEN_LENGTH
+  ) {
+    return { ok: false, error: "Secure verification is required." };
   }
   if (!isValidSubmissionToken(input.submissionToken)) {
     return { ok: false, error: "Invalid submission token." };
@@ -659,6 +731,7 @@ export function validateQuizContactConsentEnvelope(
       ...(message ? { message } : {}),
       consentGranted: true,
       consentLanguage: input.consentLanguage,
+      turnstileToken: input.turnstileToken,
     },
   };
 }
@@ -687,6 +760,7 @@ export function validateQuizContactConsentPayload(
       ...(structural.data.message ? { message: structural.data.message } : {}),
       consentGranted: true,
       consentLanguage: CONTACT_CONSENT_TEXT,
+      turnstileToken: structural.data.turnstileToken,
     },
   };
 }

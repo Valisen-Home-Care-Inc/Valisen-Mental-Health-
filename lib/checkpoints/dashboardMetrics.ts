@@ -1,3 +1,5 @@
+import type { CheckpointActionIntent } from "@/lib/checkpoints/config";
+
 export const CHECKPOINT_DATE_PRESETS = [
   "today",
   "7d",
@@ -21,7 +23,9 @@ export type CheckpointKpis = {
   checkinsCompleted: number;
   completionRate: number;
   resultViews: number;
+  /** Unique cohort sessions that selected the consultation CTA. */
   therapistIntent: number;
+  consultationCtaRate: number;
   consultationsStarted: number;
   consultationsSubmitted: number;
   sessionToConsultationRate: number;
@@ -40,6 +44,7 @@ export type CheckpointPlacementSummary = {
   sessions?: number;
   checkinsCompleted?: number;
   therapistIntent?: number;
+  consultationCtaRate?: number;
   consultationsSubmitted?: number;
   sessionToConsultationRate?: number;
 };
@@ -56,6 +61,21 @@ export type CheckpointFunnelStage = {
   event: string;
   label?: string;
   count: number;
+};
+
+export type CheckpointResultActionMetric = {
+  key: "consultation_cta" | "therapist_match" | "therapist_browse" | "any_action";
+  count: number;
+  sessionRate: number;
+};
+
+export type CheckpointIntentMetric = {
+  intent: CheckpointActionIntent;
+  count: number;
+  /** Share of sessions that selected any Q4 intent. */
+  share: number;
+  /** Share of all checkpoint sessions in the selected cohort. */
+  sessionRate: number;
 };
 
 export type CheckpointQuestionStepMetric = {
@@ -82,6 +102,8 @@ export type CheckpointDashboardData = {
   range: { from: string; to: string };
   kpis: CheckpointKpis;
   funnel: CheckpointFunnelStage[];
+  resultActions: CheckpointResultActionMetric[];
+  intentMix: CheckpointIntentMetric[];
   questionSteps: CheckpointQuestionStepMetric[];
   checkpoints: CheckpointMetric[];
   leads: CheckpointLeadAttribution[];
@@ -117,6 +139,8 @@ export type CheckpointDetailData = {
   kpis: CheckpointKpis;
   cumulativeKpis?: Partial<CheckpointKpis>;
   funnel: CheckpointFunnelStage[];
+  resultActions: CheckpointResultActionMetric[];
+  intentMix: CheckpointIntentMetric[];
   questionSteps: CheckpointQuestionStepMetric[];
   placements: CheckpointPlacementSummary[];
   daily: CheckpointDailyMetric[];

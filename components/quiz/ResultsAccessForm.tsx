@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import { trackQuizEvent } from "@/lib/analytics";
 import {
   MAX_EMAIL_LENGTH,
   MAX_FIRST_NAME_LENGTH,
   MAX_PHONE_LENGTH,
+  QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION,
   RESULTS_ACCESS_PRIVACY_TEXT,
   RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
   isValidEmail,
@@ -24,6 +26,7 @@ export type ResultsAccessDetails = {
   privacyTextVersion: string;
   /** Honeypot value. Human visitors leave this empty. */
   website: string;
+  turnstileToken: string;
 };
 
 type FieldName = "firstName" | "email" | "phone" | "privacy";
@@ -48,12 +51,42 @@ export default function ResultsAccessForm({
   const [website, setWebsite] = useState("");
   const [touched, setTouched] = useState<TouchedFields>(UNTOUCHED);
   const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [turnstileExecuteKey, setTurnstileExecuteKey] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const idPrefix = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
+  const pendingSecureSubmitRef = useRef(false);
+  const turnstileTokenRef = useRef<string | null>(null);
   const startedRef = useRef(false);
+
+  const handleTurnstileToken = useCallback((token: string | null) => {
+    turnstileTokenRef.current = token;
+    setTurnstileToken(token);
+    if (token) {
+      setSubmitError(null);
+      if (pendingSecureSubmitRef.current) {
+        pendingSecureSubmitRef.current = false;
+        setVerifying(false);
+        cardRef.current?.querySelector("form")?.requestSubmit();
+      }
+    }
+  }, []);
+
+  const handleTurnstileError = useCallback(() => {
+    pendingSecureSubmitRef.current = false;
+    turnstileTokenRef.current = null;
+    setTurnstileToken(null);
+    setTurnstileResetKey((current) => current + 1);
+    setVerifying(false);
+    setSubmitError(
+      "Secure verification could not finish. Check your connection and try again.",
+    );
+  }, []);
 
   const valuesValid = {
     firstName: firstName.trim().length > 0,
@@ -103,6 +136,15 @@ export default function ResultsAccessForm({
       return;
     }
     if (submittingRef.current) return;
+    const secureToken = turnstileTokenRef.current;
+    if (!secureToken) {
+      if (verifying || pendingSecureSubmitRef.current) return;
+      pendingSecureSubmitRef.current = true;
+      setVerifying(true);
+      setSubmitError(null);
+      setTurnstileExecuteKey((current) => current + 1);
+      return;
+    }
 
     submittingRef.current = true;
     setSubmitting(true);
@@ -116,6 +158,7 @@ export default function ResultsAccessForm({
         privacyLanguage: RESULTS_ACCESS_PRIVACY_TEXT,
         privacyTextVersion: RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
         website,
+        turnstileToken: secureToken,
       });
     } catch (error) {
       setSubmitError(
@@ -123,6 +166,10 @@ export default function ResultsAccessForm({
           ? error.message
           : "We couldn’t save your information. Please try again.",
       );
+      turnstileTokenRef.current = null;
+      pendingSecureSubmitRef.current = false;
+      setTurnstileToken(null);
+      setTurnstileResetKey((current) => current + 1);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -137,7 +184,7 @@ export default function ResultsAccessForm({
       <form
         onSubmit={handleSubmit}
         noValidate
-        aria-busy={submitting}
+        aria-busy={submitting || verifying}
         className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-9"
       >
         <div className="flex items-center gap-2 text-[12.5px] font-semibold uppercase tracking-[1px] text-teal-dark">
@@ -326,6 +373,25 @@ export default function ResultsAccessForm({
           </label>
         </div>
 
+        <div className="mt-5">
+          <TurnstileWidget
+            action={QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION}
+            execution="execute"
+            executeKey={turnstileExecuteKey}
+            onError={handleTurnstileError}
+            onToken={handleTurnstileToken}
+            resetKey={turnstileResetKey}
+          />
+          {!turnstileToken && !submitError ? (
+            <p className="mt-2 text-center text-[11.5px] text-ink-hint">
+              Protected by Cloudflare Turnstile. Verification runs when you submit.
+            </p>
+          ) : null}
+          <span className="sr-only" role="status" aria-live="polite">
+            {verifying ? "Completing secure verification." : ""}
+          </span>
+        </div>
+
         {submitError ? (
           <div
             role="alert"
@@ -337,11 +403,18 @@ export default function ResultsAccessForm({
 
         <button
           type="submit"
-          disabled={!canSubmit || submitting}
+          disabled={!canSubmit || submitting || verifying}
+          aria-busy={submitting || verifying}
           className="btn-primary mt-6 min-h-[56px] w-full justify-center text-[16px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/25"
         >
-          {submitting ? "Saving Your Results…" : "View My Results"}
-          {!submitting ? <ArrowRight size={17} className="ml-2" aria-hidden="true" /> : null}
+          {submitting
+            ? "Saving Your Results…"
+            : verifying
+              ? "Securing Your Results…"
+              : "View My Results"}
+          {!submitting && !verifying ? (
+            <ArrowRight size={17} className="ml-2" aria-hidden="true" />
+          ) : null}
         </button>
         <p className="mt-3 text-center text-[12px] leading-[1.55] text-ink-hint">
           We&apos;ll email the results and booking link you requested. This does not enrol you in

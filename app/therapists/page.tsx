@@ -258,7 +258,7 @@ export default function TherapistsPage() {
               <ArrowRight size={16} className="ml-2" aria-hidden="true" />
             </TrackedLink>
             <TrackedLink
-              href="/consultation"
+              href="/consultation?source=directory_help"
               event="request_help_opened"
               page="therapist_directory"
               placement="final_secondary"

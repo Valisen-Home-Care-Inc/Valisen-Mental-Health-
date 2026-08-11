@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import puppeteer from "puppeteer";
 
-const baseUrl = process.env.QUIZ_TEST_BASE_URL || "http://127.0.0.1:3000";
+const baseUrl = process.env.QUIZ_TEST_BASE_URL || "http://localhost:3000";
 const outputDirectory = path.resolve("artifacts", "quiz-results");
 
 const outcome = {
@@ -97,6 +97,8 @@ async function configurePage(page, variant, index) {
           jsonResponse({
             ok: true,
             firstName: "Alex",
+            email: "alex@example.com",
+            phone: "613-555-0100",
             referenceId,
             outcome,
             match,

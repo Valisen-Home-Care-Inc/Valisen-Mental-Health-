@@ -27,17 +27,33 @@ const titles = metadata.data.sheets
   ?.map((sheet) => sheet.properties?.title)
   .filter(Boolean) ?? [];
 const eventSheet = process.env.FUNNEL_EVENTS_SHEET_NAME || "Funnel Events";
+const attemptsSheet =
+  process.env.FUNNEL_QUIZ_ATTEMPTS_SHEET_NAME || "Quiz Attempts";
 
 console.log(`Funnel tabs: ${titles.filter((title) => title.startsWith("Funnel ")).join(", ") || "none"}`);
 if (titles.includes(eventSheet)) {
   const values = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${eventSheet.replace(/'/g, "''")}'!A:W`,
+    range: `'${eventSheet.replace(/'/g, "''")}'!A:Z`,
   });
   const rows = values.data.values ?? [];
   console.log(`Funnel event rows: ${Math.max(0, rows.length - 1)}`);
   for (const row of rows.slice(1).slice(-20)) {
-    console.log([row[0], row[2], row[5], row[6], row[8]].join(" | "));
+    console.log([row[0], row[2], row[5], row[6], row[8], row[25]].join(" | "));
+  }
+}
+
+if (titles.includes(attemptsSheet)) {
+  const values = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${attemptsSheet.replace(/'/g, "''")}'!A:N`,
+  });
+  const rows = values.data.values ?? [];
+  console.log(`Quiz attempt rows: ${Math.max(0, rows.length - 1)}`);
+  for (const row of rows.slice(1).slice(-20)) {
+    console.log(
+      [row[0], row[1], row[5], row[6], row[8], row[9], row[13]].join(" | "),
+    );
   }
 }
 

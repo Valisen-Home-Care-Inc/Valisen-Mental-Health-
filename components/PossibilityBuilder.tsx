@@ -888,7 +888,7 @@ function NoReliableMatch() {
           Call Valisen
         </TrackedLink>
         <TrackedLink
-          href="/consultation"
+          href={getConsultationRequestUrl(undefined, "possibility_help")}
           event="request_help_opened"
           page="homepage"
           placement="finder_help"

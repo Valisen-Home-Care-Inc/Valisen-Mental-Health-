@@ -240,6 +240,7 @@ describe("dashboard ranges and conversion math", () => {
       completionRate: safeConversionRate(completed, sessions),
       resultViews: completed,
       therapistIntent: 1,
+      consultationCtaRate: safeConversionRate(1, sessions),
       consultationsStarted: 1,
       consultationsSubmitted: 1,
       sessionToConsultationRate: safeConversionRate(1, sessions),

@@ -13,15 +13,17 @@ permanent NFC/QR Mental Battery Checkpoints.
 - **Consultations:** the existing `/consultation` form and
   `POST /api/submit-intake`, including its consent, mandatory phone number,
   Cloudflare Turnstile, honeypot, email, and Google Sheet workflow.
-- **Administration:** `/admin/checkpoints`, protected by Cloudflare Turnstile at
+- **Administration:** `/admin/checkpoints`, `/admin/checkpoints/quiz`, and
+  `/admin/checkpoints/consultations`, protected by Cloudflare Turnstile at
   sign-in plus a signed, eight-hour, HttpOnly admin session. There is no
   registration route.
 - **Deployment:** the existing Next.js application on Netlify. No parallel
   Netlify Function application is introduced.
 
-The checkpoint database is deliberately separate from the existing general
-Google Sheets funnel. Sheets remains the operational consultation store; it is
-not used for transactional checkpoint placement or event uniqueness.
+The checkpoint tables remain deliberately separate from the general site/quiz
+funnel tables. Google Sheets remains a live operational/export mirror, while
+Supabase now provides transactional event uniqueness and the protected,
+consented consultation manager.
 
 ## Routes
 
@@ -288,13 +290,22 @@ landing_view
 checkin_started
 checkin_step_completed
 checkin_completed
+intent_result_only_selected
+intent_practical_suggestions_selected
+intent_explore_therapists_selected
+intent_talk_soon_selected
 result_viewed
 therapist_cta_clicked
+consultation_cta_clicked
+therapist_match_clicked
+therapist_browse_clicked
 consultation_started
 external_booking_clicked
 ```
 
-Those eight names are the complete anonymous-browser allowlist.
+Those 15 names are the complete anonymous-browser allowlist. The four
+`intent_*_selected` names are fixed, non-clinical routing categories for
+question 4; there is no generic answer or metadata property.
 `consultation_submitted` is intentionally absent: only the trusted
 `record_checkpoint_consultation` server RPC can create that conversion after a
 verified consultation request succeeds. A visitor therefore cannot forge the
@@ -316,12 +327,27 @@ browser-tab journey while a valid checkpoint session remains active, including
 the consultation and therapist handoff. The dedicated checkpoint collector is
 the only application telemetry for that journey.
 
-## Questionnaire privacy confirmation
+## Questionnaire and result behaviour
 
-The four answers exist only in `CheckpointExperience` React state. Scoring is
-performed by `calculateBatteryResult()` in the browser. Answers are not written
+Questions 1–3 are the only Mental Battery score inputs. Question 4 asks what
+would feel most useful next and personalizes the result-screen action hierarchy;
+it never changes the wellness result. The three-input score and all four
+selected answers exist only in `CheckpointExperience` React state. Scoring is
+performed by `calculateBatteryResult()` in the browser.
+
+Each selected state remains visible for 325 milliseconds before the next screen
+appears. The question-screen battery responds only to completed score inputs,
+freezes after question 3, and the result battery reveals its final level from
+empty. The fourth screen is visually labelled **One last thing** so the move
+from reflection to next-step preference is clear.
+
+No Q1–Q3 answer, score, result band, or personalized result variant is written
 to `sessionStorage`, URLs, analytics payloads, server requests, Supabase,
-Google Sheets, email, or the consultation handoff.
+Google Sheets, email, or the consultation handoff. For Q4 only, the dedicated
+checkpoint collector records one of four allow-listed categorical event names
+so aggregate next-step preference can be measured. It never receives the raw
+option copy, another answer value, or any score, and the category is not added
+to the consultation handoff.
 
 The PostgreSQL schema intentionally has no answer, score, visitor-provided
 free-text, contact, IP, user-agent, fingerprint, ad-ID, or geolocation-coordinate
@@ -374,8 +400,11 @@ Missing or invalid `CHECKPOINT_ATTRIBUTION_REPAIR_SECRET` configuration is
 logged as an operational error without undoing the already accepted
 consultation.
 
-Names, email addresses, and mandatory phone numbers remain in Valisen's existing
-consented consultation operations, not the anonymous checkpoint database.
+Names, email addresses, and mandatory phone numbers remain in Valisen's
+service-role-only consented consultation operations and never enter the
+anonymous checkpoint event tables. Authorized staff can manually confirm the
+separate consultation-booked and paid-therapy milestones in the consultation
+manager; a Jane click alone is never treated as a booking.
 
 ## Dashboard definitions
 
@@ -386,7 +415,11 @@ conversion percentages remain internally consistent.
 - **Sessions:** anonymous browser-tab sessions.
 - **Check-ins Started:** sessions with `checkin_started`.
 - **Completed Check-ins:** sessions with `checkin_completed`.
-- **Therapist Intent:** sessions with `therapist_cta_clicked`.
+- **Consultation CTA Sessions:** unique cohort sessions choosing the consultation action. New
+  action-specific events separately distinguish consultation, therapist-match,
+  and therapist-browsing clicks while the legacy aggregate remains available
+  for historical continuity. A client that emits both the exact and legacy
+  events still counts once.
 - **Consultations Started:** sessions reaching the existing consultation flow.
 - **Consultations Submitted:** voluntary, successful consultation submissions.
 - **Session → Consultation:** submitted consultations divided by sessions.
@@ -394,6 +427,12 @@ conversion percentages remain internally consistent.
 Relative performance labels require at least 20 sessions. A “strongest” insight
 requires at least 30 sessions and three submitted consultations. Smaller
 samples display **Not enough data yet**.
+
+The core funnel ends at the result view. Consultation, therapist-match, and
+therapist-browsing choices are reported as parallel result-action branches, so
+they are never presented as though every visitor must take them in order. The
+dashboard also reports the four-category Q4 intent mix as unique session counts
+and shares.
 
 The dashboard also reports question-by-question completion for steps 1-4 and
 the exact number of sessions that exited before question 1 or after each

@@ -1,11 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  CHECKPOINT_ACTION_INTENTS,
   CHECKPOINT_CODES,
+  CHECKPOINT_INTENT_QUESTION,
+  CHECKPOINT_QUESTIONS,
+  CHECKPOINT_SCORE_QUESTION_COUNT,
   checkpointPath,
   checkpointPermanentUrl,
   isCheckpointCode,
+  type CheckpointScoreValue,
 } from "@/lib/checkpoints/config";
-import { calculateBatteryResult } from "@/lib/checkpoints/scoring";
+import {
+  calculateBatteryResult,
+  calculatePartialBatteryFill,
+} from "@/lib/checkpoints/scoring";
 import {
   CHECKPOINT_SESSION_STORAGE_KEY,
   getCheckpointSessionStorage,
@@ -13,6 +21,10 @@ import {
   readCheckpointSession,
 } from "@/lib/checkpoints/session";
 import { trackCheckpointEvent } from "@/lib/checkpoints/analytics";
+import {
+  CHECKPOINT_EVENT_NAMES,
+  CHECKPOINT_INTENT_SELECTION_EVENTS,
+} from "@/lib/checkpoints/events";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -93,16 +105,124 @@ describe("anonymous checkpoint sessions", () => {
 
 describe("local-only battery scoring", () => {
   it("returns the four supportive, non-diagnostic result bands", () => {
-    expect(calculateBatteryResult([0, 0, 0, 0]).name).toBe("Charged");
-    expect(calculateBatteryResult([1, 1, 1, 0]).name).toBe("Steady");
-    expect(calculateBatteryResult([2, 2, 1, 1]).name).toBe("Running Low");
-    expect(calculateBatteryResult([3, 3, 3, 3]).name).toBe(
-      "Needs a Recharge",
-    );
+    expect(calculateBatteryResult([0, 0, 0]).name).toBe("Charged");
+    expect(calculateBatteryResult([1, 1, 1]).name).toBe("Steady");
+    expect(calculateBatteryResult([2, 2, 2]).name).toBe("Running Low");
+    expect(calculateBatteryResult([3, 3, 3]).name).toBe("Needs a Recharge");
+  });
+
+  it("keeps the fourth action-intent question outside the score", () => {
+    expect(CHECKPOINT_SCORE_QUESTION_COUNT).toBe(3);
+    expect(CHECKPOINT_QUESTIONS).toHaveLength(4);
+    expect(CHECKPOINT_INTENT_QUESTION).toMatchObject({
+      prompt: "What would feel most useful to you right now?",
+      support: "Choose what you’d genuinely be most open to.",
+    });
+    expect(
+      CHECKPOINT_INTENT_QUESTION.options.map(({ label, detail, value }) => ({
+        label,
+        detail,
+        value,
+      })),
+    ).toEqual([
+      {
+        label: "Just see my result",
+        detail: "I’m mainly curious",
+        value: "result_only",
+      },
+      {
+        label: "A few practical suggestions",
+        detail: "Something I can try on my own",
+        value: "practical_suggestions",
+      },
+      {
+        label: "Explore therapist options",
+        detail: "I’d like to see who could be a fit",
+        value: "explore_therapists",
+      },
+      {
+        label: "Talk to someone soon",
+        detail: "I’d be open to a free consultation",
+        value: "talk_soon",
+      },
+    ]);
+    expect(CHECKPOINT_ACTION_INTENTS).toEqual([
+      "result_only",
+      "practical_suggestions",
+      "explore_therapists",
+      "talk_soon",
+    ]);
+  });
+
+  it("validates three score inputs and keeps partial feedback score-only", () => {
+    expect(() =>
+      calculateBatteryResult([0, 0, 0, 0] as CheckpointScoreValue[]),
+    ).toThrow(/three|3/i);
+    expect(() =>
+      calculateBatteryResult(
+        [0, 1, "talk_soon"] as unknown as CheckpointScoreValue[],
+      ),
+    ).toThrow(/integers/i);
+    expect(calculatePartialBatteryFill([])).toBe(70);
+    expect(calculatePartialBatteryFill([0])).toBe(92);
+    expect(calculatePartialBatteryFill([3])).toBe(20);
+    expect(calculatePartialBatteryFill([1, 1, 1])).toBe(68);
   });
 });
 
 describe("privacy-minimal checkpoint analytics", () => {
+  it("allows only four categorical Q4 intent events and no answer field", async () => {
+    for (const event of [
+      "intent_result_only_selected",
+      "intent_practical_suggestions_selected",
+      "intent_explore_therapists_selected",
+      "intent_talk_soon_selected",
+    ]) {
+      expect(CHECKPOINT_EVENT_NAMES).toContain(event);
+    }
+    expect(CHECKPOINT_INTENT_SELECTION_EVENTS).toEqual({
+      result_only: "intent_result_only_selected",
+      practical_suggestions: "intent_practical_suggestions_selected",
+      explore_therapists: "intent_explore_therapists_selected",
+      talk_soon: "intent_talk_soon_selected",
+    });
+
+    const storage = memoryStorage();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        sessionStorage: storage,
+        crypto: {
+          randomUUID: () => "9a9a9a9a-9328-4ab8-9f20-f29837bcbcd2",
+        },
+      },
+    });
+    const fetchMock = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) =>
+        new Response(null, { status: 204 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await trackCheckpointEvent(
+      {
+        sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+        checkpointCode: "VMH-07",
+      },
+      "intent_talk_soon_selected",
+    );
+
+    const request = fetchMock.mock.calls[0]![1] as RequestInit;
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body).toEqual({
+      eventId: "9a9a9a9a-9328-4ab8-9f20-f29837bcbcd2",
+      sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+      checkpointCode: "VMH-07",
+      event: "intent_talk_soon_selected",
+    });
+    expect(body).not.toHaveProperty("answer");
+    expect(body).not.toHaveProperty("score");
+  });
+
   it("transmits only strict event fields and records a logical event once", async () => {
     const storage = memoryStorage();
     Object.defineProperty(globalThis, "window", {

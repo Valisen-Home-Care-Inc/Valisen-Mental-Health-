@@ -1,4 +1,4 @@
 import { redirect } from "next/navigation";
 export default function BookConsultationPage() {
-  redirect("/consultation");
+  redirect("/consultation?source=legacy_booking");
 }

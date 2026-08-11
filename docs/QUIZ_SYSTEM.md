@@ -33,9 +33,13 @@ a Jane click is treated as a confirmed appointment.
     an older page that was already open.
 4. **Authoritative save**: `POST /api/quiz-lead` validates a complete v5 answer
    set, rejects retired/unknown fields, recalculates the score and match on the
-   server, appends one lead row, and returns an internal reference plus an
-   opaque private-result token. A stable client submission ID makes ordinary
-   retries idempotent.
+   server, and claims a service-role-only Supabase registry row before touching
+   Google Sheets. The registry assigns one stable `VQ-*` reference per client
+   submission ID and fingerprints the immutable result payload. A fenced lease
+   serializes the Sheet append across serverless instances; a retry reconciles
+   an already-appended row by its stable reference instead of appending a
+   duplicate. The API then returns that reference plus an opaque private-result
+   token.
 5. **Transactional email attempts**: after persistence, the API independently
    attempts an internal administrative summary and a visitor results email.
    Email failure produces a warning but does not invalidate or hide an
@@ -168,10 +172,12 @@ The results gate and the contact-help form serve different purposes:
   The in-memory post-submission view pre-fills the phone for phone/text; after a
   private-link restore, the API securely falls back to the phone already stored
   with the lead when the browser does not have it.
-- **Consultation handoff** stages the in-memory first name, email, and mandatory
-  phone in a short-lived, one-time same-tab `sessionStorage` record only when a
-  visitor clicks the consultation CTA. The consultation form consumes and
-  deletes it on arrival. No contact detail is added to the URL or analytics.
+- **Consultation handoff** stages the in-memory first name, email, mandatory
+  phone, and opaque result capability in a short-lived, one-time same-tab
+  `sessionStorage` record only when a visitor clicks the consultation CTA. The
+  consultation form consumes and deletes it on arrival. The server verifies
+  the capability before linking the quiz and consultation references. No
+  contact detail or capability is added to the URL or analytics.
 
 The lead must be durably saved before the result is revealed. The returned raw
 submission token is kept in browser `sessionStorage`; only its hash is stored
@@ -282,10 +288,14 @@ dashboard; a Jane click that happens later is persisted on the lead row but
 does not retroactively change an already-delivered email.
 
 Each email path has its own persistent pending/sending/sent/failed claim and
-attempt state. A saved result remains available if either initial email fails.
-SMTP cannot guarantee mathematical exactly-once delivery after an ambiguous
-network failure, so operators should use the internal reference when resolving
-rare delivery ambiguity.
+attempt state. The internal and visitor result-email claims are authoritative in
+Supabase and use a lease plus fenced completion token across serverless
+instances; their Sheet columns are a reconciliation mirror. Contact-help uses
+the corresponding durable consultation-request claim. A saved result remains
+available if either initial email fails. SMTP still cannot guarantee
+mathematical exactly-once delivery if the provider accepts a message and the
+process dies before either durable completion marker is written, so operators
+should use the internal reference when resolving rare delivery ambiguity.
 
 ## Campaign attribution
 
@@ -333,8 +343,11 @@ The implementation also emits the existing supporting events
 `therapist_directory_clicked`.
 
 The analytics API has no generic property escape hatch. Depending on the
-event, it can emit only quiz step, intent enum, therapist ID, allow-listed CTA
-placement, submission reference, campaign source/name, and device category.
+event, it can emit only quiz step, therapist ID, allow-listed CTA placement,
+submission reference, safe campaign source/medium/name/content, and device
+category. The selected Q19 intent is a fixed four-value enum sent only on the
+dedicated `quiz_intent_selected` event to Valisen's first-party collector; the
+enum is deliberately omitted from GTM/dataLayer.
 It cannot represent answers, scores, result/concern categories, safety
 responses, written messages, names, email addresses, or phone numbers.
 
@@ -358,8 +371,25 @@ while the browser also emits `contact_help_submitted` to the data layer.
 
 ## Persistence model
 
-Quiz records use a dedicated Google Sheets worksheet (default: **Quiz Leads**)
-through the existing service account. They never mix with general intake rows.
+Quiz payload records use a dedicated Google Sheets worksheet (default:
+**Quiz Leads**) through the existing service account. They never mix with
+general intake rows. The worksheet remains the payload store during this
+transition, but it is no longer the cross-instance uniqueness or delivery-lock
+authority.
+
+Supabase contains three service-role-only, privacy-separated structures:
+
+- `quiz_result_submissions` maps one client submission ID to one stable `VQ-*`
+  reference, an immutable SHA-256 payload fingerprint, Sheet reconciliation
+  state/row number, and a fenced storage lease. It contains no contact details,
+  answers, score, safety response, or free text.
+- `quiz_result_email_deliveries` stores one durable claim per `VQ-*` reference
+  and delivery kind (`internal_results` or `visitor_results`). It contains only
+  operational delivery state, lease tokens, attempts, and timestamps.
+- `quiz_lead_links` stores the `VQ-*` reference, quiz/scoring versions,
+  anonymous funnel session and attempt, intent, and recommended therapist. It
+  powers `/admin/checkpoints/quiz` without mixing anonymous behavior with the
+  consented Sheet payload.
 
 Persistence is append-oriented in two distinct ways:
 
@@ -436,6 +466,9 @@ See `.env.example`.
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, and
   `GOOGLE_SHEET_ID`: required for quiz persistence and the existing general
   intake integration.
+- `SUPABASE_URL` plus `SUPABASE_SECRET_KEY` (or the legacy
+  `SUPABASE_SERVICE_ROLE_KEY`): required for the stable quiz registry,
+  cross-instance Sheet lease, delivery claims, funnel attribution, and CRM.
 - `QUIZ_LEADS_SHEET_NAME`: optional dedicated worksheet name; defaults to
   `Quiz Leads`.
 - `QUIZ_LEAD_TOKEN_SECRET`: production HMAC secret for opaque private-result,
@@ -468,7 +501,8 @@ key. There is intentionally no Jane webhook or booking-confirmation secret.
   properties or Jane URL parameters.
 - The quiz-to-consultation contact prefill is written only on a consultation
   CTA click, expires after 15 minutes, and is deleted as soon as the
-  consultation page reads it.
+  consultation page reads it. Its private capability is submitted only in the
+  consultation JSON body and is never stored in analytics or the CRM.
 - Results access records express, versioned, purpose-limited authorization for
   Valisen staff and the recommended/matched therapist to contact the visitor,
   and for Valisen to share the contact details and relevant quiz summary with
@@ -476,13 +510,20 @@ key. There is intentionally no Jane webhook or booking-confirmation secret.
 - No proposed scheduling times, time zone, or optional message are recorded or
   emailed before the visitor submits the separate unchecked scheduling
   acknowledgement.
-- The private result API is body-only POST, rejects query strings and extra
-  fields, is rate-limited and `no-store`; the opaque token is hashed at rest.
+- The private result API is a same-origin, body-only POST that rejects query
+  strings and extra fields, is rate-limited and `no-store`; the opaque token is
+  hashed at rest. It returns the already-consented email and phone only through
+  that capability-protected response so a restored result can restage the
+  short-lived consultation autofill.
 - The PDF endpoint is `POST`-only, rejects query strings and extra fields, is
   rate-limited and `no-store`, and builds its model without name, email, phone,
   raw answers, contact preferences, or free-text messages.
-- Strict payload limits, allow-lists, honeypots, per-IP rate limits, claim
-  leases, stable submission IDs, and keyed locks reduce abuse and duplicates.
+- The results-access and contact-help writes execute invisible Cloudflare
+  Turnstile challenges only on valid submission and verify distinct expected
+  actions on the server. Failed or expired challenges reset before retry.
+- Strict streaming payload limits, same-origin checks, allow-lists, honeypots,
+  per-IP rate limits, durable claim leases, stable submission IDs, payload
+  fingerprints, and fenced completions reduce abuse and duplicates.
 - Server logs use internal references and error classes rather than submitted
   contact details or quiz answers.
 - A storage failure keeps the browser's in-memory answers available for retry.
@@ -522,11 +563,13 @@ test storage/mail adapters.
 - **Operational**: verify worksheet migration on a copy of the live header,
   configure a production token secret, test all three email paths, and treat
   Jane click counts as outbound interest rather than completed bookings.
-- **Hosting/idempotency**: the browser guard, stable submission ID, and keyed
-  server lock prevent ordinary retries and same-process races. If the route can
-  run concurrently on multiple serverless instances, add an external atomic
-  uniqueness/lock mechanism before relying on strict cross-instance
-  exactly-once Google Sheets appends.
+- **Hosting/idempotency**: apply the unified growth CRM migration before the
+  application deploy. Verify that concurrent requests with one client
+  submission ID receive the same `VQ-*` reference, that the loser receives a
+  retriable `202` while the storage lease is active, and that an append-success/
+  completion-failure retry reconciles the existing Sheet row rather than
+  appending another one. Supabase is the exact identity/claim authority; the
+  Sheet status columns are reconciliation mirrors.
 - **Email recovery**: configure operational monitoring or a durable retry job
   for transactional-email failures; the current persisted failed state retries
   when the same idempotent submission or scheduling request is sent again.

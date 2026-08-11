@@ -8,7 +8,7 @@ import { formatTherapySession, type Therapist } from "@/lib/therapists";
 
 export default function TherapistCard({ therapist }: { therapist: Therapist }) {
   const firstName = therapist.name.split(" ")[0];
-  const intakeHref = getTherapistIntakeUrl(therapist.slug);
+  const intakeHref = getTherapistIntakeUrl(therapist.slug, "therapist_card");
 
   return (
     <article

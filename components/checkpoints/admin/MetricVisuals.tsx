@@ -1,7 +1,9 @@
 import type {
   CheckpointFunnelStage,
+  CheckpointIntentMetric,
   CheckpointPerformance,
   CheckpointQuestionStepMetric,
+  CheckpointResultActionMetric,
 } from "@/lib/checkpoints/dashboardMetrics";
 
 export function formatCount(value: number): string {
@@ -129,6 +131,68 @@ export function FunnelVisual({ stages }: { stages: CheckpointFunnelStage[] }) {
   );
 }
 
+const RESULT_ACTION_LABELS: Record<CheckpointResultActionMetric["key"], string> = {
+  consultation_cta: "Consultation CTA",
+  therapist_match: "Therapist match",
+  therapist_browse: "Browse therapists",
+  any_action: "Any next step",
+};
+
+const INTENT_LABELS: Record<CheckpointIntentMetric["intent"], string> = {
+  result_only: "Just see my result",
+  practical_suggestions: "Practical suggestions",
+  explore_therapists: "Explore therapists",
+  talk_soon: "Talk to someone soon",
+};
+
+export function CheckpointSegmentation({
+  actions,
+  intents,
+}: {
+  actions: CheckpointResultActionMetric[];
+  intents: CheckpointIntentMetric[];
+}) {
+  return (
+    <div className="grid gap-5 xl:grid-cols-2">
+      <article className="rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6">
+        <p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#64827d]">Result actions</p>
+        <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.5px]">What visitors chose next</h2>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          {actions.map((action) => (
+            <div key={action.key} className="rounded-[13px] bg-[#f6f8f6] p-3.5">
+              <p className="text-[10px] font-semibold text-[#667570]">{RESULT_ACTION_LABELS[action.key]}</p>
+              <div className="mt-2 flex items-end justify-between gap-3">
+                <p className="text-[22px] font-semibold tabular-nums text-[#293a36]">{formatCount(action.count)}</p>
+                <p className="text-[10px] font-semibold tabular-nums text-[#47756e]">{formatPercent(action.sessionRate)} of sessions</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[10px] leading-4 text-[#87918e]">Unique sessions per action. These are branches, so they are not forced into a linear funnel.</p>
+      </article>
+
+      <article className="rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6">
+        <p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#9a704f]">Q4 intent mix</p>
+        <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.5px]">What felt most useful</h2>
+        <div className="mt-5 space-y-3">
+          {intents.map((intent) => (
+            <div key={intent.intent}>
+              <div className="flex items-center justify-between gap-3 text-[10.5px]">
+                <span className="font-medium text-[#52615e]">{INTENT_LABELS[intent.intent]}</span>
+                <span className="font-semibold tabular-nums text-[#805d42]">{formatCount(intent.count)} · {formatPercent(intent.share)}</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#eee8e1]">
+                <div className="h-full rounded-full bg-gradient-to-r from-[#d9a57f] to-[#9b6a47]" style={{ width: `${Math.min(100, Math.max(0, intent.share))}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[10px] leading-4 text-[#87918e]">Percentages are the mix among Q4 selections. Only the four category names are stored; wellness answers remain on-device.</p>
+      </article>
+    </div>
+  );
+}
+
 export function QuestionStepVisual({
   steps,
   completedCheckIns,
@@ -219,7 +283,7 @@ const FUNNEL_LABELS: Record<string, string> = {
   checkin_started: "Check-in Started",
   checkin_completed: "Check-in Completed",
   result_viewed: "Result Viewed",
-  therapist_cta_clicked: "Therapist CTA",
+  therapist_cta_clicked: "Consultation CTA clicks",
   consultation_started: "Consultation Started",
   consultation_submitted: "Consultation Submitted",
 };

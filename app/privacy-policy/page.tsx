@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 const EFFECTIVE_DATE = "July 26, 2026";
-const LAST_UPDATED = "August 6, 2026";
+const LAST_UPDATED = "August 10, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -99,8 +99,10 @@ export default function PrivacyPolicyPage() {
                   When you continue directly from a quiz result to a consultation request, the
                   first name, email address, and phone number you already provided may also be
                   placed briefly in same-tab <code>sessionStorage</code> to prefill that form. The
-                  consultation form consumes and removes this one-time handoff, and the details
-                  are never placed in its URL or analytics events.
+                  one-time handoff may also contain an opaque private token used by our server to
+                  link the consultation to the correct quiz record. The consultation form consumes
+                  and removes the handoff, and neither the details nor token are placed in its URL
+                  or analytics events.
                 </li>
                 <li>
                   Records of privacy acknowledgements and optional scheduling-help requests,
@@ -113,6 +115,12 @@ export default function PrivacyPolicyPage() {
                   consultation CTA clicks, form step reached, results views, and secondary Jane
                   link clicks. These events do not contain quiz answers, contact details, concern
                   categories, scores, or free-text messages
+                </li>
+                <li>
+                  Operational consultation follow-up records, such as whether a request is new,
+                  being coordinated, booked, closed without conversion, or has progressed to paid
+                  therapy. Booking and paid-therapy milestones are confirmed by authorized staff;
+                  a click on an external Jane link is not treated as a confirmed booking
                 </li>
                 <li>Insurance provider information (if applicable)</li>
                 <li>Communication preferences</li>
@@ -269,7 +277,7 @@ export default function PrivacyPolicyPage() {
                 <li>Encrypted data transmission (TLS/HTTPS) for all web communications</li>
                 <li>Secure, access-controlled systems</li>
                 <li>Role-based access so only authorized administrative staff can view intake records</li>
-                <li>Cloudflare Turnstile verification, server-side validation, honeypots, origin checks, payload limits, and rate limits on consultation submissions and private checkpoint-admin sign-in</li>
+                <li>Cloudflare Turnstile verification, server-side validation, honeypots, origin checks, payload limits, and rate limits on quiz results-access requests, quiz scheduling-help requests, consultation submissions, and private checkpoint-admin sign-in</li>
                 <li>Confidentiality agreements with all staff and contractors</li>
               </ul>
             </Section>
@@ -305,7 +313,10 @@ export default function PrivacyPolicyPage() {
                   check-in answers and the resulting battery score are calculated in your browser
                   and are not sent to or stored by Valisen. We record only allow-listed journey
                   events, such as starting, completing a step, viewing the result, or choosing a
-                  therapist-support option. These events use a random identifier kept for the
+                  therapist-support option. For the final “what would help” question only, we
+                  record one of four fixed next-step categories so we can understand aggregate
+                  preference; we do not record the first three answers, the score, or free text.
+                  These events use a random identifier kept for the
                   current browser tab and may include the permanent checkpoint and active
                   placement identifiers. They do not include names, contact details, answers,
                   free text, IP addresses, full user agents, device fingerprints, advertising
@@ -326,10 +337,11 @@ export default function PrivacyPolicyPage() {
                 <li>
                   <strong className="text-ink">First-party funnel measurement:</strong> A random
                   session identifier and sequence number let us update a session summary and an
-                  event log in our access-controlled Google Sheet. This shows the last page, quiz
-                  question, or consultation step reached and whether a consultation CTA or
-                  secondary Jane link was clicked. The event endpoint rejects contact information,
-                  quiz answers, scores, safety answers, and written messages.
+                  event log in access-controlled operational storage, with an access-controlled
+                  Google Sheet retained as a live reporting and export mirror. This shows the last
+                  page, quiz question, or consultation step reached and whether a consultation CTA
+                  or secondary Jane link was clicked. The event endpoint rejects contact
+                  information, quiz answers, scores, safety answers, and written messages.
                 </li>
               </ul>
               <p className="mt-3">

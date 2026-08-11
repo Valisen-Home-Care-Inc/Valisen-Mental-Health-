@@ -4,62 +4,20 @@
  * Intent changes only the order and wording of the conversion journey. It is
  * deliberately separate from quiz scoring and therapist matching.
  */
-import { getResultContent, type QuizOutcome } from "@/lib/quiz";
+import type { QuizOutcome } from "@/lib/quiz";
 import type { MatchReason } from "@/lib/matching";
 import type { Therapist } from "@/lib/therapists";
+import type { QuizIntent } from "@/lib/quizIntentContract";
 
-export const QUIZ_INTENT_VALUES = [
-  "ready_to_speak",
-  "brief_consultation",
-  "see_recommended_therapist",
-  "exploring",
-] as const;
-
-export type QuizIntent = (typeof QUIZ_INTENT_VALUES)[number];
-
-export type QuizIntentOption = {
-  value: QuizIntent;
-  label: string;
-  description: string;
-};
-
-export const QUIZ_INTENT_OPTIONS: readonly QuizIntentOption[] = [
-  {
-    value: "ready_to_speak",
-    label: "I’m ready to speak with a therapist",
-    description: "Help me choose a time and get started.",
-  },
-  {
-    value: "brief_consultation",
-    label: "I’d like a brief consultation first",
-    description: "I want to ask questions and see whether therapy feels right.",
-  },
-  {
-    value: "see_recommended_therapist",
-    label: "I want to see my recommended therapist",
-    description: "Show me who may fit my concerns and preferences.",
-  },
-  {
-    value: "exploring",
-    label: "I’m just exploring right now",
-    description: "I mainly want to understand my results.",
-  },
-] as const;
-
-export const QUIZ_INTENT_LABELS: Record<QuizIntent, string> = Object.fromEntries(
-  QUIZ_INTENT_OPTIONS.map((option) => [option.value, option.label]),
-) as Record<QuizIntent, string>;
-
-export function isQuizIntent(value: unknown): value is QuizIntent {
-  return (
-    typeof value === "string" &&
-    (QUIZ_INTENT_VALUES as readonly string[]).includes(value)
-  );
-}
-
-export function getQuizIntentLabel(intent: QuizIntent): string {
-  return QUIZ_INTENT_LABELS[intent];
-}
+export {
+  getQuizIntentLabel,
+  isQuizIntent,
+  QUIZ_INTENT_LABELS,
+  QUIZ_INTENT_OPTIONS,
+  QUIZ_INTENT_VALUES,
+  type QuizIntent,
+  type QuizIntentOption,
+} from "@/lib/quizIntentContract";
 
 export type IntentRoutePresentation = {
   eyebrow: string;
@@ -192,7 +150,14 @@ export function getResultMatchReasons(
   }
 
   const firstName = therapist.name.split(/\s+/)[0];
-  const resultHeading = getResultContent(outcome).heading;
+  const resultHeading = ({
+    worry: "Worry and tension seem to be taking up the most space",
+    mood: "Low mood and lost motivation seem to be weighing heaviest",
+    stress: "Stress and exhaustion seem to be at the centre of it",
+    relationships: "Strain in your relationships seems to be weighing heaviest",
+    mixed: "A few things are competing for your attention at once",
+    mild: "You may be steadier right now than you expected",
+  } satisfies Record<QuizOutcome["resultKey"], string>)[outcome.resultKey];
   return [
     ...displayed,
     {

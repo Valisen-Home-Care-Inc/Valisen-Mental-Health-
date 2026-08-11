@@ -12,6 +12,7 @@ import {
   readBoundedJson,
 } from "@/lib/server/httpRequestSecurity";
 import { isRateLimited } from "@/lib/server/rateLimit";
+import { repairConsultationRequestAttribution } from "@/lib/server/growthRepository";
 
 export const runtime = "nodejs";
 
@@ -108,6 +109,21 @@ export async function POST(request: NextRequest) {
     claim.referenceId,
   );
   if (!checkpoint.saved) {
+    return response(503, { ok: false, retryable: true }, 3);
+  }
+
+  try {
+    const crmRepair = await repairConsultationRequestAttribution(
+      claim.referenceId,
+    );
+    if (!crmRepair.accepted || !crmRepair.verified) {
+      return response(503, { ok: false, retryable: true }, 3);
+    }
+  } catch (error) {
+    console.warn(
+      "checkpoint-attribution-retry: CRM attribution repair failed",
+      error instanceof Error ? error.name : "unknown",
+    );
     return response(503, { ok: false, retryable: true }, 3);
   }
 

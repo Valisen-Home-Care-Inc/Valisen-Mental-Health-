@@ -2,9 +2,10 @@ import {
   CLINIC_JANE_BOOKING_URL,
   getTherapistConsultationUrl,
 } from "@/lib/therapistBooking";
+import { isConsultationSourceDetail } from "@/lib/consultationCrm";
 
 export const JANE_BOOKING_URL = CLINIC_JANE_BOOKING_URL;
-export const MATCHING_FORM_URL = "/consultation";
+export const MATCHING_FORM_URL = "/consultation?source=website";
 export const MATCHING_CTA_LABEL = "Book Free Consultation";
 export const CONSULTATION_CTA_LABEL = "Book a Free Consultation";
 export const INTAKE_NOTE =
@@ -64,8 +65,11 @@ export function isSpecificTherapistSlug(
  * Falls back to the clinic-wide Jane page when a therapist has no
  * confirmed individual link.
  */
-export function getTherapistIntakeUrl(slug: string): string {
-  return getConsultationRequestUrl(slug);
+export function getTherapistIntakeUrl(
+  slug: string,
+  source = "therapist_profile",
+): string {
+  return getConsultationRequestUrl(slug, source);
 }
 
 /**
@@ -85,13 +89,10 @@ export function getConsultationRequestUrl(
     params.set("therapist", therapistSlug);
   }
   if (source) {
-    const cleanedSource = source
-      .replace(/[^a-z0-9_-]/gi, "")
-      .slice(0, 40);
-    if (cleanedSource) params.set("source", cleanedSource);
+    params.set("source", isConsultationSourceDetail(source) ? source : "website");
   }
   const query = params.toString();
-  return query ? `${MATCHING_FORM_URL}?${query}` : MATCHING_FORM_URL;
+  return query ? `/consultation?${query}` : MATCHING_FORM_URL;
 }
 
 /** The verified Jane destination for the secondary, immediate-booking path. */

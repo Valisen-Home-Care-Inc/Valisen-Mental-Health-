@@ -7,16 +7,12 @@
  * information cannot be represented by this API.
  */
 
-import type { QuizIntent } from "@/lib/quizIntent";
+import { isQuizIntent, type QuizIntent } from "@/lib/quizIntentContract";
 import {
   captureCampaignAttribution,
   type CampaignAttribution,
 } from "@/lib/campaignAttribution";
 import { recordFirstPartyFunnelEvent } from "@/lib/funnelTracking";
-import {
-  getCheckpointSessionStorage,
-  readCheckpointSession,
-} from "@/lib/checkpoints/session";
 
 export type QuizEvent =
   | "quiz_page_viewed"
@@ -131,6 +127,7 @@ export type SafeFunnelEventProperties = {
   finderUsed?: boolean;
   funnelStep?: number;
   funnelCompleted?: boolean;
+  submissionReference?: string;
   attribution?: CampaignAttribution;
 };
 
@@ -142,16 +139,37 @@ export type SafeQuizEventProperties = {
   profileLinkPlacement?: TherapistProfileLinkPlacement;
   submissionReference?: string;
   campaignSource?: string;
+  campaignMedium?: string;
   campaignName?: string;
+  campaignContent?: string;
   deviceCategory?: DeviceCategory;
 };
 
 type DataLayerWindow = Window & { dataLayer?: Record<string, unknown>[] };
 
 const firedViewEvents = new Set<string>();
+let activeQuizAttemptId: string | undefined;
 
-function hasActiveCheckpointSession(): boolean {
-  return Boolean(readCheckpointSession(getCheckpointSessionStorage()));
+/** Starts a distinct, anonymous questionnaire attempt within the browser tab. */
+export function beginQuizAttempt(): string {
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  activeQuizAttemptId = `qa-${suffix}`;
+  return activeQuizAttemptId;
+}
+
+export function getActiveQuizAttemptId(): string | undefined {
+  return activeQuizAttemptId;
+}
+
+function isCheckpointRoute(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.location.pathname === "/c" ||
+    window.location.pathname.startsWith("/c/")
+  );
 }
 
 function cleanEventValue(
@@ -179,24 +197,35 @@ export function trackQuizEvent(
   propertiesOrStep: SafeQuizEventProperties | number = {},
 ) {
   if (typeof window === "undefined") return;
-  if (hasActiveCheckpointSession()) return;
+  if (isCheckpointRoute()) return;
   const properties: SafeQuizEventProperties =
     typeof propertiesOrStep === "number"
       ? { quizStep: propertiesOrStep }
       : propertiesOrStep;
 
-  const payload: Record<string, unknown> = { event };
+  const marketingPayload: Record<string, unknown> = { event };
+  const firstPartyPayload: Record<string, unknown> = { event };
+  if (activeQuizAttemptId) {
+    firstPartyPayload.quiz_attempt_id = activeQuizAttemptId;
+  }
+  // Intent is a four-value, non-clinical routing category. Keep it in the
+  // private first-party stream only; it must never be copied to GTM.
+  if (event === "quiz_intent_selected" && isQuizIntent(properties.intent)) {
+    firstPartyPayload.quiz_intent = properties.intent;
+  }
   if (
     typeof properties.quizStep === "number" &&
     Number.isInteger(properties.quizStep) &&
     properties.quizStep >= 0
   ) {
-    payload.quiz_step = properties.quizStep;
+    marketingPayload.quiz_step = properties.quizStep;
+    firstPartyPayload.quiz_step = properties.quizStep;
   }
-  if (properties.intent) payload.quiz_intent = properties.intent;
 
   const therapistId = cleanEventValue(properties.therapistId, 80);
-  if (therapistId) payload.therapist_id = therapistId;
+  // A recommended therapist and an internal lead reference are operational
+  // attribution, not advertising data. Keep both out of the shared GTM layer.
+  if (therapistId) firstPartyPayload.therapist_id = therapistId;
 
   if (
     properties.ctaPlacement &&
@@ -204,7 +233,8 @@ export function trackQuizEvent(
       properties.ctaPlacement,
     )
   ) {
-    payload.cta_placement = properties.ctaPlacement;
+    marketingPayload.cta_placement = properties.ctaPlacement;
+    firstPartyPayload.cta_placement = properties.ctaPlacement;
   }
 
   if (
@@ -213,26 +243,46 @@ export function trackQuizEvent(
       properties.profileLinkPlacement,
     )
   ) {
-    payload.profile_link_placement = properties.profileLinkPlacement;
+    marketingPayload.profile_link_placement = properties.profileLinkPlacement;
+    firstPartyPayload.profile_link_placement = properties.profileLinkPlacement;
   }
 
   const reference = cleanEventValue(properties.submissionReference, 40);
-  if (reference) payload.quiz_submission_reference = reference;
+  if (reference) firstPartyPayload.quiz_submission_reference = reference;
 
   const source = cleanEventValue(properties.campaignSource);
-  if (source) payload.campaign_source = source;
+  if (source) {
+    marketingPayload.campaign_source = source;
+    firstPartyPayload.campaign_source = source;
+  }
+
+  const medium = cleanEventValue(properties.campaignMedium);
+  if (medium) {
+    marketingPayload.utm_medium = medium;
+    firstPartyPayload.utm_medium = medium;
+  }
 
   const campaign = cleanEventValue(properties.campaignName);
-  if (campaign) payload.campaign_name = campaign;
+  if (campaign) {
+    marketingPayload.campaign_name = campaign;
+    firstPartyPayload.campaign_name = campaign;
+  }
+
+  const content = cleanEventValue(properties.campaignContent);
+  if (content) {
+    marketingPayload.utm_content = content;
+    firstPartyPayload.utm_content = content;
+  }
 
   if (properties.deviceCategory) {
-    payload.device_category = properties.deviceCategory;
+    marketingPayload.device_category = properties.deviceCategory;
+    firstPartyPayload.device_category = properties.deviceCategory;
   }
 
   const w = window as DataLayerWindow;
   w.dataLayer = w.dataLayer || [];
-  w.dataLayer.push(payload);
-  recordFirstPartyFunnelEvent(event, { ...payload, page: "quiz" });
+  w.dataLayer.push(marketingPayload);
+  recordFirstPartyFunnelEvent(event, { ...firstPartyPayload, page: "quiz" });
 }
 
 /**
@@ -245,26 +295,30 @@ export function trackFunnelEvent(
   properties: SafeFunnelEventProperties,
 ) {
   if (typeof window === "undefined") return;
-  if (hasActiveCheckpointSession()) return;
+  if (isCheckpointRoute()) return;
 
   const attribution =
     properties.attribution ?? captureCampaignAttribution(window.location.search);
-  const payload: Record<string, unknown> = {
+  const marketingPayload: Record<string, unknown> = {
     event,
     page: properties.page,
     device_category: getDeviceCategory(),
   };
+  const firstPartyPayload: Record<string, unknown> = { ...marketingPayload };
 
   if (properties.ctaPlacement) {
-    payload.cta_placement = properties.ctaPlacement;
+    marketingPayload.cta_placement = properties.ctaPlacement;
+    firstPartyPayload.cta_placement = properties.ctaPlacement;
   }
   const therapistId = cleanEventValue(properties.therapistId, 80);
-  if (therapistId) payload.therapist_id = therapistId;
+  if (therapistId) firstPartyPayload.therapist_id = therapistId;
   if (properties.landingPageVariant) {
-    payload.landing_page_variant = properties.landingPageVariant;
+    marketingPayload.landing_page_variant = properties.landingPageVariant;
+    firstPartyPayload.landing_page_variant = properties.landingPageVariant;
   }
   if (typeof properties.finderUsed === "boolean") {
-    payload.finder_used = properties.finderUsed;
+    marketingPayload.finder_used = properties.finderUsed;
+    firstPartyPayload.finder_used = properties.finderUsed;
   }
   if (
     typeof properties.funnelStep === "number" &&
@@ -272,25 +326,34 @@ export function trackFunnelEvent(
     properties.funnelStep >= 1 &&
     properties.funnelStep <= 3
   ) {
-    payload.funnel_step = properties.funnelStep;
+    marketingPayload.funnel_step = properties.funnelStep;
+    firstPartyPayload.funnel_step = properties.funnelStep;
   }
   if (typeof properties.funnelCompleted === "boolean") {
-    payload.funnel_completed = properties.funnelCompleted;
+    marketingPayload.funnel_completed = properties.funnelCompleted;
+    firstPartyPayload.funnel_completed = properties.funnelCompleted;
+  }
+  const submissionReference = cleanEventValue(
+    properties.submissionReference,
+    40,
+  );
+  if (submissionReference) {
+    firstPartyPayload.quiz_submission_reference = submissionReference;
   }
 
   const source = cleanEventValue(attribution.source);
   const medium = cleanEventValue(attribution.medium);
   const campaign = cleanEventValue(attribution.campaign);
   const content = cleanEventValue(attribution.content);
-  if (source) payload.utm_source = source;
-  if (medium) payload.utm_medium = medium;
-  if (campaign) payload.utm_campaign = campaign;
-  if (content) payload.utm_content = content;
+  if (source) marketingPayload.utm_source = firstPartyPayload.utm_source = source;
+  if (medium) marketingPayload.utm_medium = firstPartyPayload.utm_medium = medium;
+  if (campaign) marketingPayload.utm_campaign = firstPartyPayload.utm_campaign = campaign;
+  if (content) marketingPayload.utm_content = firstPartyPayload.utm_content = content;
 
   const w = window as DataLayerWindow;
   w.dataLayer = w.dataLayer || [];
-  w.dataLayer.push(payload);
-  recordFirstPartyFunnelEvent(event, payload);
+  w.dataLayer.push(marketingPayload);
+  recordFirstPartyFunnelEvent(event, firstPartyPayload);
 }
 
 export function trackFunnelViewOnce(

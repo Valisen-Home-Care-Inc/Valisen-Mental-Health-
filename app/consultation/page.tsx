@@ -27,6 +27,10 @@ import NavBar from "@/components/NavBar";
 import TrackedLink from "@/components/TrackedLink";
 import TurnstileWidget from "@/components/TurnstileWidget";
 import { trackFunnelEvent } from "@/lib/analytics";
+import {
+  captureCampaignAttribution,
+  type CampaignAttribution,
+} from "@/lib/campaignAttribution";
 import { trackCheckpointEvent } from "@/lib/checkpoints/analytics";
 import {
   checkpointAttributionRetryDelay,
@@ -59,6 +63,7 @@ import {
   getSecondaryJaneUrl,
   type SpecificTherapistSlug,
 } from "@/lib/intake";
+import { getFirstPartyFunnelSessionId } from "@/lib/funnelTracking";
 
 type FormStep = 1 | 2;
 type CheckpointAttributionStatus =
@@ -200,6 +205,9 @@ export default function ConsultationPage() {
   const checkpointRetryAllowedRef = useRef(true);
   const checkpointRetryAbortRef = useRef<AbortController | null>(null);
   const checkpointRepairMountedRef = useRef(false);
+  const quizSubmissionTokenRef = useRef<string | null>(null);
+  const funnelSessionIdRef = useRef<string | null>(null);
+  const attributionRef = useRef<CampaignAttribution>({});
 
   const markCheckpointAttributionSaved = useCallback(() => {
     const storage = getCheckpointSessionStorage();
@@ -322,7 +330,11 @@ export default function ConsultationPage() {
     if (checkpointSession) {
       setCheckpointContext(checkpointSession);
       void trackCheckpointEvent(checkpointSession, "consultation_started");
+    } else {
+      funnelSessionIdRef.current = getFirstPartyFunnelSessionId() ?? null;
+      attributionRef.current = captureCampaignAttribution(window.location.search);
     }
+    quizSubmissionTokenRef.current = prefill?.submissionToken ?? null;
     setData((current) => ({
       ...current,
       preferredTherapist: preferredTherapist || current.preferredTherapist,
@@ -546,6 +558,12 @@ export default function ConsultationPage() {
           consentLanguage: CONSENT_TEXT,
           consentVersion: CONSENT_VERSION,
           source,
+          quizSubmissionToken: quizSubmissionTokenRef.current ?? undefined,
+          funnelSessionId: funnelSessionIdRef.current ?? undefined,
+          attribution:
+            Object.keys(attributionRef.current).length > 0
+              ? attributionRef.current
+              : undefined,
           checkpointAttribution: checkpointContext
             ? attributionFromCheckpointSession(checkpointContext)
             : undefined,
@@ -554,9 +572,10 @@ export default function ConsultationPage() {
         }),
       });
       const body = (await response.json().catch(() => null)) as
-        | {
+          | {
             ok?: boolean;
             error?: string;
+            referenceId?: string;
             checkpointAttributionSaved?: boolean;
             checkpointAttributionRepairToken?: string;
           }
@@ -570,6 +589,7 @@ export default function ConsultationPage() {
         ctaPlacement: "consultation_primary",
         funnelStep: 2,
         funnelCompleted: true,
+        submissionReference: body.referenceId,
       });
       if (checkpointContext) {
         if (body.checkpointAttributionSaved === true) {

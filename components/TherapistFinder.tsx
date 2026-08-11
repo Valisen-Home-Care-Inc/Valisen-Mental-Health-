@@ -249,7 +249,7 @@ export default function TherapistFinder({
                       Compare other therapists
                     </a>
                     <Link
-                      href="/consultation"
+                      href={getConsultationRequestUrl(undefined, "finder_help")}
                       onClick={() =>
                         trackFunnelEvent("request_help_opened", {
                           page,
@@ -507,7 +507,7 @@ function NoMatchResult({ page }: { page: FinderPage }) {
         the clinic can help you decide without creating a false match.
       </p>
       <TrackedLink
-        href="/consultation"
+        href={getConsultationRequestUrl(undefined, "finder_help")}
         event="request_help_opened"
         page={page}
         placement="finder_help"

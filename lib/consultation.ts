@@ -54,6 +54,15 @@ export type ConsultationPrefill = {
   firstName: string;
   email: string;
   phone: string;
+  /**
+   * Opaque quiz-result capability used only for the server-verified
+   * quiz-to-consultation link. Legacy v1 handoffs do not contain one.
+   */
+  submissionToken?: string;
+};
+
+export type QuizConsultationPrefill = ConsultationPrefill & {
+  submissionToken: string;
 };
 
 type ConsultationPrefillStorage = Pick<
@@ -62,8 +71,10 @@ type ConsultationPrefillStorage = Pick<
 >;
 
 const CONSULTATION_PREFILL_STORAGE_KEY = "valisen.consultation.prefill";
-const CONSULTATION_PREFILL_VERSION = 1;
+const CONSULTATION_PREFILL_VERSION = 2;
+const LEGACY_CONSULTATION_PREFILL_VERSION = 1;
 const CONSULTATION_PREFILL_MAX_AGE_MS = 15 * 60 * 1000;
+const QUIZ_SUBMISSION_TOKEN_PATTERN = /^[A-Za-z0-9._-]{32,256}$/;
 
 function cleanSingleLine(value: unknown, maxLength: number): string {
   if (typeof value !== "string") return "";
@@ -81,7 +92,7 @@ function cleanSingleLine(value: unknown, maxLength: number): string {
  */
 export function stageConsultationPrefill(
   storage: ConsultationPrefillStorage,
-  details: ConsultationPrefill,
+  details: QuizConsultationPrefill,
   now = Date.now(),
 ): boolean {
   try {
@@ -92,10 +103,12 @@ export function stageConsultationPrefill(
   const firstName = cleanSingleLine(details.firstName, 80);
   const email = cleanSingleLine(details.email, 254).toLowerCase();
   const phone = cleanSingleLine(details.phone, 30);
+  const submissionToken = details.submissionToken;
   if (
     !firstName ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    !isValidConsultationPhone(phone)
+    !isValidConsultationPhone(phone) ||
+    !QUIZ_SUBMISSION_TOKEN_PATTERN.test(submissionToken)
   ) {
     return false;
   }
@@ -109,6 +122,7 @@ export function stageConsultationPrefill(
         firstName,
         email,
         phone,
+        submissionToken,
       }),
     );
     return true;
@@ -133,8 +147,9 @@ export function consumeConsultationPrefill(
 
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const isLegacy = parsed.version === LEGACY_CONSULTATION_PREFILL_VERSION;
     if (
-      parsed.version !== CONSULTATION_PREFILL_VERSION ||
+      (!isLegacy && parsed.version !== CONSULTATION_PREFILL_VERSION) ||
       typeof parsed.createdAt !== "number" ||
       parsed.createdAt > now + 10_000 ||
       now - parsed.createdAt > CONSULTATION_PREFILL_MAX_AGE_MS
@@ -144,6 +159,16 @@ export function consumeConsultationPrefill(
     const firstName = cleanSingleLine(parsed.firstName, 80);
     const email = cleanSingleLine(parsed.email, 254).toLowerCase();
     const phone = cleanSingleLine(parsed.phone, 30);
+    let submissionToken: string | undefined;
+    if (!isLegacy) {
+      if (
+        typeof parsed.submissionToken !== "string" ||
+        !QUIZ_SUBMISSION_TOKEN_PATTERN.test(parsed.submissionToken)
+      ) {
+        return null;
+      }
+      submissionToken = parsed.submissionToken;
+    }
     if (
       !firstName ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
@@ -151,7 +176,12 @@ export function consumeConsultationPrefill(
     ) {
       return null;
     }
-    return { firstName, email, phone };
+    return {
+      firstName,
+      email,
+      phone,
+      ...(submissionToken ? { submissionToken } : {}),
+    };
   } catch {
     return null;
   }

@@ -2,9 +2,45 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const persistCheckpointConsultation = vi.hoisted(() => vi.fn());
+const flowMocks = vi.hoisted(() => ({
+  claimConsultationNotification: vi.fn(),
+  completeConsultationNotificationClaim: vi.fn(),
+  findBySubmissionTokenHash: vi.fn(),
+  sendMail: vi.fn(),
+  upsertConsultationLead: vi.fn(),
+  verifyTurnstile: vi.fn(),
+}));
 
 vi.mock("@/lib/server/checkpointRepository", () => ({
   persistCheckpointConsultation,
+}));
+
+vi.mock("@/lib/server/turnstile", () => ({
+  verifyTurnstile: flowMocks.verifyTurnstile,
+}));
+
+vi.mock("@/lib/server/quizLeadStore", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/server/quizLeadStore")>();
+  return {
+    ...actual,
+    getQuizLeadStore: vi.fn(async () => ({
+      findBySubmissionTokenHash: flowMocks.findBySubmissionTokenHash,
+    })),
+  };
+});
+
+vi.mock("@/lib/server/growthRepository", () => ({
+  claimConsultationNotification: flowMocks.claimConsultationNotification,
+  completeConsultationNotificationClaim:
+    flowMocks.completeConsultationNotificationClaim,
+  upsertConsultationLead: flowMocks.upsertConsultationLead,
+}));
+
+vi.mock("nodemailer", () => ({
+  default: {
+    createTransport: vi.fn(() => ({ sendMail: flowMocks.sendMail })),
+  },
 }));
 
 import {
@@ -43,7 +79,7 @@ function payload(overrides: Record<string, unknown> = {}) {
     consent: true,
     consentLanguage,
     consentVersion: "consultation-coordination-v1",
-    source: "test",
+    source: "website",
     website: "",
     turnstileToken: "test-token",
     ...overrides,
@@ -61,6 +97,43 @@ function request(body: unknown, origin = "https://valisenmentalhealth.com") {
 beforeEach(() => {
   resetRateLimitState();
   persistCheckpointConsultation.mockReset();
+  flowMocks.findBySubmissionTokenHash.mockReset().mockResolvedValue(null);
+  flowMocks.sendMail.mockReset().mockResolvedValue({ messageId: "test-message" });
+  flowMocks.claimConsultationNotification.mockReset().mockResolvedValue({
+    accepted: true,
+    claimed: true,
+    reason: "claimed",
+    alreadySent: false,
+    claimToken: "22222222-2222-4222-8222-222222222222",
+    leadId: "a2523126-9328-4ab8-9f20-f29837bcbcd2",
+    requestReference: "VC-1111111111",
+    requestNotificationStatus: "sending",
+    attemptCount: 1,
+    rowVersion: 1,
+  });
+  flowMocks.completeConsultationNotificationClaim.mockReset().mockResolvedValue({
+    accepted: true,
+    staleClaim: false,
+    leadId: "a2523126-9328-4ab8-9f20-f29837bcbcd2",
+    requestReference: "VC-1111111111",
+    requestNotificationStatus: "sent",
+    rowVersion: 2,
+  });
+  flowMocks.upsertConsultationLead.mockReset().mockResolvedValue({
+    accepted: true,
+    created: true,
+    leadId: "a2523126-9328-4ab8-9f20-f29837bcbcd2",
+    referenceId: "VC-1111111111",
+    consultationReferenceId: "VC-1111111111",
+    quizReferenceId: "VQ-CROSSFLOW1",
+    rowVersion: 1,
+  });
+  flowMocks.verifyTurnstile.mockReset().mockResolvedValue({ ok: true });
+  process.env.GMAIL_USER = "sender@example.com";
+  process.env.GMAIL_APP_PASSWORD = "test-password";
+  delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  delete process.env.GOOGLE_PRIVATE_KEY;
+  delete process.env.GOOGLE_SHEET_ID;
 });
 
 afterEach(() => {
@@ -138,6 +211,73 @@ describe("consultation submission boundary", () => {
       ),
     );
     expect(answerSmuggling.status).toBe(400);
+  });
+
+  it("accepts a verified quiz handoff with VMH attribution and preserves both CRM links", async () => {
+    const quizSubmissionToken = "verified-quiz-submission-token-1234567890";
+    const restoredBrowserSession = "fs-restored-browser-session-1234567890";
+    const checkpointAttribution = {
+      source: "mental_battery_checkpoint" as const,
+      checkpointCode: "VMH-04" as const,
+      sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+    };
+    flowMocks.findBySubmissionTokenHash.mockResolvedValue({
+      referenceId: "VQ-CROSSFLOW1",
+      firstName: "Alex",
+      email: "alex@example.com",
+      phone: "416-555-0100",
+      attribution: {
+        source: "meta",
+        medium: "paid-social",
+        campaign: "vmh-quiz",
+      },
+    });
+    persistCheckpointConsultation.mockResolvedValue({
+      accepted: true,
+      placementId: "b3623126-9328-4ab8-9f20-f29837bcbcd3",
+      sessionId: checkpointAttribution.sessionId,
+    });
+
+    const response = await POST(
+      request(
+        payload({
+          source: "mental_battery_checkpoint",
+          checkpointAttribution,
+          quizSubmissionToken,
+          funnelSessionId: restoredBrowserSession,
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      checkpointAttributionSaved: true,
+      crmSaved: true,
+    });
+    expect(flowMocks.findBySubmissionTokenHash).toHaveBeenCalledTimes(1);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledTimes(1);
+
+    for (const [crmInput] of flowMocks.upsertConsultationLead.mock.calls) {
+      expect(crmInput).toEqual(
+        expect.objectContaining({
+          quizReferenceId: "VQ-CROSSFLOW1",
+          sourceKind: "mental_battery_checkpoint",
+          sourceDetail: "mental_battery_checkpoint",
+          checkpointCode: "VMH-04",
+          checkpointSessionId: checkpointAttribution.sessionId,
+          attribution: {
+            source: "meta",
+            medium: "paid-social",
+            campaign: "vmh-quiz",
+          },
+        }),
+      );
+      // The verified quiz reference makes Supabase resolve the original quiz
+      // session. A session created while restoring the result cannot replace it.
+      expect(crmInput).toHaveProperty("funnelSessionId", undefined);
+      expect(crmInput.funnelSessionId).not.toBe(restoredBrowserSession);
+    }
   });
 
   it("retries transient checkpoint attribution failures with the same reference", async () => {

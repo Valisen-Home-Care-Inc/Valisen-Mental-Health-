@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  safeConversionRate,
   type CheckpointPlacementSummary,
   type CheckpointDatePreset,
   type CheckpointDetailData,
@@ -20,6 +19,7 @@ import {
   DailyLineChart,
   formatCount,
   formatPercent,
+  CheckpointSegmentation,
   FunnelVisual,
   QuestionStepVisual,
 } from "@/components/checkpoints/admin/MetricVisuals";
@@ -156,13 +156,12 @@ export default function DetailClient({
 
   const { checkpoint, kpis } = data;
   const placement = checkpoint.currentPlacement;
-  const therapistIntentRate = safeConversionRate(kpis.therapistIntent, kpis.sessions);
   const kpiList = [
     ["Sessions", formatCount(kpis.sessions)],
     ["Completed Check-ins", formatCount(kpis.checkinsCompleted)],
     ["Completion Rate", formatPercent(kpis.completionRate)],
-    ["Therapist Intent", formatCount(kpis.therapistIntent)],
-    ["Intent Rate", formatPercent(therapistIntentRate)],
+    ["Consultation CTA Sessions", formatCount(kpis.therapistIntent)],
+    ["Consult CTA Rate", formatPercent(kpis.consultationCtaRate)],
     ["Consultations", formatCount(kpis.consultationsSubmitted)],
     ["Session → Consult", formatPercent(kpis.sessionToConsultationRate)],
   ];
@@ -172,7 +171,8 @@ export default function DetailClient({
         ["Lifetime sessions", formatCount(cumulative.sessions ?? 0)],
         ["Completed check-ins", formatCount(cumulative.checkinsCompleted ?? 0)],
         ["Completion rate", formatPercent(cumulative.completionRate ?? 0)],
-        ["Therapist intent", formatCount(cumulative.therapistIntent ?? 0)],
+        ["Consultation CTA sessions", formatCount(cumulative.therapistIntent ?? 0)],
+        ["Consult CTA rate", formatPercent(cumulative.consultationCtaRate ?? 0)],
         ["Consultations", formatCount(cumulative.consultationsSubmitted ?? 0)],
         ["Session to consult", formatPercent(cumulative.sessionToConsultationRate ?? 0)],
       ]
@@ -220,13 +220,20 @@ export default function DetailClient({
       {cumulativeList.length ? (
         <section className="mt-5 rounded-[18px] border border-black/[0.06] bg-[#173f3d] p-5 text-white shadow-[0_10px_34px_rgba(24,66,62,.14)]" aria-labelledby="lifetime-performance-title">
           <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-[9.5px] font-bold uppercase tracking-[1px] text-white/55">Cumulative performance</p><h2 id="lifetime-performance-title" className="mt-1 text-[18px] font-semibold">Lifetime across every placement</h2></div><p className="text-[10px] text-white/50">Not affected by the selected date range</p></div>
-          <dl className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">{cumulativeList.map(([label, value]) => <div key={label} className="rounded-[12px] bg-white/[0.07] px-3.5 py-3"><dt className="text-[9px] font-bold uppercase tracking-[0.65px] text-white/50">{label}</dt><dd className="mt-1.5 text-[20px] font-semibold tabular-nums">{value}</dd></div>)}</dl>
+          <dl className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">{cumulativeList.map(([label, value]) => <div key={label} className="rounded-[12px] bg-white/[0.07] px-3.5 py-3"><dt className="text-[9px] font-bold uppercase tracking-[0.65px] text-white/50">{label}</dt><dd className="mt-1.5 text-[20px] font-semibold tabular-nums">{value}</dd></div>)}</dl>
         </section>
       ) : null}
 
       <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,.55fr)]">
         <article className="rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6"><div className="mb-5"><p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#64827d]">Daily activity</p><h2 className="mt-1 text-[20px] font-semibold tracking-[-0.5px]">Traffic and consultations</h2></div><DailyLineChart points={data.daily} /></article>
-        <article className="rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6"><div className="mb-5"><p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#64827d]">Conversion</p><h2 className="mt-1 text-[20px] font-semibold tracking-[-0.5px]">Checkpoint funnel</h2></div><FunnelVisual stages={data.funnel} /></article>
+        <article className="rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6"><div className="mb-5"><p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#64827d]">Core funnel</p><h2 className="mt-1 text-[20px] font-semibold tracking-[-0.5px]">From tap to result</h2></div><FunnelVisual stages={data.funnel} /></article>
+      </section>
+
+      <section className="mt-5" aria-label="Intent and result action segmentation">
+        <CheckpointSegmentation
+          actions={data.resultActions ?? []}
+          intents={data.intentMix ?? []}
+        />
       </section>
 
       <section className="mt-5 rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6" aria-labelledby="question-exits-title">

@@ -3,8 +3,10 @@
  *
  * The opaque submission token is accepted only as the sole property of a JSON
  * POST body. It is never accepted from a query string. The response is built
- * field-by-field and excludes email, phone, raw answers, consent copy, and
- * delivery internals.
+ * field-by-field and excludes raw answers, consent copy, and delivery
+ * internals. The already-consented email and phone are returned only through
+ * this body-token-authenticated, same-origin POST so a restored result can
+ * securely reuse the details the visitor already supplied.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,6 +20,11 @@ import {
   hashSubmissionToken,
 } from "@/lib/server/quizLeadStore";
 import { isRateLimited } from "@/lib/server/rateLimit";
+import {
+  hasJsonContentType,
+  isSameOriginRequest,
+  readBoundedJson,
+} from "@/lib/server/httpRequestSecurity";
 
 export const runtime = "nodejs";
 
@@ -55,29 +62,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const contentType = req.headers
-      .get("content-type")
-      ?.split(";", 1)[0]
-      ?.trim()
-      .toLowerCase();
-    if (contentType !== "application/json") {
+    if (!hasJsonContentType(req)) {
       return privateNoStoreJson(
         { error: "A JSON request body is required." },
         415,
       );
     }
-
-    const raw = await req.text();
-    if (Buffer.byteLength(raw, "utf8") > MAX_PAYLOAD_BYTES) {
-      return privateNoStoreJson({ error: "Request too large." }, 413);
+    if (!isSameOriginRequest(req)) {
+      return privateNoStoreJson({ error: "Invalid request origin." }, 403);
     }
 
-    let body: unknown;
-    try {
-      body = JSON.parse(raw);
-    } catch {
+    const boundedBody = await readBoundedJson(req, MAX_PAYLOAD_BYTES);
+    if (!boundedBody.ok) {
+      if (boundedBody.reason === "too_large") {
+        return privateNoStoreJson({ error: "Request too large." }, 413);
+      }
       return privateNoStoreJson({ error: "Invalid request body." }, 400);
     }
+    const body = boundedBody.value;
 
     if (
       typeof body !== "object" ||
@@ -125,6 +127,8 @@ export async function POST(req: NextRequest) {
     return privateNoStoreJson({
       ok: true,
       firstName: lead.firstName,
+      email: lead.email,
+      phone: lead.phone,
       referenceId: lead.referenceId,
       outcome: lead.outcome,
       match: lead.match,

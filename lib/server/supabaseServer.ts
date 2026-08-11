@@ -16,18 +16,18 @@ function configuration(): { url: string; serviceRoleKey: string; legacyJwt: bool
     process.env.SUPABASE_SECRET_KEY?.trim() ||
     process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!rawUrl || !serviceRoleKey) {
-    throw new SupabaseServerError("Checkpoint database is not configured.", 503);
+    throw new SupabaseServerError("Operations database is not configured.", 503);
   }
 
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
   } catch {
-    throw new SupabaseServerError("Checkpoint database URL is invalid.", 503);
+    throw new SupabaseServerError("Operations database URL is invalid.", 503);
   }
   const local = ["localhost", "127.0.0.1"].includes(parsed.hostname);
   if (parsed.protocol !== "https:" && !(local && process.env.NODE_ENV !== "production")) {
-    throw new SupabaseServerError("Checkpoint database URL must use HTTPS.", 503);
+    throw new SupabaseServerError("Operations database URL must use HTTPS.", 503);
   }
   return {
     url: parsed.origin,
@@ -77,24 +77,20 @@ export async function callSupabaseRpc<T>(
   } catch (error) {
     throw new SupabaseServerError(
       error instanceof Error && error.name === "TimeoutError"
-        ? "Checkpoint database timed out."
-        : "Checkpoint database is unavailable.",
+        ? "Operations database timed out."
+        : "Operations database is unavailable.",
       503,
     );
   }
 
   if (!response.ok) {
-    // Supabase's response can contain schema and SQL details. Keep those out
-    // of browser responses while retaining a low-detail server diagnostic.
-    const diagnostic = (await response.text().catch(() => "")).slice(0, 500);
-    console.error(
-      `checkpoint-db: ${functionName} failed (${response.status})`,
-      diagnostic.replace(/[\r\n]+/g, " "),
-    );
+    // PostgREST errors can echo a failing row, including consented contact
+    // details. Never copy response bodies into application logs.
+    console.error(`operations-db: ${functionName} failed (${response.status})`);
     throw new SupabaseServerError(
       response.status === 409
         ? "The checkpoint placement changed before this request completed."
-        : "Checkpoint database operation failed.",
+        : "Operations database operation failed.",
       response.status === 409 ? 409 : 503,
     );
   }
@@ -102,6 +98,6 @@ export async function callSupabaseRpc<T>(
   try {
     return (await response.json()) as T;
   } catch {
-    throw new SupabaseServerError("Checkpoint database returned invalid data.", 503);
+    throw new SupabaseServerError("Operations database returned invalid data.", 503);
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -31,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import {
   DIMENSION_LABELS,
   SCORE_MAX,
@@ -73,6 +75,7 @@ import {
   MAX_PREFERRED_CONTACT_TIMES,
   MAX_PREFERRED_TIME_FUTURE_DAYS,
   MIN_PREFERRED_CONTACT_TIMES,
+  QUIZ_CONTACT_HELP_TURNSTILE_ACTION,
   isStrictLocalDateTime,
   isValidContactTimeZone,
   isValidPhone,
@@ -476,6 +479,7 @@ function BookingAction({
       <a
         ref={ctaRef}
         href={bookingUrl}
+        data-funnel-tracked="true"
         onClick={onClick}
         className="btn-primary mt-4 min-h-[58px] w-full justify-center px-5 text-center text-[15px] leading-[1.3]"
         aria-label={`${label}${therapistName ? ` for ${therapistName}` : ""}`}
@@ -836,8 +840,13 @@ function ContactHelp({
   const [minimumDateTime, setMinimumDateTime] = useState("");
   const [maximumDateTime, setMaximumDateTime] = useState("");
   const [message, setMessage] = useState("");
+  const [website, setWebsite] = useState("");
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<ContactStatus>(initialSent ? "sent" : "idle");
+  const [verifying, setVerifying] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [turnstileExecuteKey, setTurnstileExecuteKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const inFlight = useRef(false);
@@ -845,8 +854,39 @@ function ContactHelp({
   const dialogRef = useRef<HTMLDivElement>(null);
   const janeDialogLinkRef = useRef<HTMLAnchorElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const secureSubmissionHandlerRef = useRef<() => void>(() => undefined);
+  const pendingSecureSubmitRef = useRef(false);
+  const turnstileTokenRef = useRef<string | null>(null);
+
+  const handleTurnstileToken = useCallback((token: string | null) => {
+    turnstileTokenRef.current = token;
+    setTurnstileToken(token);
+    if (token) {
+      setError(null);
+      if (pendingSecureSubmitRef.current) {
+        pendingSecureSubmitRef.current = false;
+        setVerifying(false);
+        secureSubmissionHandlerRef.current();
+      }
+    }
+  }, []);
+
+  const handleTurnstileError = useCallback(() => {
+    pendingSecureSubmitRef.current = false;
+    turnstileTokenRef.current = null;
+    setTurnstileToken(null);
+    setTurnstileResetKey((current) => current + 1);
+    setVerifying(false);
+    setStatus("failed");
+    setDialogOpen(false);
+    setError(
+      "Secure verification could not finish. Check your connection and try again.",
+    );
+    window.setTimeout(() => submitButtonRef.current?.focus(), 0);
+  }, []);
 
   const needsPhone = method === "phone" || method === "text";
+  const requestBusy = verifying || status === "sending";
 
   useEffect(() => {
     try {
@@ -961,6 +1001,7 @@ function ContactHelp({
     janeDialogLinkRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (requestBusy) return;
         setDialogOpen(false);
         submitButtonRef.current?.focus();
         return;
@@ -984,7 +1025,7 @@ function ContactHelp({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [dialogOpen]);
+  }, [dialogOpen, requestBusy]);
 
   async function continueHelpRequest() {
     const validationError = validate();
@@ -994,6 +1035,16 @@ function ContactHelp({
         setDialogOpen(false);
         window.setTimeout(() => submitButtonRef.current?.focus(), 0);
       }
+      return;
+    }
+
+    const secureToken = turnstileTokenRef.current;
+    if (!secureToken) {
+      if (verifying || pendingSecureSubmitRef.current) return;
+      pendingSecureSubmitRef.current = true;
+      setVerifying(true);
+      setError(null);
+      setTurnstileExecuteKey((current) => current + 1);
       return;
     }
 
@@ -1013,7 +1064,10 @@ function ContactHelp({
           message: message.trim() || undefined,
           consentGranted: true,
           consentLanguage: CONTACT_CONSENT_TEXT,
+          website,
+          turnstileToken: secureToken,
         }),
+        credentials: "same-origin",
       });
       const body = (await response.json().catch(() => null)) as
         | { ok?: boolean; emailSent?: boolean; pending?: boolean; error?: string }
@@ -1034,11 +1088,22 @@ function ContactHelp({
           ? requestError.message
           : "We couldn’t send your request. Please try again.",
       );
+      turnstileTokenRef.current = null;
+      pendingSecureSubmitRef.current = false;
+      setTurnstileToken(null);
+      setTurnstileResetKey((current) => current + 1);
       window.setTimeout(() => submitButtonRef.current?.focus(), 0);
     } finally {
       inFlight.current = false;
+      setVerifying(false);
     }
   }
+
+  useEffect(() => {
+    secureSubmissionHandlerRef.current = () => {
+      void continueHelpRequest();
+    };
+  });
 
   if (status === "sent") {
     return (
@@ -1263,6 +1328,23 @@ function ContactHelp({
             />
           </div>
 
+          <div
+            aria-hidden="true"
+            className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden"
+          >
+            <label>
+              Website
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                value={website}
+                onChange={(event) => setWebsite(event.target.value)}
+              />
+            </label>
+          </div>
+
           <div className="mt-5 rounded-[14px] border border-teal/20 bg-teal-xlight/35 p-4">
             <label className="flex cursor-pointer items-start gap-3">
               <input
@@ -1289,6 +1371,25 @@ function ContactHelp({
             </p>
           </div>
 
+          <div className="mt-4">
+            <TurnstileWidget
+              action={QUIZ_CONTACT_HELP_TURNSTILE_ACTION}
+              execution="execute"
+              executeKey={turnstileExecuteKey}
+              onError={handleTurnstileError}
+              onToken={handleTurnstileToken}
+              resetKey={turnstileResetKey}
+            />
+            {!turnstileToken && !error ? (
+              <p className="mt-2 text-center text-[11.5px] text-ink-hint">
+                Protected by Cloudflare Turnstile. Verification runs only when you send.
+              </p>
+            ) : null}
+            <span className="sr-only" role="status" aria-live="polite">
+              {verifying ? "Completing secure verification." : ""}
+            </span>
+          </div>
+
           {error ? (
             <p
               role="alert"
@@ -1301,7 +1402,8 @@ function ContactHelp({
           <button
             ref={submitButtonRef}
             type="submit"
-            disabled={status === "sending"}
+            disabled={status === "sending" || verifying}
+            aria-busy={status === "sending" || verifying}
             className="btn-outline mt-5 min-h-[54px] w-full justify-center text-[14px]"
           >
             Review My Time Options
@@ -1315,7 +1417,7 @@ function ContactHelp({
           className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-black/45 px-4 py-8"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.currentTarget === event.target) {
+            if (!requestBusy && event.currentTarget === event.target) {
               setDialogOpen(false);
               submitButtonRef.current?.focus();
             }
@@ -1344,11 +1446,12 @@ function ContactHelp({
               <button
                 type="button"
                 aria-label="Close"
+                disabled={requestBusy}
                 onClick={() => {
                   setDialogOpen(false);
                   submitButtonRef.current?.focus();
                 }}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/10 text-ink-secondary hover:text-ink"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/10 text-ink-secondary hover:text-ink disabled:cursor-wait disabled:opacity-50"
               >
                 <X size={18} aria-hidden="true" />
               </button>
@@ -1377,12 +1480,16 @@ function ContactHelp({
             </a>
             <button
               type="button"
-              disabled={status === "sending"}
-              aria-busy={status === "sending"}
+              disabled={status === "sending" || verifying}
+              aria-busy={status === "sending" || verifying}
               onClick={() => void continueHelpRequest()}
               className="btn-outline mt-3 min-h-[52px] w-full justify-center"
             >
-              {status === "sending" ? "Sending Time Options…" : "Send My Time Options"}
+              {status === "sending"
+                ? "Sending Time Options…"
+                : verifying
+                  ? "Securing Request…"
+                  : "Send My Time Options"}
             </button>
           </div>
         </div>
@@ -1610,7 +1717,9 @@ export default function ResultsReveal({
       ctaPlacement: placement,
       submissionReference: referenceId ?? undefined,
       campaignSource: attribution.source,
+      campaignMedium: attribution.medium,
       campaignName: attribution.campaign,
+      campaignContent: attribution.content,
       deviceCategory: getDeviceCategory(),
     };
   }
@@ -1652,6 +1761,7 @@ export default function ResultsReveal({
         firstName,
         email: initialEmail,
         phone: initialPhone,
+        submissionToken,
       });
     } catch {
       // Autofill is a convenience; navigation must still work in hardened browsers.
@@ -1814,6 +1924,7 @@ export default function ResultsReveal({
           >
             <a
               href={bookingUrl}
+              data-funnel-tracked="true"
               onClick={() => handleConsultationClick("mobile_sticky")}
               className="btn-primary min-h-[54px] w-full justify-center text-center text-[15px]"
               aria-label="Request a free consultation"

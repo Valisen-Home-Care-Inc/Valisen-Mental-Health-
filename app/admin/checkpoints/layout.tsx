@@ -6,8 +6,8 @@ import { requireCheckpointAdminPage } from "@/lib/server/checkpointAdminAuth";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Mental Battery Checkpoints",
-  description: "Private Valisen checkpoint analytics and placement operations.",
+  title: "Valisen Growth & Consultation Operations",
+  description: "Private Valisen growth analytics, checkpoint intelligence, and consultation operations.",
   robots: { index: false, follow: false, noarchive: true, nosnippet: true },
 };
 

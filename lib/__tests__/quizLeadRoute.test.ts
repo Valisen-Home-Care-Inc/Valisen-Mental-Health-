@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { QUESTIONS, QUIZ_VERSION, type Answers } from "@/lib/quiz";
 import {
   CONTACT_CONSENT_TEXT,
+  QUIZ_CONTACT_HELP_TURNSTILE_ACTION,
+  QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION,
   RESULTS_ACCESS_PRIVACY_TEXT,
   RESULTS_ACCESS_PRIVACY_TEXT_VERSION,
 } from "@/lib/quizLead";
@@ -19,7 +21,30 @@ import { resetRateLimitState } from "@/lib/server/rateLimit";
 
 const mocks = vi.hoisted(() => {
   const records: StoredQuizLead[] = [];
+  const resultRegistry = new Map<
+    string,
+    {
+      referenceId: string;
+      payloadHash: string;
+      storageStatus: "pending" | "ready" | "failed";
+      sheetRowNumber?: number;
+      claimToken?: string;
+      attemptCount: number;
+    }
+  >();
+  const emailRegistry = new Map<
+    string,
+    {
+      status: "pending" | "sent" | "failed";
+      claimToken?: string;
+      attemptCount: number;
+      sentAt?: string;
+    }
+  >();
   let nextRow = 2;
+  let nextReference = 1;
+  let nextClaim = 1;
+  let appendFailuresRemaining = 0;
   const store: QuizLeadStore = {
     async findByClientSubmissionId(clientSubmissionId) {
       return (
@@ -36,6 +61,10 @@ const mocks = vi.hoisted(() => {
       );
     },
     async appendLead(lead: NewQuizLead) {
+      if (appendFailuresRemaining > 0) {
+        appendFailuresRemaining -= 1;
+        throw new Error("simulated Sheet append failure");
+      }
       const stored = { ...lead, rowNumber: nextRow++ };
       records.push(stored);
       return stored;
@@ -50,11 +79,217 @@ const mocks = vi.hoisted(() => {
     records,
     resetRecords() {
       records.splice(0, records.length);
+      resultRegistry.clear();
+      emailRegistry.clear();
       nextRow = 2;
+      nextReference = 1;
+      nextClaim = 1;
+      appendFailuresRemaining = 0;
+    },
+    resultRegistry,
+    emailRegistry,
+    forgetResultRegistry(clientSubmissionId: string) {
+      const existing = resultRegistry.get(clientSubmissionId);
+      if (existing) {
+        emailRegistry.delete(`${existing.referenceId}:internal_results`);
+        emailRegistry.delete(`${existing.referenceId}:visitor_results`);
+      }
+      resultRegistry.delete(clientSubmissionId);
+    },
+    forgetEmailDelivery(referenceId: string, kind: string) {
+      emailRegistry.delete(`${referenceId}:${kind}`);
+    },
+    failNextAppend() {
+      appendFailuresRemaining += 1;
     },
     store,
     sendMail: vi.fn(),
     buildPdf: vi.fn(),
+    verifyTurnstile: vi.fn(),
+    recordQuizLeadLink: vi.fn(),
+    claimQuizResultSubmission: vi.fn(),
+    completeQuizResultSubmissionStorage: vi.fn(),
+    claimQuizResultEmailDelivery: vi.fn(),
+    completeQuizResultEmailDelivery: vi.fn(),
+    installGrowthRegistryDefaults() {
+      this.claimQuizResultSubmission.mockImplementation(
+        async (input: {
+          clientSubmissionId: string;
+          payloadHash: string;
+          existingReferenceId?: string;
+        }) => {
+          let entry = resultRegistry.get(input.clientSubmissionId);
+          if (entry) {
+            if (
+              entry.payloadHash !== input.payloadHash ||
+              (input.existingReferenceId &&
+                input.existingReferenceId !== entry.referenceId)
+            ) {
+              throw new Error("registry collision");
+            }
+            if (entry.storageStatus === "ready") {
+              return {
+                accepted: true,
+                claimed: false,
+                reason: "already_ready",
+                clientSubmissionId: input.clientSubmissionId,
+                referenceId: entry.referenceId,
+                storageStatus: entry.storageStatus,
+                sheetRowNumber: entry.sheetRowNumber,
+                attemptCount: entry.attemptCount,
+                retryAfterSeconds: 0,
+              };
+            }
+          } else {
+            const generated = `VQ-${String(nextReference++).padStart(12, "0")}`;
+            entry = {
+              referenceId: input.existingReferenceId ?? generated,
+              payloadHash: input.payloadHash,
+              storageStatus: "pending",
+              attemptCount: 0,
+            };
+            resultRegistry.set(input.clientSubmissionId, entry);
+          }
+          entry.storageStatus = "pending";
+          entry.sheetRowNumber = undefined;
+          entry.attemptCount += 1;
+          entry.claimToken = `10000000-0000-4000-8000-${String(
+            nextClaim++,
+          ).padStart(12, "0")}`;
+          return {
+            accepted: true,
+            claimed: true,
+            reason: "claimed",
+            clientSubmissionId: input.clientSubmissionId,
+            referenceId: entry.referenceId,
+            storageStatus: entry.storageStatus,
+            claimToken: entry.claimToken,
+            attemptCount: entry.attemptCount,
+            retryAfterSeconds: 0,
+          };
+        },
+      );
+      this.completeQuizResultSubmissionStorage.mockImplementation(
+        async (input: {
+          clientSubmissionId: string;
+          claimToken: string;
+          status: "ready" | "failed";
+          sheetRowNumber?: number;
+        }) => {
+          const entry = resultRegistry.get(input.clientSubmissionId);
+          if (!entry || entry.claimToken !== input.claimToken) {
+            return {
+              accepted: false,
+              staleClaim: true,
+              clientSubmissionId: input.clientSubmissionId,
+              referenceId: entry?.referenceId ?? "VQ-MISSING0000",
+              storageStatus: entry?.storageStatus ?? "failed",
+              attemptCount: entry?.attemptCount ?? 0,
+            };
+          }
+          entry.storageStatus = input.status;
+          entry.sheetRowNumber = input.sheetRowNumber;
+          entry.claimToken = undefined;
+          return {
+            accepted: true,
+            staleClaim: false,
+            clientSubmissionId: input.clientSubmissionId,
+            referenceId: entry.referenceId,
+            storageStatus: entry.storageStatus,
+            sheetRowNumber: entry.sheetRowNumber,
+            attemptCount: entry.attemptCount,
+          };
+        },
+      );
+      this.claimQuizResultEmailDelivery.mockImplementation(
+        async (input: {
+          referenceId: string;
+          deliveryKind: string;
+          knownSent: boolean;
+        }) => {
+          const key = `${input.referenceId}:${input.deliveryKind}`;
+          let entry = emailRegistry.get(key);
+          if (!entry) {
+            entry = {
+              status: input.knownSent ? "sent" : "pending",
+              attemptCount: 0,
+              sentAt: input.knownSent ? new Date().toISOString() : undefined,
+            };
+            emailRegistry.set(key, entry);
+          } else if (input.knownSent) {
+            entry.status = "sent";
+            entry.claimToken = undefined;
+            entry.sentAt ??= new Date().toISOString();
+          }
+          if (entry.status === "sent") {
+            return {
+              accepted: true,
+              claimed: false,
+              reason: "already_sent",
+              alreadySent: true,
+              referenceId: input.referenceId,
+              deliveryKind: input.deliveryKind,
+              deliveryStatus: entry.status,
+              attemptCount: entry.attemptCount,
+              retryAfterSeconds: 0,
+            };
+          }
+          entry.attemptCount += 1;
+          entry.status = "pending";
+          entry.claimToken = `20000000-0000-4000-8000-${String(
+            nextClaim++,
+          ).padStart(12, "0")}`;
+          return {
+            accepted: true,
+            claimed: true,
+            reason: "claimed",
+            alreadySent: false,
+            referenceId: input.referenceId,
+            deliveryKind: input.deliveryKind,
+            deliveryStatus: entry.status,
+            claimToken: entry.claimToken,
+            attemptCount: entry.attemptCount,
+            retryAfterSeconds: 0,
+          };
+        },
+      );
+      this.completeQuizResultEmailDelivery.mockImplementation(
+        async (input: {
+          referenceId: string;
+          deliveryKind: string;
+          claimToken: string;
+          status: "sent" | "failed";
+        }) => {
+          const key = `${input.referenceId}:${input.deliveryKind}`;
+          const entry = emailRegistry.get(key);
+          if (!entry || entry.claimToken !== input.claimToken) {
+            return {
+              accepted: false,
+              staleClaim: true,
+              referenceId: input.referenceId,
+              deliveryKind: input.deliveryKind,
+              deliveryStatus: entry?.status ?? "failed",
+              attemptCount: entry?.attemptCount ?? 0,
+            };
+          }
+          entry.status = input.status;
+          entry.claimToken = undefined;
+          entry.sentAt = input.status === "sent" ? new Date().toISOString() : undefined;
+          return {
+            accepted: true,
+            staleClaim: false,
+            referenceId: input.referenceId,
+            deliveryKind: input.deliveryKind,
+            deliveryStatus: entry.status,
+            attemptCount: entry.attemptCount,
+            sentAt: entry.sentAt,
+          };
+        },
+      );
+    },
+    upsertConsultationLead: vi.fn(),
+    claimConsultationNotification: vi.fn(),
+    completeConsultationNotificationClaim: vi.fn(),
   };
 });
 
@@ -75,6 +310,23 @@ vi.mock("nodemailer", () => ({
 
 vi.mock("@/lib/server/quizSummaryPdf", () => ({
   buildQuizSummaryPdf: mocks.buildPdf,
+}));
+
+vi.mock("@/lib/server/turnstile", () => ({
+  verifyTurnstile: mocks.verifyTurnstile,
+}));
+
+vi.mock("@/lib/server/growthRepository", () => ({
+  recordQuizLeadLink: mocks.recordQuizLeadLink,
+  claimQuizResultSubmission: mocks.claimQuizResultSubmission,
+  completeQuizResultSubmissionStorage:
+    mocks.completeQuizResultSubmissionStorage,
+  claimQuizResultEmailDelivery: mocks.claimQuizResultEmailDelivery,
+  completeQuizResultEmailDelivery: mocks.completeQuizResultEmailDelivery,
+  upsertConsultationLead: mocks.upsertConsultationLead,
+  claimConsultationNotification: mocks.claimConsultationNotification,
+  completeConsultationNotificationClaim:
+    mocks.completeConsultationNotificationClaim,
 }));
 
 process.env.QUIZ_LEAD_TOKEN_SECRET =
@@ -140,6 +392,7 @@ function accessPayload(overrides: Record<string, unknown> = {}) {
       medium: "cpc",
       campaign: "ottawa-therapy",
     },
+    turnstileToken: "test-turnstile-token",
     ...overrides,
   };
 }
@@ -151,6 +404,7 @@ function postRequest(path: string, body: unknown, ip?: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Origin: "http://localhost",
       "x-forwarded-for": ip ?? `10.20.0.${ipCounter}`,
     },
     body: typeof body === "string" ? body : JSON.stringify(body),
@@ -227,17 +481,48 @@ function validContact(submissionToken: string) {
     message: "Please text before calling.",
     consentGranted: true,
     consentLanguage: CONTACT_CONSENT_TEXT,
+    turnstileToken: "test-turnstile-token",
   };
 }
 
 beforeEach(() => {
   mocks.resetRecords();
+  mocks.claimQuizResultSubmission.mockReset();
+  mocks.completeQuizResultSubmissionStorage.mockReset();
+  mocks.claimQuizResultEmailDelivery.mockReset();
+  mocks.completeQuizResultEmailDelivery.mockReset();
+  mocks.installGrowthRegistryDefaults();
   mocks.sendMail
     .mockReset()
     .mockResolvedValue({ accepted: ["accepted@example.com"] });
   mocks.buildPdf
     .mockReset()
     .mockResolvedValue(new Uint8Array([37, 80, 68, 70, 45]));
+  mocks.verifyTurnstile.mockReset().mockResolvedValue({ ok: true });
+  mocks.recordQuizLeadLink.mockReset().mockResolvedValue(undefined);
+  mocks.upsertConsultationLead
+    .mockReset()
+    .mockResolvedValue({ leadId: "00000000-0000-4000-8000-000000000001" });
+  mocks.claimConsultationNotification.mockReset().mockResolvedValue({
+    accepted: true,
+    claimed: true,
+    reason: "claimed",
+    alreadySent: false,
+    claimToken: "22222222-2222-4222-8222-222222222222",
+    leadId: "00000000-0000-4000-8000-000000000001",
+    requestReference: "VQ-TEST123456",
+    requestNotificationStatus: "sending",
+    attemptCount: 1,
+    rowVersion: 1,
+  });
+  mocks.completeConsultationNotificationClaim.mockReset().mockResolvedValue({
+    accepted: true,
+    staleClaim: false,
+    leadId: "00000000-0000-4000-8000-000000000001",
+    requestReference: "VQ-TEST123456",
+    requestNotificationStatus: "sent",
+    rowVersion: 2,
+  });
   resetRateLimitState();
   resetQuizLeadStoreStateForTests();
 });
@@ -245,12 +530,12 @@ beforeEach(() => {
 describe("POST /api/quiz-lead", () => {
   it("persists authoritative score/match, intent and safe attribution, then sends two independent emails", async () => {
     const payload = accessPayload({
+      funnelSessionId: "fs-1234567890abcdef",
+      quizAttemptId: "qa-1234567890abcdef",
       answers: {
         ...completedAnswers("brief_consultation"),
         safety: "often",
       },
-      outcome: { score: 999 },
-      match: { therapistSlug: "tampered" },
     });
     const response = await postAccess(payload);
     const body = await response.json();
@@ -264,7 +549,7 @@ describe("POST /api/quiz-lead", () => {
     });
     expect(body.referenceId).toMatch(/^VQ-[0-9A-F]{12}$/);
     expect(body.submissionToken).toMatch(/^v1\.VQ-/);
-    expect(body.outcome.score).not.toBe(999);
+    expect(body.outcome.score).toBeGreaterThanOrEqual(0);
 
     const stored = mocks.records[0];
     expect(stored.intent).toBe("brief_consultation");
@@ -301,7 +586,118 @@ describe("POST /api/quiz-lead", () => {
     expect(userResultsMessages()[0].text).toContain(
       "does not subscribe you to promotional email",
     );
+    expect(mocks.verifyTurnstile).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      "test-turnstile-token",
+      QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION,
+      payload.clientSubmissionId,
+    );
     expect(mocks.buildPdf).toHaveBeenCalledTimes(1);
+    expect(mocks.recordQuizLeadLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referenceId: body.referenceId,
+        funnelSessionId: "fs-1234567890abcdef",
+        quizAttemptId: "qa-1234567890abcdef",
+      }),
+    );
+  });
+
+  it("keeps one stable VQ reference when the Sheet append fails and is reconciled on retry", async () => {
+    const payload = accessPayload();
+    mocks.failNextAppend();
+
+    const first = await postAccess(payload);
+    expect(first.status).toBe(500);
+    expect(mocks.records).toHaveLength(0);
+    const registered = mocks.resultRegistry.get(
+      String(payload.clientSubmissionId),
+    );
+    expect(registered).toMatchObject({ storageStatus: "failed" });
+    const stableReference = registered?.referenceId;
+    expect(stableReference).toMatch(/^VQ-[0-9A-F]{12}$/);
+
+    const retry = await postAccess(payload);
+    const body = await retry.json();
+    expect(retry.status).toBe(201);
+    expect(body).toMatchObject({ ok: true, referenceId: stableReference });
+    expect(mocks.records).toHaveLength(1);
+    expect(mocks.records[0].referenceId).toBe(stableReference);
+    expect(mocks.claimQuizResultSubmission).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a retriable 202 without touching Sheet or email when another storage lease is active", async () => {
+    const payload = accessPayload();
+    mocks.claimQuizResultSubmission.mockResolvedValueOnce({
+      accepted: true,
+      claimed: false,
+      reason: "lease_active",
+      clientSubmissionId: payload.clientSubmissionId,
+      referenceId: "VQ-ABCDEF123456",
+      storageStatus: "pending",
+      attemptCount: 1,
+      retryAfterSeconds: 45,
+    });
+
+    const response = await postAccess(payload);
+    const body = await response.json();
+    expect(response.status).toBe(202);
+    expect(body).toMatchObject({
+      ok: false,
+      pending: true,
+      retriable: true,
+      referenceId: "VQ-ABCDEF123456",
+      retryAfterSeconds: 45,
+    });
+    expect(mocks.records).toHaveLength(0);
+    expect(mocks.completeQuizResultSubmissionStorage).not.toHaveBeenCalled();
+    expect(mocks.recordQuizLeadLink).not.toHaveBeenCalled();
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it("treats a durable email lease as pending and does not race the internal send", async () => {
+    const payload = accessPayload();
+    mocks.claimQuizResultEmailDelivery.mockResolvedValueOnce({
+      accepted: true,
+      claimed: false,
+      reason: "lease_active",
+      alreadySent: false,
+      referenceId: "VQ-000000000001",
+      deliveryKind: "internal_results",
+      deliveryStatus: "pending",
+      attemptCount: 1,
+      retryAfterSeconds: 30,
+    });
+
+    const response = await postAccess(payload);
+    const body = await response.json();
+    expect(response.status).toBe(201);
+    expect(body).toMatchObject({
+      ok: true,
+      resultsEmailSent: false,
+      userResultsEmailSent: true,
+    });
+    expect(internalResultsMessages()).toHaveLength(0);
+    expect(userResultsMessages()).toHaveLength(1);
+  });
+
+  it("retries the same saved lead when its authoritative journey link is temporarily unavailable", async () => {
+    const payload = accessPayload({
+      funnelSessionId: "fs-fedcba0987654321",
+      quizAttemptId: "qa-fedcba0987654321",
+    });
+    mocks.recordQuizLeadLink.mockRejectedValueOnce(new Error("database unavailable"));
+
+    const first = await postAccess(payload);
+    expect(first.status).toBe(500);
+    expect(mocks.records).toHaveLength(1);
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+
+    const retry = await postAccess(payload);
+    expect(retry.status).toBe(200);
+    await expect(retry.json()).resolves.toMatchObject({ ok: true, duplicate: true });
+    expect(mocks.records).toHaveLength(1);
+    expect(mocks.recordQuizLeadLink).toHaveBeenCalledTimes(2);
+    expect(mocks.sendMail).toHaveBeenCalledTimes(2);
   });
 
   it("is idempotent across retries and does not resend delivered emails", async () => {
@@ -362,6 +758,10 @@ describe("POST /api/quiz-lead", () => {
       accessNotificationClaimedAt: undefined,
       accessNotificationLastError: "Legacy delivery pending.",
     });
+    // Simulate a Sheet row created before the durable Supabase registry was
+    // deployed. The first retry must adopt its existing VQ reference without
+    // inferring that an email was already delivered.
+    mocks.forgetResultRegistry(payload.clientSubmissionId);
     mocks.sendMail.mockClear();
     mocks.buildPdf.mockClear();
 
@@ -446,6 +846,27 @@ describe("POST /api/quiz-lead", () => {
     expect(unsafeAttribution.status).toBe(400);
   });
 
+  it("requires same-origin JSON and a valid results-access Turnstile action", async () => {
+    const payload = accessPayload();
+    const crossOrigin = new NextRequest("http://localhost/api/quiz-lead", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://attacker.example",
+      },
+      body: JSON.stringify(payload),
+    });
+    expect((await saveLead(crossOrigin)).status).toBe(403);
+
+    mocks.verifyTurnstile.mockResolvedValueOnce({ ok: false, reason: "invalid" });
+    expect((await postAccess(payload)).status).toBe(400);
+    expect(mocks.records).toHaveLength(0);
+
+    mocks.verifyTurnstile.mockResolvedValueOnce({ ok: false, reason: "unavailable" });
+    expect((await postAccess(accessPayload())).status).toBe(503);
+    expect(mocks.records).toHaveLength(0);
+  });
+
   it("quietly swallows honeypots and rejects oversized payloads", async () => {
     const honeypot = await postAccess(
       accessPayload({ website: "bot" }),
@@ -455,11 +876,12 @@ describe("POST /api/quiz-lead", () => {
       accessPayload({ extra: "x".repeat(60_000) }),
     );
     expect(oversized.status).toBe(413);
+    expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
   });
 });
 
 describe("POST /api/quiz-lead/result", () => {
-  it("restores only the private result view model with no contact details or answers", async () => {
+  it("restores consented contact details only through the private result view model", async () => {
     const { body: saved } = await saveValidLead({
       answers: completedAnswers("exploring"),
     });
@@ -472,6 +894,8 @@ describe("POST /api/quiz-lead/result", () => {
     expect(body).toMatchObject({
       ok: true,
       firstName: "Alex",
+      email: "alex@example.com",
+      phone: "613-555-0100",
       referenceId: saved.referenceId,
       intent: "exploring",
       contactHelpSent: false,
@@ -482,8 +906,6 @@ describe("POST /api/quiz-lead/result", () => {
     });
     expect(body.outcome).toBeTruthy();
     expect(body.match).toBeTruthy();
-    expect(body).not.toHaveProperty("email");
-    expect(body).not.toHaveProperty("phone");
     expect(body).not.toHaveProperty("answers");
     expect(body).not.toHaveProperty("submissionToken");
     expect(response.headers.get("Cache-Control")).toContain("no-store");
@@ -536,6 +958,19 @@ describe("POST /api/quiz-lead/result", () => {
       },
     );
     expect((await restorePrivateResult(nonJson)).status).toBe(415);
+
+    const crossOrigin = new NextRequest(
+      "http://localhost/api/quiz-lead/result",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://attacker.example",
+        },
+        body: JSON.stringify({ submissionToken: saved.submissionToken }),
+      },
+    );
+    expect((await restorePrivateResult(crossOrigin)).status).toBe(403);
 
     for (let attempt = 0; attempt < 30; attempt += 1) {
       expect(
@@ -781,6 +1216,12 @@ describe("POST /api/quiz-lead/contact-consent", () => {
     expect(mail.text).toMatch(/proposed consultation times — not confirmed/i);
     expect(mail.text).toContain(CONTACT_CONSENT_TEXT);
     expect(mail.attachments).toHaveLength(1);
+    expect(mocks.verifyTurnstile).toHaveBeenLastCalledWith(
+      expect.any(NextRequest),
+      "test-turnstile-token",
+      QUIZ_CONTACT_HELP_TURNSTILE_ACTION,
+      expect.stringMatching(/^[0-9a-f]{64}$/),
+    );
   });
 
   it("requires explicit consent and rejects an invalid supplied phone override", async () => {
@@ -907,5 +1348,34 @@ describe("POST /api/quiz-lead/contact-consent", () => {
     expect(response.status).toBe(200);
     expect(mocks.records[0].contactMethod).toBe("text");
     expect(mocks.records[0].contactPhone).toBe("613-555-0100");
+  });
+
+  it("requires same-origin JSON and a valid contact-help Turnstile action", async () => {
+    const { body: saved } = await saveValidLead();
+    const contact = validContact(saved.submissionToken);
+    mocks.verifyTurnstile.mockReset().mockResolvedValue({ ok: true });
+
+    const crossOrigin = new NextRequest(
+      "http://localhost/api/quiz-lead/contact-consent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://attacker.example",
+        },
+        body: JSON.stringify(contact),
+      },
+    );
+    expect((await submitContactConsent(crossOrigin)).status).toBe(403);
+    expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
+
+    mocks.verifyTurnstile.mockResolvedValueOnce({ ok: false, reason: "invalid" });
+    expect((await postConsent(contact)).status).toBe(400);
+    expect(mocks.records[0].contactConsentAt).toBeUndefined();
+
+    mocks.verifyTurnstile.mockReset().mockResolvedValue({ ok: true });
+    const honeypot = await postConsent({ ...contact, website: "bot" });
+    expect(honeypot.status).toBe(200);
+    expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const persistCheckpointConsultation = vi.hoisted(() => vi.fn());
 const repairConsultationSheetAttribution = vi.hoisted(() => vi.fn());
+const repairConsultationRequestAttribution = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/server/checkpointRepository", () => ({
   persistCheckpointConsultation,
@@ -13,6 +14,9 @@ vi.mock("@/lib/server/consultationSheetAttribution", async (importOriginal) => {
   >();
   return { ...original, repairConsultationSheetAttribution };
 });
+vi.mock("@/lib/server/growthRepository", () => ({
+  repairConsultationRequestAttribution,
+}));
 
 import { POST as retryAttribution } from "@/app/api/checkpoint-attribution-retry/route";
 import {
@@ -52,6 +56,11 @@ beforeEach(() => {
   persistCheckpointConsultation.mockReset();
   repairConsultationSheetAttribution.mockReset();
   repairConsultationSheetAttribution.mockResolvedValue(true);
+  repairConsultationRequestAttribution.mockReset();
+  repairConsultationRequestAttribution.mockResolvedValue({
+    accepted: true,
+    verified: true,
+  });
 });
 
 afterEach(() => {
@@ -154,6 +163,27 @@ describe("checkpoint attribution retry endpoint", () => {
       referenceId: REFERENCE_ID,
       sessionId: SESSION_ID,
     });
+    expect(repairConsultationRequestAttribution).toHaveBeenCalledWith(
+      REFERENCE_ID,
+    );
+  });
+
+  it("keeps the signed repair retryable until the CRM snapshot is verified", async () => {
+    persistCheckpointConsultation.mockResolvedValue({
+      accepted: true,
+      placementId: "a2523126-9328-4ab8-9f20-f29837bcbcd2",
+      sessionId: "eaed651f-b6fa-4672-bfc9-4fad2981b543",
+    });
+    repairConsultationRequestAttribution.mockResolvedValue({
+      accepted: true,
+      verified: false,
+    });
+
+    const response = await retryAttribution(request({ repairToken: repairToken() }));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("3");
+    expect(repairConsultationSheetAttribution).not.toHaveBeenCalled();
   });
 
   it("returns a retryable 503 after the shared three-attempt persistence fails", async () => {
@@ -168,6 +198,7 @@ describe("checkpoint attribution retry endpoint", () => {
     await expect(response.json()).resolves.toEqual({ ok: false, retryable: true });
     expect(persistCheckpointConsultation).toHaveBeenCalledTimes(3);
     expect(repairConsultationSheetAttribution).not.toHaveBeenCalled();
+    expect(repairConsultationRequestAttribution).not.toHaveBeenCalled();
     error.mockRestore();
   });
 });

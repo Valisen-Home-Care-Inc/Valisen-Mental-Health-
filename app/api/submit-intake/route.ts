@@ -36,6 +36,26 @@ import {
   isSameOriginRequest,
   readBoundedJson,
 } from "@/lib/server/httpRequestSecurity";
+import {
+  cleanCampaignAttribution,
+  type CampaignAttribution,
+} from "@/lib/campaignAttribution";
+import {
+  isConsultationSourceDetail,
+  sourceKindFromDetail,
+} from "@/lib/consultationCrm";
+import { isValidSubmissionToken } from "@/lib/quizLead";
+import {
+  getQuizLeadStore,
+  hashSubmissionToken,
+  type StoredQuizLead,
+} from "@/lib/server/quizLeadStore";
+import {
+  claimConsultationNotification,
+  completeConsultationNotificationClaim,
+  upsertConsultationLead,
+  type ConsultationLeadRecordResult,
+} from "@/lib/server/growthRepository";
 
 export const runtime = "nodejs";
 export { recordCheckpointAttribution } from "@/lib/server/checkpointAttributionRepair";
@@ -106,6 +126,9 @@ const ALLOWED_KEYS = new Set([
   "consentLanguage",
   "consentVersion",
   "source",
+  "quizSubmissionToken",
+  "funnelSessionId",
+  "attribution",
   "checkpointAttribution",
   "website",
   "turnstileToken",
@@ -127,6 +150,9 @@ type IntakePayload = {
   consentLanguage: string;
   consentVersion: string;
   source?: string;
+  quizSubmissionToken?: string;
+  funnelSessionId?: string;
+  attribution?: CampaignAttribution;
   checkpointAttribution?: CheckpointConsultationAttribution;
   website?: string;
   turnstileToken: string;
@@ -192,6 +218,38 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const reason = cleanSingleLine(input.reason, 80);
   const notes = cleanNotes(input.notes);
   const source = cleanSingleLine(input.source, 40).replace(/[^a-z0-9_-]/gi, "");
+  if (input.source !== undefined && !isConsultationSourceDetail(source)) {
+    return { error: "Invalid consultation source." };
+  }
+  const quizSubmissionToken = input.quizSubmissionToken;
+  if (
+    quizSubmissionToken !== undefined &&
+    !isValidSubmissionToken(quizSubmissionToken)
+  ) {
+    return { error: "Invalid quiz consultation handoff." };
+  }
+  const funnelSessionId = cleanSingleLine(input.funnelSessionId, 100);
+  if (
+    input.funnelSessionId !== undefined &&
+    !/^fs-[A-Za-z0-9-]{16,90}$/.test(funnelSessionId)
+  ) {
+    return { error: "Invalid funnel session." };
+  }
+  let attribution: CampaignAttribution | undefined;
+  if (input.attribution !== undefined) {
+    if (
+      !input.attribution ||
+      typeof input.attribution !== "object" ||
+      Array.isArray(input.attribution) ||
+      Object.keys(input.attribution as Record<string, unknown>).some(
+        (key) => !["source", "medium", "campaign", "content"].includes(key),
+      )
+    ) {
+      return { error: "Invalid campaign attribution." };
+    }
+    const cleaned = cleanCampaignAttribution(input.attribution);
+    if (Object.keys(cleaned).length > 0) attribution = cleaned;
+  }
   const checkpointAttribution = parseCheckpointConsultationAttribution(
     input.checkpointAttribution,
   );
@@ -259,6 +317,12 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       consentLanguage: CONSENT_TEXT,
       consentVersion: CONSENT_VERSION,
       source: source || "direct",
+      quizSubmissionToken:
+        typeof quizSubmissionToken === "string"
+          ? quizSubmissionToken
+          : undefined,
+      funnelSessionId: funnelSessionId || undefined,
+      attribution,
       checkpointAttribution: checkpointAttribution || undefined,
       website: cleanSingleLine(input.website, 200),
       turnstileToken: typeof input.turnstileToken === "string" ? input.turnstileToken : "",
@@ -268,6 +332,93 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
 
 function configured(names: string[]): boolean {
   return names.every((name) => Boolean(process.env[name]));
+}
+
+function normalizedPhone(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+async function resolveQuizLead(
+  payload: IntakePayload,
+): Promise<{ lead?: StoredQuizLead; invalid?: boolean; unavailable?: boolean }> {
+  if (!payload.quizSubmissionToken) return {};
+  try {
+    const store = await getQuizLeadStore();
+    const lead = await store.findBySubmissionTokenHash(
+      hashSubmissionToken(payload.quizSubmissionToken),
+    );
+    if (!lead) return { invalid: true };
+    if (
+      lead.email.toLowerCase() !== payload.email.toLowerCase() ||
+      normalizedPhone(lead.phone) !== normalizedPhone(payload.phone) ||
+      lead.firstName.trim().toLowerCase() !==
+        payload.firstName.trim().toLowerCase()
+    ) {
+      return { invalid: true };
+    }
+    return { lead };
+  } catch (error) {
+    console.warn(
+      "submit-intake: quiz attribution lookup unavailable",
+      error instanceof Error ? error.name : "unknown",
+    );
+    return { unavailable: true };
+  }
+}
+
+async function persistConsultationCrmLead(input: {
+  payload: IntakePayload;
+  referenceId: string;
+  preferredTherapistLabel: string;
+  availabilityLabel: string;
+  submittedAt: string;
+  quizLead?: StoredQuizLead;
+  checkpointPlacementId?: string;
+  notificationStatus: "pending" | "sent" | "failed";
+}): Promise<ConsultationLeadRecordResult> {
+  const checkpointPlacementId =
+    input.checkpointPlacementId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      input.checkpointPlacementId,
+    )
+      ? input.checkpointPlacementId
+      : undefined;
+  return upsertConsultationLead({
+      consultationReferenceId: input.referenceId,
+      quizReferenceId: input.quizLead?.referenceId,
+      clientSubmissionId: input.payload.clientSubmissionId,
+      firstName: input.payload.firstName,
+      lastName: input.payload.lastName,
+      email: input.payload.email,
+      phone: input.payload.phone,
+      therapyType: input.payload.reason,
+      preferredTherapist: input.preferredTherapistLabel,
+      preferredDays: CONSULTATION_DAYS_LABEL,
+      preferredTime: input.availabilityLabel,
+      coordinationDetails: input.payload.notes,
+      consentText: input.payload.consentLanguage,
+      consentVersion: input.payload.consentVersion,
+      consentedAt: input.submittedAt,
+      sourceKind: sourceKindFromDetail(input.payload.source || "direct", {
+        quizVerified: Boolean(input.quizLead),
+        checkpoint: Boolean(input.payload.checkpointAttribution),
+      }),
+      sourceDetail: input.payload.source || "direct",
+      checkpointCode: input.payload.checkpointAttribution?.checkpointCode,
+      checkpointPlacementId,
+      checkpointSessionId:
+        input.payload.checkpointAttribution?.sessionId,
+      // A verified quiz reference already has an immutable origin-session link
+      // in the growth store. Passing a browser session here would let a result
+      // restored in a later tab replace that authoritative origin. A null RPC
+      // value makes the database resolve the session from the quiz reference.
+      funnelSessionId: input.quizLead
+        ? undefined
+        : input.payload.funnelSessionId,
+      attribution: input.quizLead?.attribution ?? input.payload.attribution,
+      notificationStatus: input.notificationStatus,
+      submittedAt: input.submittedAt,
+  });
 }
 
 async function appendToSheet(values: string[]): Promise<boolean> {
@@ -331,7 +482,7 @@ async function appendToSheet(values: string[]): Promise<boolean> {
   } catch (error) {
     console.warn(
       "submit-intake: spreadsheet append failed",
-      error instanceof Error ? error.message : "unknown",
+      error instanceof Error ? error.name : "unknown",
     );
     return false;
   }
@@ -457,20 +608,139 @@ export async function POST(request: NextRequest) {
     return badRequest("Submission email is temporarily unavailable.", 503);
   }
 
+  const quizAttribution = await resolveQuizLead(payload);
+  if (quizAttribution.unavailable) {
+    return badRequest(
+      "Your saved quiz details are temporarily unavailable. Please try again shortly.",
+      503,
+    );
+  }
+  if (quizAttribution.invalid) {
+    return badRequest(
+      "Your quiz handoff could not be verified. Please return to your results and try again.",
+      400,
+    );
+  }
+
   const preferredTherapist = normalizePreferredTherapist(payload.preferredTherapist);
   const preferredTherapistLabel = getPreferredTherapistLabel(preferredTherapist);
+  const submittedAt = new Date().toISOString();
   const timestamp = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Toronto",
     dateStyle: "full",
     timeStyle: "short",
   }).format(new Date());
-  const referenceId = `VC-${payload.clientSubmissionId.replace(/-/g, "").slice(0, 10).toUpperCase()}`;
+  const referenceId = `VC-${createHash("sha256")
+    .update(`valisen-consultation-v2:${payload.clientSubmissionId}`)
+    .digest("hex")
+    .slice(0, 24)
+    .toUpperCase()}`;
   const durationSeconds = Math.max(
     0,
     Math.round((Date.now() - payload.formStartedAt) / 1000),
   );
   const availabilityLabel =
     CONSULTATION_AVAILABILITY_WINDOWS[payload.timeOfDay].submissionLabel;
+  const checkpoint = await recordCheckpointAttribution(
+    payload.checkpointAttribution,
+    referenceId,
+  );
+  const checkpointAttributionRepairToken = createRepairTokenIfNeeded(
+    payload.checkpointAttribution,
+    referenceId,
+    checkpoint.saved,
+  );
+  let crmLead: ConsultationLeadRecordResult;
+  try {
+    crmLead = await persistConsultationCrmLead({
+      payload,
+      referenceId,
+      preferredTherapistLabel,
+      availabilityLabel,
+      submittedAt,
+      quizLead: quizAttribution.lead,
+      checkpointPlacementId: checkpoint.placementId,
+      notificationStatus: "pending",
+    });
+  } catch (error) {
+    console.error(
+      `submit-intake: authoritative CRM persistence failed ${referenceId}`,
+      error instanceof Error ? error.name : "unknown",
+    );
+    return badRequest(
+      "We couldn't securely save your request. Please try again or call us.",
+      503,
+    );
+  }
+  let notificationClaim;
+  try {
+    notificationClaim = await claimConsultationNotification(
+      crmLead.leadId,
+      referenceId,
+    );
+  } catch (error) {
+    console.error(
+      `submit-intake: notification claim failed ${referenceId}`,
+      error instanceof Error ? error.name : "unknown",
+    );
+    return badRequest(
+      "Your request was saved, but secure notification is temporarily delayed. Please try again.",
+      503,
+    );
+  }
+  if (
+    !notificationClaim.accepted ||
+    (!notificationClaim.claimed && !notificationClaim.alreadySent &&
+      notificationClaim.reason !== "lease_active")
+  ) {
+    return badRequest(
+      "Your request was saved, but secure notification is temporarily delayed. Please try again.",
+      503,
+    );
+  }
+  if (!notificationClaim.claimed) {
+    // Another serverless invocation is delivering this exact request, or a
+    // prior invocation already completed it. The durable CRM row is the work
+    // queue, so this remains a successful, idempotent visitor submission.
+    markSubmissionCompleted(
+      payload.clientSubmissionId,
+      referenceId,
+      Date.now(),
+      payload.checkpointAttribution
+        ? {
+            checkpointCode: payload.checkpointAttribution.checkpointCode,
+            sessionId: payload.checkpointAttribution.sessionId,
+          }
+        : undefined,
+    );
+    return NextResponse.json(
+      {
+        ok: true,
+        referenceId,
+        duplicate: true,
+        pending: !notificationClaim.alreadySent,
+        savedToSheet: false,
+        crmSaved: true,
+        checkpointAttributionSaved: payload.checkpointAttribution
+          ? checkpoint.saved
+          : undefined,
+        ...(checkpointAttributionRepairToken
+          ? { checkpointAttributionRepairToken }
+          : {}),
+      },
+      {
+        status: notificationClaim.alreadySent ? 200 : 202,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
+  }
+  const notificationClaimToken = notificationClaim.claimToken;
+  if (!notificationClaimToken) {
+    return badRequest(
+      "Your request was saved, but secure notification is temporarily delayed. Please try again.",
+      503,
+    );
+  }
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
@@ -507,6 +777,14 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
       messageId: `<consultation-${payload.clientSubmissionId}@valisenmentalhealth.com>`,
     });
   } catch (error) {
+    await completeConsultationNotificationClaim(
+      crmLead.leadId,
+      referenceId,
+      notificationClaimToken,
+      "failed",
+    ).catch(
+      () => undefined,
+    );
     console.error(
       `submit-intake: clinic notification failed ${referenceId}`,
       error instanceof Error ? error.name : "unknown",
@@ -534,14 +812,27 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     }
   }
 
-  const checkpoint = await recordCheckpointAttribution(
-    payload.checkpointAttribution,
+  await completeConsultationNotificationClaim(
+    crmLead.leadId,
     referenceId,
-  );
-  const checkpointAttributionRepairToken = createRepairTokenIfNeeded(
-    payload.checkpointAttribution,
-    referenceId,
-    checkpoint.saved,
+    notificationClaimToken,
+    "sent",
+  ).then(
+    (completion) => {
+      if (!completion.accepted || completion.staleClaim) {
+        console.warn(
+          `submit-intake: notification claim became stale ${referenceId}`,
+        );
+      }
+    },
+    (error) => {
+      // The lead itself is already durable and visible. A pending notification
+      // marker is safer than failing a request after the clinic email was sent.
+      console.warn(
+        `submit-intake: notification marker pending ${referenceId}`,
+        error instanceof Error ? error.name : "unknown",
+      );
+    },
   );
 
   const savedToSheet = await appendToSheet([
@@ -589,6 +880,7 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
       ok: true,
       referenceId,
       savedToSheet,
+      crmSaved: true,
       checkpointAttributionSaved: payload.checkpointAttribution
         ? checkpoint.saved
         : undefined,

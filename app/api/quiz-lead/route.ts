@@ -27,6 +27,7 @@ import { extractPreferences, matchTherapist } from "@/lib/matching";
 import { getTherapistBySlug } from "@/lib/therapists";
 import {
   MAX_PAYLOAD_BYTES,
+  QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION,
   hasCurrentResultsAccessAuthorization,
   validateQuizLeadAccessPayload,
 } from "@/lib/quizLead";
@@ -37,6 +38,7 @@ import {
   hashSubmissionToken,
   withQuizLeadLock,
   type NewQuizLead,
+  type QuizLeadPatch,
   type QuizLeadStore,
   type StoredQuizLead,
 } from "@/lib/server/quizLeadStore";
@@ -45,7 +47,21 @@ import {
   buildQuizUserResultsEmail,
 } from "@/lib/server/quizLeadEmail";
 import { buildQuizSummaryPdf } from "@/lib/server/quizSummaryPdf";
+import {
+  claimQuizResultEmailDelivery,
+  claimQuizResultSubmission,
+  completeQuizResultEmailDelivery,
+  completeQuizResultSubmissionStorage,
+  recordQuizLeadLink,
+  type QuizResultEmailDeliveryKind,
+} from "@/lib/server/growthRepository";
 import { isRateLimited } from "@/lib/server/rateLimit";
+import {
+  hasJsonContentType,
+  isSameOriginRequest,
+  readBoundedJson,
+} from "@/lib/server/httpRequestSecurity";
+import { verifyTurnstile } from "@/lib/server/turnstile";
 
 export const runtime = "nodejs";
 
@@ -157,14 +173,99 @@ function statusSnapshot(lead: StoredQuizLead) {
   };
 }
 
-function claimIsFresh(
-  status: string,
-  claimedAt: string | undefined,
-  now: number,
-): boolean {
-  if (status !== "sending" || !claimedAt) return false;
-  const parsed = Date.parse(claimedAt);
-  return Number.isFinite(parsed) && now - parsed < CLAIM_LEASE_MS;
+function sortedJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortedJsonValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, child]) => child !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, child]) => [key, sortedJsonValue(child)]),
+  );
+}
+
+type QuizResultFingerprintSource = Pick<
+  NewQuizLead,
+  | "firstName"
+  | "email"
+  | "phone"
+  | "privacyText"
+  | "privacyTextVersion"
+  | "quizVersion"
+  | "scoringVersion"
+  | "answers"
+  | "outcome"
+  | "resultCategory"
+  | "scoreBand"
+  | "match"
+  | "recommendedTherapistSlug"
+  | "recommendedTherapistName"
+  | "intent"
+  | "attribution"
+>;
+
+function quizResultPayloadHash(source: QuizResultFingerprintSource): string {
+  return crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify(
+        sortedJsonValue({
+          firstName: source.firstName,
+          email: source.email,
+          phone: source.phone,
+          privacyText: source.privacyText,
+          privacyTextVersion: source.privacyTextVersion,
+          quizVersion: source.quizVersion,
+          scoringVersion: source.scoringVersion,
+          answers: source.answers,
+          outcome: source.outcome,
+          resultCategory: source.resultCategory,
+          scoreBand: source.scoreBand,
+          match: source.match,
+          recommendedTherapistSlug:
+            source.recommendedTherapistSlug ?? null,
+          recommendedTherapistName:
+            source.recommendedTherapistName ?? null,
+          intent: source.intent,
+          attribution: source.attribution,
+        }),
+      ),
+    )
+    .digest("hex");
+}
+
+async function mirrorLeadPatch(
+  store: QuizLeadStore,
+  lead: StoredQuizLead,
+  patch: QuizLeadPatch,
+  context: string,
+): Promise<StoredQuizLead> {
+  try {
+    await store.updateLead(lead.rowNumber, patch);
+  } catch (error) {
+    console.warn(
+      `quiz-lead: Sheet mirror update failed (${context}) ${lead.referenceId}`,
+      error instanceof Error ? error.name : "unknown",
+    );
+  }
+  return { ...lead, ...patch };
+}
+
+async function finishEmailClaim(input: {
+  referenceId: string;
+  deliveryKind: QuizResultEmailDeliveryKind;
+  claimToken: string;
+  status: "sent" | "failed";
+}) {
+  try {
+    return await completeQuizResultEmailDelivery(input);
+  } catch (error) {
+    console.warn(
+      `quiz-lead: durable ${input.deliveryKind} marker unavailable ${input.referenceId}`,
+      error instanceof Error ? error.name : "unknown",
+    );
+    return undefined;
+  }
 }
 
 type DeliveryResult = {
@@ -177,51 +278,84 @@ async function ensureInternalResultsEmail(
   store: QuizLeadStore,
   initialLead: StoredQuizLead,
 ): Promise<DeliveryResult> {
-  if (initialLead.accessNotificationStatus === "sent") {
-    return { sent: true, lead: initialLead };
+  const claim = await claimQuizResultEmailDelivery({
+    referenceId: initialLead.referenceId,
+    deliveryKind: "internal_results",
+    knownSent: initialLead.accessNotificationStatus === "sent",
+    leaseSeconds: Math.round(CLAIM_LEASE_MS / 1000),
+  });
+  if (!claim.accepted) {
+    throw new Error("The internal results email claim was not accepted.");
   }
-  const nowMs = Date.now();
-  if (
-    claimIsFresh(
-      initialLead.accessNotificationStatus,
-      initialLead.accessNotificationClaimedAt,
-      nowMs,
-    )
-  ) {
-    return { sent: false, pending: true, lead: initialLead };
+  if (!claim.claimed) {
+    if (!claim.alreadySent) {
+      return { sent: false, pending: true, lead: initialLead };
+    }
+    if (initialLead.accessNotificationStatus === "sent") {
+      return { sent: true, lead: initialLead };
+    }
+    const sentAt = initialLead.accessNotificationSentAt ?? new Date().toISOString();
+    const repaired = await mirrorLeadPatch(
+      store,
+      initialLead,
+      {
+        accessNotificationStatus: "sent",
+        accessNotificationClaimId: undefined,
+        accessNotificationClaimedAt: undefined,
+        accessNotificationSentAt: sentAt,
+        accessNotificationAttempts: Math.max(
+          initialLead.accessNotificationAttempts,
+          claim.attemptCount,
+        ),
+        accessNotificationLastError: undefined,
+        updatedAt: sentAt,
+      },
+      "internal already sent",
+    );
+    return { sent: true, lead: repaired };
   }
 
-  const claimId = crypto.randomUUID();
-  const claimedAt = new Date(nowMs).toISOString();
-  await store.updateLead(initialLead.rowNumber, {
-    accessNotificationStatus: "sending",
-    accessNotificationClaimId: claimId,
-    accessNotificationClaimedAt: claimedAt,
-    accessNotificationAttempts: initialLead.accessNotificationAttempts + 1,
-    accessNotificationLastError: undefined,
-    updatedAt: claimedAt,
-  });
-  const claimed = await store.findByClientSubmissionId(
-    initialLead.clientSubmissionId,
-  );
-  if (!claimed || claimed.accessNotificationClaimId !== claimId) {
-    return { sent: false, pending: true, lead: claimed ?? initialLead };
+  if (!claim.claimToken) {
+    throw new Error("The internal results email claim token is missing.");
   }
+  const claimedAt = new Date().toISOString();
+  let claimed = await mirrorLeadPatch(
+    store,
+    initialLead,
+    {
+      accessNotificationStatus: "sending",
+      accessNotificationClaimId: claim.claimToken,
+      accessNotificationClaimedAt: claimedAt,
+      accessNotificationAttempts: claim.attemptCount,
+      accessNotificationLastError: undefined,
+      updatedAt: claimedAt,
+    },
+    "internal claimed",
+  );
 
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     const failedAt = new Date().toISOString();
-    await store.updateLead(claimed.rowNumber, {
-      accessNotificationStatus: "failed",
-      accessNotificationLastError: "Email delivery is not configured.",
-      updatedAt: failedAt,
+    await finishEmailClaim({
+      referenceId: claimed.referenceId,
+      deliveryKind: "internal_results",
+      claimToken: claim.claimToken,
+      status: "failed",
     });
+    claimed = await mirrorLeadPatch(
+      store,
+      claimed,
+      {
+        accessNotificationStatus: "failed",
+        accessNotificationClaimId: undefined,
+        accessNotificationClaimedAt: undefined,
+        accessNotificationLastError: "Email delivery is not configured.",
+        updatedAt: failedAt,
+      },
+      "internal configuration failure",
+    );
     return {
       sent: false,
-      lead: {
-        ...claimed,
-        accessNotificationStatus: "failed",
-        accessNotificationLastError: "Email delivery is not configured.",
-      },
+      lead: claimed,
     };
   }
 
@@ -313,17 +447,25 @@ async function ensureInternalResultsEmail(
     }
   } catch (error) {
     const failedAt = new Date().toISOString();
-    try {
-      await store.updateLead(claimed.rowNumber, {
-        accessNotificationStatus: "failed",
-        accessNotificationLastError:
-          "Results notification preparation or delivery failed.",
-        updatedAt: failedAt,
-      });
-    } catch (statusError) {
-      console.error(
-        `quiz-lead: could not mark internal notification ${claimed.referenceId} failed:`,
-        statusError instanceof Error ? statusError.name : "unknown error",
+    const completion = await finishEmailClaim({
+      referenceId: claimed.referenceId,
+      deliveryKind: "internal_results",
+      claimToken: claim.claimToken,
+      status: "failed",
+    });
+    if (!completion || completion.accepted) {
+      claimed = await mirrorLeadPatch(
+        store,
+        claimed,
+        {
+          accessNotificationStatus: "failed",
+          accessNotificationClaimId: undefined,
+          accessNotificationClaimedAt: undefined,
+          accessNotificationLastError:
+            "Results notification preparation or delivery failed.",
+          updatedAt: failedAt,
+        },
+        "internal delivery failure",
       );
     }
     console.error(
@@ -332,25 +474,34 @@ async function ensureInternalResultsEmail(
     );
     return {
       sent: false,
-      lead: { ...claimed, accessNotificationStatus: "failed" },
+      lead: claimed,
     };
   }
 
-  const sentAt = new Date().toISOString();
-  await store.updateLead(claimed.rowNumber, {
-    accessNotificationStatus: "sent",
-    accessNotificationSentAt: sentAt,
-    accessNotificationLastError: undefined,
-    updatedAt: sentAt,
+  const completion = await finishEmailClaim({
+    referenceId: claimed.referenceId,
+    deliveryKind: "internal_results",
+    claimToken: claim.claimToken,
+    status: "sent",
   });
+  const sentAt = completion?.sentAt ?? new Date().toISOString();
+  claimed = await mirrorLeadPatch(
+    store,
+    claimed,
+    {
+      accessNotificationStatus: "sent",
+      accessNotificationClaimId: undefined,
+      accessNotificationClaimedAt: undefined,
+      accessNotificationSentAt: sentAt,
+      accessNotificationLastError: undefined,
+      updatedAt: sentAt,
+    },
+    "internal sent",
+  );
   console.log(`quiz-lead: internal results notification sent ${claimed.referenceId}`);
   return {
     sent: true,
-    lead: {
-      ...claimed,
-      accessNotificationStatus: "sent",
-      accessNotificationSentAt: sentAt,
-    },
+    lead: claimed,
   };
 }
 
@@ -359,50 +510,87 @@ async function ensureUserResultsEmail(
   initialLead: StoredQuizLead,
   submissionToken: string,
 ): Promise<DeliveryResult> {
-  if (initialLead.userResultsEmailStatus === "sent") {
-    return { sent: true, lead: initialLead };
-  }
   if (initialLead.userResultsEmailStatus === "not_applicable") {
     return { sent: false, lead: initialLead };
   }
-  const nowMs = Date.now();
-  if (
-    claimIsFresh(
-      initialLead.userResultsEmailStatus,
-      initialLead.userResultsEmailClaimedAt,
-      nowMs,
-    )
-  ) {
-    return { sent: false, pending: true, lead: initialLead };
+  const claim = await claimQuizResultEmailDelivery({
+    referenceId: initialLead.referenceId,
+    deliveryKind: "visitor_results",
+    knownSent: initialLead.userResultsEmailStatus === "sent",
+    leaseSeconds: Math.round(CLAIM_LEASE_MS / 1000),
+  });
+  if (!claim.accepted) {
+    throw new Error("The visitor results email claim was not accepted.");
+  }
+  if (!claim.claimed) {
+    if (!claim.alreadySent) {
+      return { sent: false, pending: true, lead: initialLead };
+    }
+    if (initialLead.userResultsEmailStatus === "sent") {
+      return { sent: true, lead: initialLead };
+    }
+    const sentAt = initialLead.userResultsEmailSentAt ?? new Date().toISOString();
+    const repaired = await mirrorLeadPatch(
+      store,
+      initialLead,
+      {
+        userResultsEmailStatus: "sent",
+        userResultsEmailClaimId: undefined,
+        userResultsEmailClaimedAt: undefined,
+        userResultsEmailSentAt: sentAt,
+        userResultsEmailAttempts: Math.max(
+          initialLead.userResultsEmailAttempts,
+          claim.attemptCount,
+        ),
+        userResultsEmailLastError: undefined,
+        updatedAt: sentAt,
+      },
+      "visitor already sent",
+    );
+    return { sent: true, lead: repaired };
   }
 
-  const claimId = crypto.randomUUID();
-  const claimedAt = new Date(nowMs).toISOString();
-  await store.updateLead(initialLead.rowNumber, {
-    userResultsEmailStatus: "sending",
-    userResultsEmailClaimId: claimId,
-    userResultsEmailClaimedAt: claimedAt,
-    userResultsEmailAttempts: initialLead.userResultsEmailAttempts + 1,
-    userResultsEmailLastError: undefined,
-    updatedAt: claimedAt,
-  });
-  const claimed = await store.findByClientSubmissionId(
-    initialLead.clientSubmissionId,
-  );
-  if (!claimed || claimed.userResultsEmailClaimId !== claimId) {
-    return { sent: false, pending: true, lead: claimed ?? initialLead };
+  if (!claim.claimToken) {
+    throw new Error("The visitor results email claim token is missing.");
   }
+  const claimedAt = new Date().toISOString();
+  let claimed = await mirrorLeadPatch(
+    store,
+    initialLead,
+    {
+      userResultsEmailStatus: "sending",
+      userResultsEmailClaimId: claim.claimToken,
+      userResultsEmailClaimedAt: claimedAt,
+      userResultsEmailAttempts: claim.attemptCount,
+      userResultsEmailLastError: undefined,
+      updatedAt: claimedAt,
+    },
+    "visitor claimed",
+  );
 
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     const failedAt = new Date().toISOString();
-    await store.updateLead(claimed.rowNumber, {
-      userResultsEmailStatus: "failed",
-      userResultsEmailLastError: "Email delivery is not configured.",
-      updatedAt: failedAt,
+    await finishEmailClaim({
+      referenceId: claimed.referenceId,
+      deliveryKind: "visitor_results",
+      claimToken: claim.claimToken,
+      status: "failed",
     });
+    claimed = await mirrorLeadPatch(
+      store,
+      claimed,
+      {
+        userResultsEmailStatus: "failed",
+        userResultsEmailClaimId: undefined,
+        userResultsEmailClaimedAt: undefined,
+        userResultsEmailLastError: "Email delivery is not configured.",
+        updatedAt: failedAt,
+      },
+      "visitor configuration failure",
+    );
     return {
       sent: false,
-      lead: { ...claimed, userResultsEmailStatus: "failed" },
+      lead: claimed,
     };
   }
 
@@ -433,16 +621,24 @@ async function ensureUserResultsEmail(
     }
   } catch (error) {
     const failedAt = new Date().toISOString();
-    try {
-      await store.updateLead(claimed.rowNumber, {
-        userResultsEmailStatus: "failed",
-        userResultsEmailLastError: "User results email delivery failed.",
-        updatedAt: failedAt,
-      });
-    } catch (statusError) {
-      console.error(
-        `quiz-lead: could not mark user email ${claimed.referenceId} failed:`,
-        statusError instanceof Error ? statusError.name : "unknown error",
+    const completion = await finishEmailClaim({
+      referenceId: claimed.referenceId,
+      deliveryKind: "visitor_results",
+      claimToken: claim.claimToken,
+      status: "failed",
+    });
+    if (!completion || completion.accepted) {
+      claimed = await mirrorLeadPatch(
+        store,
+        claimed,
+        {
+          userResultsEmailStatus: "failed",
+          userResultsEmailClaimId: undefined,
+          userResultsEmailClaimedAt: undefined,
+          userResultsEmailLastError: "User results email delivery failed.",
+          updatedAt: failedAt,
+        },
+        "visitor delivery failure",
       );
     }
     console.error(
@@ -451,25 +647,34 @@ async function ensureUserResultsEmail(
     );
     return {
       sent: false,
-      lead: { ...claimed, userResultsEmailStatus: "failed" },
+      lead: claimed,
     };
   }
 
-  const sentAt = new Date().toISOString();
-  await store.updateLead(claimed.rowNumber, {
-    userResultsEmailStatus: "sent",
-    userResultsEmailSentAt: sentAt,
-    userResultsEmailLastError: undefined,
-    updatedAt: sentAt,
+  const completion = await finishEmailClaim({
+    referenceId: claimed.referenceId,
+    deliveryKind: "visitor_results",
+    claimToken: claim.claimToken,
+    status: "sent",
   });
+  const sentAt = completion?.sentAt ?? new Date().toISOString();
+  claimed = await mirrorLeadPatch(
+    store,
+    claimed,
+    {
+      userResultsEmailStatus: "sent",
+      userResultsEmailClaimId: undefined,
+      userResultsEmailClaimedAt: undefined,
+      userResultsEmailSentAt: sentAt,
+      userResultsEmailLastError: undefined,
+      updatedAt: sentAt,
+    },
+    "visitor sent",
+  );
   console.log(`quiz-lead: user results email sent ${claimed.referenceId}`);
   return {
     sent: true,
-    lead: {
-      ...claimed,
-      userResultsEmailStatus: "sent",
-      userResultsEmailSentAt: sentAt,
-    },
+    lead: claimed,
   };
 }
 
@@ -511,16 +716,21 @@ function successBody(
 
 export async function POST(req: NextRequest) {
   try {
-    const raw = await req.text();
-    if (Buffer.byteLength(raw, "utf8") > MAX_PAYLOAD_BYTES) {
-      return noStoreJson({ error: "Request too large." }, 413);
+    if (!hasJsonContentType(req)) {
+      return noStoreJson({ error: "A JSON request body is required." }, 415);
     }
-    let body: unknown;
-    try {
-      body = JSON.parse(raw);
-    } catch {
+    if (!isSameOriginRequest(req)) {
+      return noStoreJson({ error: "Invalid request origin." }, 403);
+    }
+
+    const boundedBody = await readBoundedJson(req, MAX_PAYLOAD_BYTES);
+    if (!boundedBody.ok) {
+      if (boundedBody.reason === "too_large") {
+        return noStoreJson({ error: "Request too large." }, 413);
+      }
       return noStoreJson({ error: "Invalid request body." }, 400);
     }
+    const body = boundedBody.value;
     if (
       isRateLimited(
         `quiz-lead-access:${requestIp(req)}`,
@@ -543,6 +753,24 @@ export async function POST(req: NextRequest) {
     }
     const payload = validation.data;
 
+    const verification = await verifyTurnstile(
+      req,
+      payload.turnstileToken,
+      QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION,
+      payload.clientSubmissionId,
+    );
+    if (!verification.ok) {
+      const unavailable = verification.reason !== "invalid";
+      return noStoreJson(
+        {
+          error: unavailable
+            ? "Secure verification is temporarily unavailable. Please try again."
+            : "Secure verification expired or failed. Please try again.",
+        },
+        unavailable ? 503 : 400,
+      );
+    }
+
     return await withQuizLeadLock(
       `access:${payload.clientSubmissionId}`,
       async () => {
@@ -551,81 +779,201 @@ export async function POST(req: NextRequest) {
           payload.clientSubmissionId,
         );
         const duplicate = Boolean(persisted);
-
-        if (persisted) {
-          const token = createSubmissionToken(
-            persisted.referenceId,
-            persisted.clientSubmissionId,
+        const prepared: QuizResultFingerprintSource | null = persisted
+          ? null
+          : (() => {
+              // Intent is deliberately not passed into either function: it
+              // changes presentation only, never score or therapist match.
+              const outcome = scoreQuiz(payload.answers);
+              const match = matchTherapist(
+                outcome,
+                extractPreferences(payload.answers),
+              );
+              const suggested =
+                match.status === "match"
+                  ? getTherapistBySlug(match.therapistSlug)
+                  : undefined;
+              return {
+                firstName: payload.firstName,
+                email: payload.email,
+                phone: payload.phone,
+                privacyText: payload.privacyLanguage,
+                privacyTextVersion: payload.privacyTextVersion,
+                quizVersion: QUIZ_VERSION,
+                scoringVersion: SCORING_VERSION,
+                answers: payload.answers,
+                outcome,
+                resultCategory: getResultContent(outcome).leadLabel,
+                scoreBand: scoreBandFor(outcome.score),
+                match,
+                recommendedTherapistSlug: suggested?.slug,
+                recommendedTherapistName: suggested?.name,
+                intent: payload.intent,
+                attribution: payload.attribution,
+              };
+            })();
+        const payloadHash = quizResultPayloadHash(
+          persisted ?? (prepared as QuizResultFingerprintSource),
+        );
+        const storageClaim = await claimQuizResultSubmission({
+          clientSubmissionId: payload.clientSubmissionId,
+          payloadHash,
+          existingReferenceId: persisted?.referenceId,
+          leaseSeconds: Math.round(CLAIM_LEASE_MS / 1000),
+        });
+        if (!storageClaim.accepted) {
+          throw new Error("The quiz result storage claim was not accepted.");
+        }
+        if (!storageClaim.claimed && storageClaim.reason === "lease_active") {
+          return noStoreJson(
+            {
+              ok: false,
+              pending: true,
+              retriable: true,
+              referenceId: storageClaim.referenceId,
+              retryAfterSeconds: storageClaim.retryAfterSeconds,
+              error:
+                "Your result is still being securely saved. Please try again in a moment.",
+            },
+            202,
           );
-          const tokenHash = hashSubmissionToken(token);
-          if (tokenHash !== persisted.submissionTokenHash) {
-            await store.updateLead(persisted.rowNumber, {
-              submissionTokenHash: tokenHash,
-              updatedAt: new Date().toISOString(),
-            });
-            persisted = { ...persisted, submissionTokenHash: tokenHash };
-          }
-        } else {
-          // Intent is deliberately not passed into either function: it changes
-          // presentation only, never the score or therapist match.
-          const outcome = scoreQuiz(payload.answers);
-          const match = matchTherapist(
-            outcome,
-            extractPreferences(payload.answers),
-          );
-          const suggested =
-            match.status === "match"
-              ? getTherapistBySlug(match.therapistSlug)
-              : undefined;
-          const referenceId = makeReferenceId();
-          const submissionToken = createSubmissionToken(
-            referenceId,
-            payload.clientSubmissionId,
-          );
-          const now = new Date().toISOString();
-          const lead: NewQuizLead = {
-            referenceId,
-            submissionTokenHash: hashSubmissionToken(submissionToken),
-            clientSubmissionId: payload.clientSubmissionId,
-            createdAt: now,
-            firstName: payload.firstName,
-            email: payload.email,
-            phone: payload.phone,
-            privacyAcknowledgedAt: now,
-            privacyText: payload.privacyLanguage,
-            privacyTextVersion: payload.privacyTextVersion,
-            quizVersion: QUIZ_VERSION,
-            scoringVersion: SCORING_VERSION,
-            answers: payload.answers,
-            outcome,
-            resultCategory: getResultContent(outcome).leadLabel,
-            scoreBand: scoreBandFor(outcome.score),
-            match,
-            recommendedTherapistSlug: suggested?.slug,
-            recommendedTherapistName: suggested?.name,
-            intent: payload.intent,
-            attribution: payload.attribution,
-            resultsViewedCount: 0,
-            therapistMatchViewedCount: 0,
-            janeBookingClickCount: 0,
-            contactHelpOpenedCount: 0,
-            preferredContactTimes: [],
-            accessNotificationStatus: "pending",
-            accessNotificationAttempts: 0,
-            userResultsEmailStatus: "pending",
-            userResultsEmailAttempts: 0,
-            notificationStatus: "not_requested",
-            notificationAttempts: 0,
-            updatedAt: now,
-          };
-          persisted = await store.appendLead(lead);
-          console.log(`quiz-lead: saved ${referenceId}`);
+        }
+        if (
+          !storageClaim.claimed &&
+          storageClaim.reason !== "already_ready"
+        ) {
+          throw new Error("The quiz result storage claim is unavailable.");
+        }
+        if (
+          persisted &&
+          persisted.referenceId !== storageClaim.referenceId
+        ) {
+          throw new Error("The quiz result registry does not match the saved result.");
         }
 
         const submissionToken = createSubmissionToken(
-          persisted.referenceId,
-          persisted.clientSubmissionId,
+          storageClaim.referenceId,
+          payload.clientSubmissionId,
         );
+        const tokenHash = hashSubmissionToken(submissionToken);
+
+        if (storageClaim.claimed) {
+          if (!storageClaim.claimToken) {
+            throw new Error("The quiz result storage claim token is missing.");
+          }
+          try {
+            // A previous worker can append successfully and die before it
+            // finalizes the registry. On a later lease attempt, reconcile the
+            // stable client/VQ identity once more before considering an append.
+            if (!persisted && storageClaim.attemptCount > 1) {
+              const reconciled = await store.findByClientSubmissionId(
+                payload.clientSubmissionId,
+              );
+              if (
+                reconciled &&
+                reconciled.referenceId !== storageClaim.referenceId
+              ) {
+                throw new Error(
+                  "The reconciled Sheet record does not match the quiz registry.",
+                );
+              }
+              persisted = reconciled;
+            }
+            if (persisted) {
+              if (tokenHash !== persisted.submissionTokenHash) {
+                const updatedAt = new Date().toISOString();
+                await store.updateLead(persisted.rowNumber, {
+                  submissionTokenHash: tokenHash,
+                  updatedAt,
+                });
+                persisted = {
+                  ...persisted,
+                  submissionTokenHash: tokenHash,
+                  updatedAt,
+                };
+              }
+            } else {
+              if (!prepared) {
+                throw new Error("The quiz result payload is missing.");
+              }
+              const now = new Date().toISOString();
+              const lead: NewQuizLead = {
+                referenceId: storageClaim.referenceId,
+                submissionTokenHash: tokenHash,
+                clientSubmissionId: payload.clientSubmissionId,
+                createdAt: now,
+                ...prepared,
+                privacyAcknowledgedAt: now,
+                resultsViewedCount: 0,
+                therapistMatchViewedCount: 0,
+                janeBookingClickCount: 0,
+                contactHelpOpenedCount: 0,
+                preferredContactTimes: [],
+                accessNotificationStatus: "pending",
+                accessNotificationAttempts: 0,
+                userResultsEmailStatus: "pending",
+                userResultsEmailAttempts: 0,
+                notificationStatus: "not_requested",
+                notificationAttempts: 0,
+                updatedAt: now,
+              };
+              persisted = await store.appendLead(lead);
+              console.log(`quiz-lead: saved ${storageClaim.referenceId}`);
+            }
+
+            const completion = await completeQuizResultSubmissionStorage({
+              clientSubmissionId: payload.clientSubmissionId,
+              claimToken: storageClaim.claimToken,
+              status: "ready",
+              sheetRowNumber: persisted.rowNumber,
+            });
+            if (!completion.accepted || completion.staleClaim) {
+              throw new Error("The quiz result storage claim became stale.");
+            }
+          } catch (error) {
+            await completeQuizResultSubmissionStorage({
+              clientSubmissionId: payload.clientSubmissionId,
+              claimToken: storageClaim.claimToken,
+              status: "failed",
+            }).catch(() => undefined);
+            throw error;
+          }
+        } else {
+          if (!persisted) {
+            throw new Error(
+              "The quiz result registry is ready, but the Sheet record is missing.",
+            );
+          }
+          if (tokenHash !== persisted.submissionTokenHash) {
+            const updatedAt = new Date().toISOString();
+            await store.updateLead(persisted.rowNumber, {
+              submissionTokenHash: tokenHash,
+              updatedAt,
+            });
+            persisted = {
+              ...persisted,
+              submissionTokenHash: tokenHash,
+              updatedAt,
+            };
+          }
+        }
+
+        if (!persisted) {
+          throw new Error("The quiz result was not persisted.");
+        }
+        // This is the authoritative, privacy-safe bridge from the consented
+        // lead to its anonymous journey. If it fails, the same client id can
+        // safely retry and repair the link instead of leaving a permanent gap.
+        await recordQuizLeadLink({
+          referenceId: persisted.referenceId,
+          funnelSessionId: payload.funnelSessionId,
+          quizAttemptId: payload.quizAttemptId,
+          quizVersion: persisted.quizVersion,
+          scoringVersion: persisted.scoringVersion,
+          intent: persisted.intent,
+          recommendedTherapist: persisted.recommendedTherapistSlug,
+          consentedAt: persisted.privacyAcknowledgedAt,
+        });
         const internal = await ensureInternalResultsEmail(store, persisted);
         const user = await ensureUserResultsEmail(
           store,

@@ -4,6 +4,7 @@ import {
   parseCheckpointConsultationAttribution,
 } from "@/lib/checkpoints/consultationAttribution";
 import { recordCheckpointAttribution } from "@/lib/server/checkpointAttributionRepair";
+import { repairConsultationRequestAttribution } from "@/lib/server/growthRepository";
 
 const MAXIMUM_SHEET_DATA_ROWS = 10_000;
 const MAXIMUM_RECONCILIATIONS_PER_RUN = 3;
@@ -176,6 +177,10 @@ async function runPendingCheckpointReconciliation(
       const result = await recordCheckpointAttribution(attribution, row.referenceId);
       if (!result.saved) continue;
       try {
+        const crmRepair = await repairConsultationRequestAttribution(
+          row.referenceId,
+        );
+        if (!crmRepair.accepted || !crmRepair.verified) continue;
         await markRowAttributed(context, row, result.placementId);
         repaired += 1;
       } catch (error) {

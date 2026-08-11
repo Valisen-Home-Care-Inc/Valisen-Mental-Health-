@@ -8,7 +8,6 @@ import {
   BatteryCharging,
   CalendarDays,
   Check,
-  Clipboard,
   Copy,
   Download,
   MapPin,
@@ -34,6 +33,7 @@ import {
 import {
   formatCount,
   formatPercent,
+  CheckpointSegmentation,
   FunnelVisual,
   PerformancePill,
   QuestionStepVisual,
@@ -93,7 +93,7 @@ function kpiCards(data: CheckpointDashboardData) {
     { label: "Check-ins Started", value: formatCount(kpis.checkinsStarted), note: "Entered the 30-second check-in" },
     { label: "Check-ins Completed", value: formatCount(kpis.checkinsCompleted), note: `${formatPercent(kpis.completionRate)} of starts` },
     { label: "Completion Rate", value: formatPercent(kpis.completionRate), note: "Started → completed" },
-    { label: "Therapist Intent", value: formatCount(kpis.therapistIntent), note: "Therapist CTA sessions" },
+    { label: "Consultation CTA Sessions", value: formatCount(kpis.therapistIntent), note: "Unique sessions that chose consultation" },
     { label: "Consultations Started", value: formatCount(kpis.consultationsStarted), note: "Reached consultation flow" },
     { label: "Consultations Submitted", value: formatCount(kpis.consultationsSubmitted), note: "Voluntary contact requests" },
     { label: "Session → Consultation", value: formatPercent(kpis.sessionToConsultationRate), note: "End-to-end conversion" },
@@ -210,7 +210,7 @@ export default function DashboardClient({
             Checkpoint performance
           </h1>
           <p className="mt-2 max-w-[660px] text-[13px] leading-5 text-[#667471]">
-            Compare anonymous sessions, check-in engagement, therapist intent, and voluntarily submitted consultations across all ten permanent checkpoints.
+            Compare anonymous sessions, check-in engagement, consultation CTA activity, and voluntarily submitted consultations across all ten permanent checkpoints.
           </p>
         </div>
 
@@ -275,8 +275,8 @@ export default function DashboardClient({
             <article className="rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6">
               <div className="mb-6 flex items-start justify-between gap-5">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Main funnel</p>
-                  <h2 className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">From tap to consultation</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Core check-in funnel</p>
+                  <h2 className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">From tap to result</h2>
                 </div>
                 <span className="rounded-full bg-[#eef4f1] px-3 py-1.5 text-[10px] font-semibold text-[#55706b]">Session cohort</span>
               </div>
@@ -289,10 +289,17 @@ export default function DashboardClient({
               <div className="mt-6 space-y-3">
                 <Insight label="Most sessions" value={hasTraffic && mostSessions ? `${mostSessions.code} · ${formatCount(mostSessions.sessions)}` : "Not enough data yet"} />
                 <Insight label="Strongest qualified performance" value={strongest ? `${strongest.code} · ${strongest.currentPlacement?.partnerName || "Unassigned"}` : "Not enough data yet"} />
-                <Insight label="Therapist-intent rate" value={data.kpis.sessions >= 20 ? formatPercent((data.kpis.therapistIntent / data.kpis.sessions) * 100) : "Not enough data yet"} />
+                <Insight label="Consult CTA rate" value={data.kpis.sessions >= 20 ? formatPercent(data.kpis.consultationCtaRate) : "Not enough data yet"} />
               </div>
               <p className="mt-6 border-t border-white/15 pt-4 text-[10.5px] leading-4 text-white/55">Relative labels require at least 20 sessions. “Strongest” also requires at least 30 sessions and three consultations, preventing tiny samples from being overstated.</p>
             </article>
+          </section>
+
+          <section className="mt-5" aria-label="Intent and result action segmentation">
+            <CheckpointSegmentation
+              actions={data.resultActions ?? []}
+              intents={data.intentMix ?? []}
+            />
           </section>
 
           <section className="mt-5 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6" aria-labelledby="question-exits-title">
@@ -334,7 +341,7 @@ export default function DashboardClient({
                     <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 border-y border-black/[0.055] py-3.5">
                       <SmallMetric label="Sessions" value={checkpoint.sessions} />
                       <SmallMetric label="Completed" value={checkpoint.checkinsCompleted} />
-                      <SmallMetric label="Intent" value={checkpoint.therapistIntent} />
+                      <SmallMetric label="Consult CTA" value={checkpoint.therapistIntent} />
                       <SmallMetric label="Consults" value={checkpoint.consultationsSubmitted} />
                     </div>
                     <div className="mt-3 flex min-h-[38px] items-center justify-between gap-2"><Sparkline values={checkpoint.sparkline.map((point) => point.sessions)} label={`${checkpoint.code} session trend`} /><span className="text-right text-[10px] font-semibold tabular-nums text-[#58716d]">{formatPercent(checkpoint.sessionToConsultationRate)}<br /><i className="not-italic font-normal text-[#8a9491]">conversion</i></span></div>
@@ -355,7 +362,7 @@ export default function DashboardClient({
               <table className="w-full min-w-[1120px] border-collapse text-left">
                 <thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]">
                   <tr>{[
-                    ["code", "Checkpoint"], ["location", "Current location"], ["sessions", "Sessions"], ["checkinsStarted", "Starts"], ["checkinsCompleted", "Completed"], ["completionRate", "Completion %"], ["therapistIntent", "Therapist intent"], ["consultationsSubmitted", "Consultations"], ["sessionToConsultationRate", "Consult conversion"], ["activeSince", "Active since"],
+                    ["code", "Checkpoint"], ["location", "Current location"], ["sessions", "Sessions"], ["checkinsStarted", "Starts"], ["checkinsCompleted", "Completed"], ["completionRate", "Completion %"], ["therapistIntent", "Consult CTA sessions"], ["consultationsSubmitted", "Consultations"], ["sessionToConsultationRate", "Consult conversion"], ["activeSince", "Active since"],
                   ].map(([key, label]) => <th key={key} className="px-4 py-3"><button type="button" onClick={() => changeSort(key as SortKey)} className="inline-flex items-center gap-1.5 hover:text-[#1d605a]">{label}{sort.key === key ? sort.direction === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} /> : null}</button></th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.055]">
@@ -366,8 +373,20 @@ export default function DashboardClient({
           </section>
 
           <section className="mt-8 overflow-hidden rounded-[20px] border border-black/[0.065] bg-white shadow-[0_8px_35px_rgba(25,47,43,0.05)]" aria-labelledby="lead-title">
-            <div className="flex items-start justify-between gap-5 px-5 py-5 sm:px-6"><div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Lightweight CRM</p><h2 id="lead-title" className="mt-1 text-[21px] font-semibold tracking-[-0.5px]">Consultation leads</h2><p className="mt-1 text-[11px] text-[#7c8784]">Only intentionally submitted consultation requests appear here. Anonymous sessions are not leads.</p></div><Clipboard size={18} className="mt-1 text-[#66837e]" aria-hidden="true" /></div>
-            {data.leads.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left"><thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.7px] text-[#788481]"><tr><th className="px-5 py-3">Reference</th><th className="px-5 py-3">Checkpoint</th><th className="px-5 py-3">Partner / location</th><th className="px-5 py-3">Source</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Submitted</th></tr></thead><tbody className="divide-y divide-black/[0.055]">{data.leads.map((lead) => <tr key={lead.referenceId} className="text-[11.5px] text-[#53615e]"><td className="px-5 py-3.5 font-mono text-[10.5px] text-[#384744]">{lead.referenceId}</td><td className="px-5 py-3.5 font-semibold text-[#24645e]">{lead.checkpointCode}</td><td className="px-5 py-3.5"><span className="block font-medium text-[#394744]">{lead.partnerName}</span><span className="text-[10px] text-[#89938f]">{lead.locationName}</span></td><td className="px-5 py-3.5">Mental Battery</td><td className="px-5 py-3.5"><span className="rounded-full bg-[#e6f3ec] px-2.5 py-1 text-[10px] font-semibold capitalize text-[#246048]">{lead.status}</span></td><td className="px-5 py-3.5">{formatDate(lead.submittedAt, { hour: "numeric", minute: "2-digit" })}</td></tr>)}</tbody></table></div> : <div className="grid min-h-[170px] place-items-center border-t border-black/[0.06] bg-[#fbfcfa] px-6 text-center"><div><BatteryCharging size={24} className="mx-auto text-[#8ba39e]" aria-hidden="true" /><p className="mt-3 text-[14px] font-semibold text-[#44514f]">No consultation leads in this range</p><p className="mt-1 text-[11px] text-[#858f8c]">Submitted requests will appear with their checkpoint and placement attribution.</p></div></div>}
+            <div className="flex flex-wrap items-start justify-between gap-5 px-5 py-5 sm:px-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Attribution feed</p>
+                <h2 id="lead-title" className="mt-1 text-[21px] font-semibold tracking-[-0.5px]">Mental Battery consultation attribution</h2>
+                <p className="mt-1 max-w-[700px] text-[11px] leading-5 text-[#7c8784]">
+                  Verify which checkpoint and placement generated each submitted request. Manage contact details, follow-up, confirmed bookings, and paid therapy in the unified Consultation Manager.
+                </p>
+              </div>
+              <Link href="/admin/checkpoints/consultations" className="inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-[#1d625c] px-4 text-[11px] font-semibold text-white no-underline shadow-sm transition hover:bg-[#174f4a]">
+                Open Consultation Manager
+                <ArrowUpRight size={13} aria-hidden="true" />
+              </Link>
+            </div>
+            {data.leads.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left"><thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.7px] text-[#788481]"><tr><th className="px-5 py-3">Reference</th><th className="px-5 py-3">Checkpoint</th><th className="px-5 py-3">Partner / location</th><th className="px-5 py-3">Source</th><th className="px-5 py-3">Attribution status</th><th className="px-5 py-3">Submitted</th></tr></thead><tbody className="divide-y divide-black/[0.055]">{data.leads.map((lead) => <tr key={lead.referenceId} className="text-[11.5px] text-[#53615e]"><td className="px-5 py-3.5 font-mono text-[10.5px] text-[#384744]">{lead.referenceId}</td><td className="px-5 py-3.5 font-semibold text-[#24645e]">{lead.checkpointCode}</td><td className="px-5 py-3.5"><span className="block font-medium text-[#394744]">{lead.partnerName}</span><span className="text-[10px] text-[#89938f]">{lead.locationName}</span></td><td className="px-5 py-3.5">Mental Battery</td><td className="px-5 py-3.5"><span className="rounded-full bg-[#e6f3ec] px-2.5 py-1 text-[10px] font-semibold capitalize text-[#246048]">{lead.status}</span></td><td className="px-5 py-3.5">{formatDate(lead.submittedAt, { hour: "numeric", minute: "2-digit" })}</td></tr>)}</tbody></table></div> : <div className="grid min-h-[170px] place-items-center border-t border-black/[0.06] bg-[#fbfcfa] px-6 text-center"><div><BatteryCharging size={24} className="mx-auto text-[#8ba39e]" aria-hidden="true" /><p className="mt-3 text-[14px] font-semibold text-[#44514f]">No attributed requests in this range</p><p className="mt-1 text-[11px] text-[#858f8c]">Submitted Mental Battery requests will appear with their checkpoint and placement attribution.</p></div></div>}
           </section>
         </>
       ) : !error ? <div className="mt-8 grid min-h-[300px] place-items-center"><RefreshCw size={24} className="animate-spin text-[#4e7d76]" aria-label="Loading checkpoint analytics" /></div> : null}

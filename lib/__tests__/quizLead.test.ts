@@ -76,6 +76,7 @@ function validAccessPayload(overrides: Record<string, unknown> = {}) {
       medium: "cpc",
       campaign: "ottawa therapy",
     },
+    turnstileToken: "test-turnstile-token",
     ...overrides,
   };
 }
@@ -151,6 +152,55 @@ describe("results-access validation", () => {
     expect(validateQuizLeadAccessPayload(validAccessPayload({ answers: incomplete })).ok).toBe(
       false,
     );
+  });
+
+  it("accepts only a paired, anonymous funnel session and quiz-attempt key", () => {
+    const valid = validateQuizLeadAccessPayload(
+      validAccessPayload({
+        funnelSessionId: "fs-1234567890abcdef",
+        quizAttemptId: "qa-1234567890abcdef",
+      }),
+    );
+    expect(valid.ok).toBe(true);
+    if (valid.ok) {
+      expect(valid.data.funnelSessionId).toBe("fs-1234567890abcdef");
+      expect(valid.data.quizAttemptId).toBe("qa-1234567890abcdef");
+    }
+    expect(
+      validateQuizLeadAccessPayload(
+        validAccessPayload({ quizAttemptId: "qa-1234567890abcdef" }),
+      ).ok,
+    ).toBe(false);
+    expect(
+      validateQuizLeadAccessPayload(
+        validAccessPayload({
+          funnelSessionId: "fs-1234567890abcdef",
+          quizAttemptId: "tampered",
+        }),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("rejects client-supplied score and match fields", () => {
+    expect(
+      validateQuizLeadAccessPayload(
+        validAccessPayload({ outcome: { score: 999 } }),
+      ).ok,
+    ).toBe(false);
+    expect(
+      validateQuizLeadAccessPayload(
+        validAccessPayload({ match: { therapistSlug: "tampered" } }),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("requires a bounded Turnstile response", () => {
+    expect(
+      validateQuizLeadAccessPayload(validAccessPayload({ turnstileToken: undefined })).ok,
+    ).toBe(false);
+    expect(
+      validateQuizLeadAccessPayload(validAccessPayload({ turnstileToken: "x".repeat(2_049) })).ok,
+    ).toBe(false);
   });
 
   it("requires the intent answer and rejects unknown attribution fields", () => {
@@ -246,6 +296,7 @@ describe("separate contact-consent validation", () => {
     message: "  Please text first.\nThank you. ",
     consentGranted: true,
     consentLanguage: CONTACT_CONSENT_TEXT,
+    turnstileToken: "test-turnstile-token",
   };
 
   it("accepts only the exact current consent language", () => {
@@ -279,6 +330,12 @@ describe("separate contact-consent validation", () => {
         website: "bot",
       }),
     ).toEqual({ ok: false, error: "honeypot" });
+    expect(
+      validateQuizContactConsentPayload({
+        ...validContact,
+        turnstileToken: undefined,
+      }).ok,
+    ).toBe(false);
   });
 
   it("requires exact future times, a time zone, method, and explicit consent", () => {

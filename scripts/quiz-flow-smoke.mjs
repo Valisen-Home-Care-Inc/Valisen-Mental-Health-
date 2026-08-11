@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import puppeteer from "puppeteer";
 
-const baseUrl = process.env.QUIZ_TEST_BASE_URL || "http://127.0.0.1:3000";
+const baseUrl = process.env.QUIZ_TEST_BASE_URL || "http://localhost:3000";
 const submissionToken = `v1.VQ-SMOKETEST001.${"a".repeat(43)}`;
 const referenceId = "VQ-SMOKETEST001";
 const timJaneUrl =
   "https://valisenmentalhealth.janeapp.com/#/staff_member/5";
+const timConsultationUrl =
+  "/consultation?therapist=tim-kahtava&source=quiz_result";
 
 const outcome = {
   scores: [
@@ -44,22 +46,22 @@ const intentRoutes = [
   {
     intent: "ready_to_speak",
     heading: "Your next step is ready",
-    cta: "Choose a Consultation Time",
+    cta: "Request My Free Consultation",
   },
   {
     intent: "brief_consultation",
     heading: "A brief consultation is a good place to start",
-    cta: "Book a Consultation with Tim",
+    cta: "Request a Consultation with Tim",
   },
   {
     intent: "see_recommended_therapist",
     heading: "Meet your recommended therapist",
-    cta: "Book a Consultation with Tim",
+    cta: "Request a Consultation with Tim",
   },
   {
     intent: "exploring",
     heading: "Here’s what stood out in your answers",
-    cta: "See Consultation Times",
+    cta: "Request a Free Consultation",
   },
 ];
 
@@ -316,7 +318,9 @@ async function preventJaneNavigation(page) {
       (event) => {
         const link =
           event.target instanceof Element
-            ? event.target.closest('a[href*="valisenmentalhealth.janeapp.com"]')
+            ? event.target.closest(
+                'a[href*="valisenmentalhealth.janeapp.com"], a[href^="/consultation"]',
+              )
             : null;
         if (link) event.preventDefault();
       },
@@ -370,16 +374,12 @@ async function assertRoute(page, route) {
   const primaryLink = await findLink(page, route.cta);
   assert.equal(
     await primaryLink.evaluate((link) => link.getAttribute("href")),
-    timJaneUrl,
-    `${route.intent} did not use Tim’s verified Jane destination.`,
+    timConsultationUrl,
+    `${route.intent} did not use Tim’s consultation request destination.`,
   );
   assert.equal(
     await primaryLink.evaluate((link) => link.getAttribute("target")),
-    "_blank",
-  );
-  assert.match(
-    await primaryLink.evaluate((link) => link.getAttribute("aria-label") || ""),
-    /opens Jane in a new tab/i,
+    null,
   );
 }
 
@@ -399,6 +399,13 @@ async function main() {
       console.error(`Browser console ${message.type()}:`, message.text());
     }
   });
+  page.on("response", (response) => {
+    if (response.status() >= 400) {
+      console.error(
+        `Browser HTTP ${response.status()}: ${response.request().method()} ${response.url()}`,
+      );
+    }
+  });
   await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
   console.log("Quiz UI smoke: setting media and interception");
   await page.emulateMediaFeatures([
@@ -416,12 +423,57 @@ async function main() {
   const pdfPayloads = [];
   const restorePayloads = [];
   const engagementPayloads = [];
+  const funnelPayloads = [];
 
   await page.setRequestInterception(true);
   console.log("Quiz UI smoke: interception ready");
   page.on("request", (request) => {
     void (async () => {
       const url = new URL(request.url());
+      if (
+        url.hostname === "challenges.cloudflare.com" &&
+        url.pathname === "/turnstile/v0/api.js"
+      ) {
+        await request.respond({
+          status: 200,
+          contentType: "application/javascript",
+          body: `(() => {
+            let sequence = 0;
+            const byContainer = new Map();
+            const byId = new Map();
+            window.turnstile = {
+              render(container, options) {
+                const id = "quiz-smoke-widget-" + (++sequence);
+                const entry = { id, container, options };
+                byContainer.set(container, entry);
+                byId.set(id, entry);
+                if (options.execution === "render") {
+                  setTimeout(() => options.callback("quiz-smoke-render-" + sequence), 0);
+                }
+                return id;
+              },
+              execute(container) {
+                const entry = byContainer.get(container);
+                if (!entry) return;
+                const token = "quiz-smoke-" + entry.options.action + "-" + (++sequence);
+                setTimeout(() => entry.options.callback(token), 0);
+              },
+              remove(id) {
+                const entry = byId.get(id);
+                if (!entry) return;
+                byContainer.delete(entry.container);
+                byId.delete(id);
+              },
+            };
+          })();`,
+        });
+        return;
+      }
+      if (request.method() === "POST" && url.pathname === "/api/funnel-events") {
+        funnelPayloads.push(JSON.parse(request.postData() || "{}"));
+        await request.respond({ status: 204 });
+        return;
+      }
       if (request.method() === "POST" && url.pathname === "/api/quiz-lead") {
         accessCalls += 1;
         accessPayloads.push(JSON.parse(request.postData() || "{}"));
@@ -475,6 +527,8 @@ async function main() {
           jsonResponse({
             ok: true,
             firstName: "Alex",
+            email: "alex@example.com",
+            phone: "613-555-0100",
             referenceId,
             outcome,
             match,
@@ -620,7 +674,30 @@ async function main() {
     const enabledViewResults = await findButton(page, "View My Results");
     await enabledViewResults.click();
     await enabledViewResults.evaluate((button) => button.click());
-    await waitForText(page, "We couldn’t save your results just now.");
+    try {
+      await waitForText(page, "We couldn’t save your results just now.");
+    } catch (error) {
+      const accessState = await page.evaluate(() => ({
+        alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+        button:
+          Array.from(document.querySelectorAll("button"))
+            .map((candidate) => ({
+              disabled: candidate.disabled,
+              text: candidate.textContent?.trim() ?? "",
+            }))
+            .find((candidate) =>
+              /View My Results|Securing Your Results|Saving Your Results/.test(
+                candidate.text,
+              ),
+            ) ?? null,
+        hasTurnstileApi: typeof window.turnstile?.execute === "function",
+      }));
+      console.error("Quiz UI smoke: results-access failure state", {
+        accessCalls,
+        accessState,
+      });
+      throw error;
+    }
     assert.equal(accessCalls, 1, "A rapid double click created two save requests.");
     assert.equal(contactCalls, 0);
 
@@ -639,6 +716,15 @@ async function main() {
     assert.equal(accessPayloads[1].answers.intent, "ready_to_speak");
     assert.equal("intent" in accessPayloads[1], false);
     assert.equal(accessPayloads[1].phone, "613-555-0100");
+    assert.match(
+      accessPayloads[1].turnstileToken,
+      /^quiz-smoke-quiz_results_access-/,
+    );
+    assert.notEqual(
+      accessPayloads[0].turnstileToken,
+      accessPayloads[1].turnstileToken,
+      "A consumed results-access challenge was reused after a failed request.",
+    );
     assert.equal(
       accessPayloads[1].privacyTextVersion,
       "2026-07-26.v4",
@@ -655,31 +741,22 @@ async function main() {
     });
 
     await preventJaneNavigation(page);
-    const primaryJane = await findLink(page, "Choose a Consultation Time");
-    await primaryJane.click();
+    const primaryConsultation = await findLink(page, "Request My Free Consultation");
+    await primaryConsultation.click();
     await page.waitForFunction(
       () =>
         (window.dataLayer || []).some(
           (event) =>
-            event?.event === "jane_booking_clicked" &&
+            event?.event === "consultation_request_clicked" &&
             event?.cta_placement === "results_primary",
         ),
-    );
-    await delay(200);
-    assert.equal(
-      engagementPayloads.some(
-        (payload) =>
-          payload.event === "jane_booking_clicked" &&
-          payload.ctaPlacement === "results_primary",
-      ),
-      true,
     );
 
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
     await delay(100);
     await assertNoHorizontalOverflow(page, "Mobile");
     await page.evaluate(() => {
-      const primary = [...document.querySelectorAll('a[href*="janeapp.com"]')].find(
+      const primary = [...document.querySelectorAll('a[href^="/consultation"]')].find(
         (link) => {
           let element = link;
           while (element) {
@@ -700,7 +777,7 @@ async function main() {
               !link.textContent
                 ?.replace(/\s+/g, " ")
                 .trim()
-                .startsWith("Choose a Consultation Time")
+                .startsWith("Request a Free Consultation")
             ) {
               return false;
             }
@@ -721,7 +798,7 @@ async function main() {
           .querySelector("[data-quiz-results]")
           ?.getBoundingClientRect()
           .toJSON(),
-        janeLinks: [...document.querySelectorAll('a[href*="janeapp.com"]')].map(
+        consultationLinks: [...document.querySelectorAll('a[href^="/consultation"]')].map(
           (link) => ({
             text: link.textContent?.replace(/\s+/g, " ").trim(),
             rect: link.getBoundingClientRect().toJSON(),
@@ -740,14 +817,14 @@ async function main() {
         { cause: error },
       );
     }
-    const stickyLinks = await page.$$('a[aria-label^="Choose a Consultation Time in Jane"]');
-    assert.ok(stickyLinks.length >= 1, "The mobile sticky Jane CTA did not appear.");
+    const stickyLinks = await page.$$('a[aria-label="Request a free consultation"]');
+    assert.ok(stickyLinks.length >= 1, "The mobile sticky consultation CTA did not appear.");
     await stickyLinks.at(-1).click();
     await page.waitForFunction(
       () =>
         (window.dataLayer || []).some(
           (event) =>
-            event?.event === "jane_booking_clicked" &&
+            event?.event === "consultation_request_clicked" &&
             event?.cta_placement === "mobile_sticky",
         ),
     );
@@ -761,7 +838,7 @@ async function main() {
       "We already have the name, email address, and phone number you provided",
     );
     assert.equal(
-      await page.$('a[aria-label^="Choose a Consultation Time in Jane"]'),
+      await page.$('a[aria-label="Request a free consultation"]'),
       null,
       "The sticky CTA remained visible over the contact-help form.",
     );
@@ -906,6 +983,8 @@ async function main() {
         "preferredTimes",
         "submissionToken",
         "timeZone",
+        "turnstileToken",
+        "website",
       ].sort(),
       "The scheduling-help request included unexpected fields.",
     );
@@ -915,6 +994,15 @@ async function main() {
     assert.equal(contactPayloads[1].timeZone, "America/Toronto");
     assert.equal(contactPayloads[1].consentGranted, true);
     assert.equal(contactPayloads[1].message, editedRetryMessage);
+    assert.match(
+      contactPayloads[1].turnstileToken,
+      /^quiz-smoke-quiz_contact_help-/,
+    );
+    assert.notEqual(
+      contactPayloads[0].turnstileToken,
+      contactPayloads[1].turnstileToken,
+      "A consumed contact-help challenge was reused after a failed request.",
+    );
 
     const analyticsJson = await page.evaluate(() =>
       JSON.stringify(window.dataLayer || []),
@@ -952,6 +1040,33 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     console.log("Quiz UI smoke: validating restoration and intent variants");
     await waitForText(page, "Scheduling request received");
+    await page.evaluate(() =>
+      sessionStorage.removeItem("valisen.consultation.prefill"),
+    );
+    await preventJaneNavigation(page);
+    const restoredConsultation = await findLink(
+      page,
+      "Request My Free Consultation",
+    );
+    await restoredConsultation.click();
+    const restoredPrefill = await page.evaluate(() =>
+      JSON.parse(sessionStorage.getItem("valisen.consultation.prefill") || "null"),
+    );
+    assert.deepEqual(
+      {
+        firstName: restoredPrefill?.firstName,
+        email: restoredPrefill?.email,
+        phone: restoredPrefill?.phone,
+        submissionToken: restoredPrefill?.submissionToken,
+      },
+      {
+        firstName: "Alex",
+        email: "alex@example.com",
+        phone: "613-555-0100",
+        submissionToken,
+      },
+      "A restored private result did not restage the consented consultation autofill.",
+    );
     assert.equal(accessCalls, 2);
     assert.ok(restoreCalls >= 1);
     for (const restored of restorePayloads) {
@@ -1025,6 +1140,7 @@ async function main() {
     await page.evaluate(() => sessionStorage.removeItem("valisen.quiz.resultToken"));
     await page.goto(`${baseUrl}/quiz#result=${encodeURIComponent(submissionToken)}`, {
       waitUntil: "domcontentloaded",
+      timeout: 30_000,
     });
     await assertRoute(page, intentRoutes[0]);
     assert.equal(

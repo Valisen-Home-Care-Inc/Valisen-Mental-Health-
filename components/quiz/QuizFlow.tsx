@@ -24,7 +24,16 @@ import {
   campaignAttributionFromSearch,
   type CampaignAttribution,
 } from "@/lib/campaignAttribution";
-import { getDeviceCategory, trackQuizEvent } from "@/lib/analytics";
+import {
+  beginQuizAttempt,
+  getActiveQuizAttemptId,
+  getDeviceCategory,
+  trackQuizEvent,
+} from "@/lib/analytics";
+import {
+  flushFirstPartyFunnelEvents,
+  getFirstPartyFunnelSessionId,
+} from "@/lib/funnelTracking";
 import { isQuizIntent, type QuizIntent } from "@/lib/quizIntent";
 import ResultsAccessForm, {
   type ResultsAccessDetails,
@@ -38,6 +47,8 @@ type ResultResponse = {
   referenceId?: string;
   submissionToken?: string;
   firstName?: string;
+  email?: string;
+  phone?: string;
   outcome?: QuizOutcome;
   match?: MatchResult;
   intent?: unknown;
@@ -132,10 +143,13 @@ export default function QuizFlow() {
 
       if (!storedToken) {
         if (!cancelled) {
+          beginQuizAttempt();
           setPhase("quiz");
           trackQuizEvent("quiz_page_viewed", {
             campaignSource: capturedAttribution.source,
+            campaignMedium: capturedAttribution.medium,
             campaignName: capturedAttribution.campaign,
+            campaignContent: capturedAttribution.content,
             deviceCategory: getDeviceCategory(),
           });
         }
@@ -170,6 +184,8 @@ export default function QuizFlow() {
         setReferenceId(body.referenceId);
         setSubmissionToken(storedToken);
         setFirstName(body.firstName ?? "");
+        setEmail(body.email ?? "");
+        setPhone(body.phone ?? "");
         setContactHelpSent(Boolean(body.contactHelpSent));
         setUserEmailDeliveryFailed(false);
         if (body.attribution) {
@@ -187,10 +203,13 @@ export default function QuizFlow() {
           }
         }
         if (!cancelled) {
+          beginQuizAttempt();
           setPhase("quiz");
           trackQuizEvent("quiz_page_viewed", {
             campaignSource: capturedAttribution.source,
+            campaignMedium: capturedAttribution.medium,
             campaignName: capturedAttribution.campaign,
+            campaignContent: capturedAttribution.content,
             deviceCategory: getDeviceCategory(),
           });
         }
@@ -321,8 +340,9 @@ export default function QuizFlow() {
 
   function goBack() {
     clearTimeout(advanceTimer.current);
-    trackQuizEvent("quiz_back_clicked", { quizStep: index });
-    setIndex((current) => Math.max(0, current - 1));
+    const previousIndex = Math.max(0, index - 1);
+    trackQuizEvent("quiz_back_clicked", { quizStep: previousIndex });
+    setIndex(previousIndex);
   }
 
   function restart() {
@@ -348,11 +368,14 @@ export default function QuizFlow() {
     setContactHelpSent(false);
     setUserEmailDeliveryFailed(false);
     accessSubmissionIdRef.current = null;
+    beginQuizAttempt();
     setPhase("quiz");
     startedRef.current = false;
     trackQuizEvent("quiz_page_viewed", {
       campaignSource: attribution.source,
+      campaignMedium: attribution.medium,
       campaignName: attribution.campaign,
+      campaignContent: attribution.content,
       deviceCategory: getDeviceCategory(),
     });
   }
@@ -361,6 +384,9 @@ export default function QuizFlow() {
     const clientSubmissionId =
       accessSubmissionIdRef.current ?? (accessSubmissionIdRef.current = makeClientSubmissionId());
     const shareableAnswers = withoutSafety(answers);
+    // The lead-link RPC verifies that these anonymous keys already exist.
+    // Drain the idempotent queue first so a fast submission cannot outrun it.
+    await flushFirstPartyFunnelEvents();
     const response = await fetch("/api/quiz-lead", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -375,8 +401,12 @@ export default function QuizFlow() {
         privacyTextVersion: details.privacyTextVersion,
         answers: shareableAnswers,
         attribution,
+        funnelSessionId: getFirstPartyFunnelSessionId(),
+        quizAttemptId: getActiveQuizAttemptId(),
         website: details.website,
+        turnstileToken: details.turnstileToken,
       }),
+      credentials: "same-origin",
     });
     const body = (await response.json().catch(() => null)) as ResultResponse | null;
 
@@ -415,7 +445,9 @@ export default function QuizFlow() {
       intent: body.intent,
       submissionReference: body.referenceId,
       campaignSource: attribution.source,
+      campaignMedium: attribution.medium,
       campaignName: attribution.campaign,
+      campaignContent: attribution.content,
       deviceCategory: getDeviceCategory(),
     });
 

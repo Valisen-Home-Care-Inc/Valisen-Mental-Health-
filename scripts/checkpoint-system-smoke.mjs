@@ -369,12 +369,50 @@ try {
       firstUnansweredStep = 1;
     }
 
+    const intentIndexByWidth = { 375: 0, 390: 3, 430: 1, 1440: 2 };
+    const expectedPrimaryByWidth = {
+      375: { label: "Explore therapist options", href: "/therapists", strong: false },
+      390: { label: "Book a free consultation", href: "/consultation?source=mental_battery_checkpoint", strong: true },
+      430: { label: "Find my therapist match", href: "/quiz", strong: false },
+      1440: { label: "Find my therapist match", href: "/quiz", strong: true },
+    };
+
     for (let step = firstUnansweredStep; step < 4; step += 1) {
       console.log(`  answering step ${step + 1}`);
-      await page.waitForSelector("fieldset button");
+      await page.waitForSelector("fieldset button:not([disabled])");
       const buttons = await page.$$("fieldset button");
-      await buttons[Math.min(step, buttons.length - 1)].click();
+      const answerIndex = step === 3
+        ? intentIndexByWidth[width]
+        : Math.min(step, buttons.length - 1);
+      const promptBefore = await page.$eval("fieldset legend", (legend) => legend.textContent);
+      await buttons[answerIndex].click();
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+      const selectionAudit = await page.evaluate((expectedPrompt) => ({
+        prompt: document.querySelector("fieldset legend")?.textContent,
+        selected: document.querySelectorAll('fieldset button[aria-pressed="true"]').length,
+        disabled: Array.from(document.querySelectorAll("fieldset button")).every(
+          (button) => button instanceof HTMLButtonElement && button.disabled,
+        ),
+        expectedPrompt,
+      }), promptBefore);
+      if (
+        selectionAudit.prompt !== selectionAudit.expectedPrompt ||
+        selectionAudit.selected !== 1 ||
+        !selectionAudit.disabled
+      ) {
+        throw new Error(
+          `checkpoint-${width} did not hold the selected state before auto-advance: ${JSON.stringify(selectionAudit)}`,
+        );
+      }
+      if (step < 3) {
+        await page.waitForFunction(
+          (nextStep) => document.body.innerText.includes(
+            nextStep === 4 ? "Final step · 4 of 4" : `Question ${nextStep} of 4`,
+          ),
+          {},
+          step + 2,
+        );
+      }
     }
 
     await page.waitForFunction(() =>
@@ -383,16 +421,49 @@ try {
       ),
     );
     console.log("  result rendered");
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 800));
+    const batteryReveal = await page.evaluate(() => {
+      const gauge = Array.from(document.querySelectorAll('[role="img"]')).find(
+        (element) => /visual battery level/.test(element.getAttribute("aria-label") || ""),
+      );
+      const fill = gauge?.querySelector('div[style*="width"]');
+      const track = fill?.parentElement;
+      if (!(fill instanceof HTMLElement) || !(track instanceof HTMLElement)) return null;
+      const target = Number((gauge?.getAttribute("aria-label") || "").match(/(\d+)%/)?.[1]);
+      const displayed = (fill.getBoundingClientRect().width / track.getBoundingClientRect().width) * 100;
+      return { displayed, target };
+    });
+    if (
+      !batteryReveal ||
+      !Number.isFinite(batteryReveal.target) ||
+      Math.abs(batteryReveal.displayed - batteryReveal.target) > 1
+    ) {
+      throw new Error(
+        `checkpoint-${width} result battery did not finish its reveal: ${JSON.stringify(batteryReveal)}`,
+      );
+    }
     await auditLayout(page, `checkpoint-${width}-result`);
-    const resultAudit = await page.evaluate(() => ({
+    const resultAudit = await page.evaluate((expectedPrimary) => ({
       focusedResult: /Charged|Steady|Running Low|Needs a Recharge/.test(document.activeElement?.textContent || ""),
-      primaryCta: Array.from(document.querySelectorAll("a")).some((anchor) =>
-        anchor.textContent?.includes("Get matched with a therapist") &&
-        anchor.getAttribute("href") === "/consultation?source=mental_battery_checkpoint",
-      ),
+      primaryCta: Array.from(document.querySelectorAll("a")).some((anchor) => {
+        const isExpected =
+          anchor.textContent?.includes(expectedPrimary.label) &&
+          anchor.getAttribute("href") === expectedPrimary.href;
+        const isStrong = anchor.classList.contains("bg-white");
+        return isExpected && isStrong === expectedPrimary.strong;
+      }),
+      supportEyebrow: document.body.innerText.includes("IF YOU’D LIKE SOME SUPPORT"),
+      structuredSuggestions:
+        document.body.innerText.includes("Take five") &&
+        document.body.innerText.includes("Make some room"),
       stored: Object.entries(sessionStorage).map(([key, value]) => `${key}:${value}`).join("\n"),
-    }));
-    if (!resultAudit.focusedResult || !resultAudit.primaryCta) {
+    }), expectedPrimaryByWidth[width]);
+    if (
+      !resultAudit.focusedResult ||
+      !resultAudit.primaryCta ||
+      !resultAudit.supportEyebrow ||
+      !resultAudit.structuredSuggestions
+    ) {
       throw new Error(`checkpoint-${width} result focus/CTA failed: ${JSON.stringify(resultAudit)}`);
     }
     if (/fully charged|overwhelmed|nearly empty|answer|score/i.test(resultAudit.stored)) {

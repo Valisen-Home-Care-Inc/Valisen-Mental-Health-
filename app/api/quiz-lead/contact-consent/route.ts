@@ -13,6 +13,7 @@ import {
   CONTACT_CONSENT_TEXT,
   CONTACT_CONSENT_TEXT_VERSION,
   MAX_PAYLOAD_BYTES,
+  QUIZ_CONTACT_HELP_TURNSTILE_ACTION,
   hasCurrentResultsAccessAuthorization,
   isValidPhone,
   validateQuizContactConsentEnvelope,
@@ -27,6 +28,17 @@ import {
 } from "@/lib/server/quizLeadStore";
 import { buildQuizSummaryPdf } from "@/lib/server/quizSummaryPdf";
 import { isRateLimited } from "@/lib/server/rateLimit";
+import {
+  claimConsultationNotification,
+  completeConsultationNotificationClaim,
+  upsertConsultationLead,
+} from "@/lib/server/growthRepository";
+import {
+  hasJsonContentType,
+  isSameOriginRequest,
+  readBoundedJson,
+} from "@/lib/server/httpRequestSecurity";
+import { verifyTurnstile } from "@/lib/server/turnstile";
 
 export const runtime = "nodejs";
 
@@ -101,16 +113,21 @@ function claimIsFresh(lead: StoredQuizLead, now: number): boolean {
 
 export async function POST(req: NextRequest) {
   try {
-    const raw = await req.text();
-    if (Buffer.byteLength(raw, "utf8") > MAX_PAYLOAD_BYTES) {
-      return noStoreJson({ error: "Request too large." }, 413);
+    if (!hasJsonContentType(req)) {
+      return noStoreJson({ error: "A JSON request body is required." }, 415);
     }
-    let body: unknown;
-    try {
-      body = JSON.parse(raw);
-    } catch {
+    if (!isSameOriginRequest(req)) {
+      return noStoreJson({ error: "Invalid request origin." }, 403);
+    }
+
+    const boundedBody = await readBoundedJson(req, MAX_PAYLOAD_BYTES);
+    if (!boundedBody.ok) {
+      if (boundedBody.reason === "too_large") {
+        return noStoreJson({ error: "Request too large." }, 413);
+      }
       return noStoreJson({ error: "Invalid request body." }, 400);
     }
+    const body = boundedBody.value;
     if (
       isRateLimited(
         `quiz-contact-consent:${requestIp(req)}`,
@@ -133,6 +150,24 @@ export async function POST(req: NextRequest) {
     }
     const payload = validation.data;
     const tokenHash = hashSubmissionToken(payload.submissionToken);
+
+    const verification = await verifyTurnstile(
+      req,
+      payload.turnstileToken,
+      QUIZ_CONTACT_HELP_TURNSTILE_ACTION,
+      tokenHash,
+    );
+    if (!verification.ok) {
+      const unavailable = verification.reason !== "invalid";
+      return noStoreJson(
+        {
+          error: unavailable
+            ? "Secure verification is temporarily unavailable. Please try again."
+            : "Secure verification expired or failed. Please try again.",
+        },
+        unavailable ? 503 : 400,
+      );
+    }
 
     return await withQuizLeadLock(
       `contact-consent:${tokenHash}`,
@@ -272,24 +307,80 @@ export async function POST(req: NextRequest) {
         }
         lead = claimed;
 
-        if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-          await store.updateLead(lead.rowNumber, {
-            notificationStatus: "failed",
-            notificationLastError: "Email delivery is not configured.",
-            updatedAt: new Date().toISOString(),
-          });
-          return noStoreJson(
-            {
-              error: "Contact request delivery is not configured.",
-              retriable: true,
-            },
-            500,
-          );
-        }
+        const coordinationDetails = [
+          `Preferred contact: ${lead.contactMethod ?? contactMethod}`,
+          `Proposed times: ${(
+            lead.preferredContactTimes.length >= 2
+              ? lead.preferredContactTimes
+              : preferredContactTimes
+          ).join(" | ")}`,
+          `Time zone: ${lead.preferredContactTimeZone ?? preferredContactTimeZone}`,
+          lead.contactMessage ? `Message: ${lead.contactMessage}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n")
+          .slice(0, 3000);
+        let crmLeadId: string | null = null;
+        let crmNotificationClaimToken: string | null = null;
 
         try {
-          const consentTimestampLabel = torontoLabel(new Date(consentAt));
-          const email = buildQuizLeadEmail({
+          // Persist the consented request before attempting email so the CRM
+          // remains the authoritative work queue even if notification fails.
+          const crmLead = await upsertConsultationLead({
+            quizReferenceId: lead.referenceId,
+            firstName: lead.firstName,
+            email: lead.email,
+            phone: lead.contactPhone || lead.phone,
+            preferredTherapist:
+              lead.recommendedTherapistName ?? "No specific match",
+            preferredTime: "Proposed times supplied",
+            coordinationDetails,
+            consentText: lead.contactConsentText ?? consentText,
+            consentVersion:
+              lead.contactConsentTextVersion ?? consentTextVersion,
+            consentedAt: consentAt,
+            sourceKind: "quiz",
+            sourceDetail: "quiz_booking_help",
+            attribution: lead.attribution,
+            notificationStatus: "pending",
+            submittedAt: consentAt,
+          });
+          crmLeadId = crmLead.leadId;
+          const crmNotificationClaim = await claimConsultationNotification(
+            crmLead.leadId,
+            lead.referenceId,
+          );
+          if (!crmNotificationClaim.accepted) {
+            throw new Error("The CRM notification claim was not accepted.");
+          }
+          if (
+            !crmNotificationClaim.claimed &&
+            !crmNotificationClaim.alreadySent
+          ) {
+            return noStoreJson(
+              {
+                ok: true,
+                referenceId: lead.referenceId,
+                emailSent: false,
+                pending: true,
+                duplicate: true,
+              },
+              202,
+            );
+          }
+          crmNotificationClaimToken =
+            crmNotificationClaim.claimToken ?? null;
+
+          if (!crmNotificationClaim.alreadySent) {
+            if (!crmNotificationClaimToken) {
+              throw new Error("The CRM notification claim token is missing.");
+            }
+            if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+              throw new Error("Contact request email delivery is not configured.");
+            }
+
+            const consentTimestampLabel = torontoLabel(new Date(consentAt));
+            const email = buildQuizLeadEmail({
             referenceId: lead.referenceId,
             firstName: lead.firstName,
             email: lead.email,
@@ -413,7 +504,44 @@ export async function POST(req: NextRequest) {
               "SMTP did not accept the contact notification recipient.",
             );
           }
+
+            try {
+              if (crmLeadId && crmNotificationClaimToken) {
+                const completion = await completeConsultationNotificationClaim(
+                  crmLeadId,
+                  lead.referenceId,
+                  crmNotificationClaimToken,
+                  "sent",
+                );
+                if (!completion.accepted || completion.staleClaim) {
+                  console.warn(
+                    `quiz-contact-consent: stale CRM notification claim ${lead.referenceId}`,
+                  );
+                }
+              }
+            } catch (statusError) {
+              // The request is already present in the manager and the email was
+              // accepted. Leave it visibly pending for staff rather than making
+              // the visitor repeat a successfully delivered request.
+              console.warn(
+                `quiz-contact-consent: CRM notification marker unavailable ${lead.referenceId}`,
+                statusError instanceof Error ? statusError.name : "unknown",
+              );
+            }
+          }
         } catch (error) {
+          if (crmLeadId && crmNotificationClaimToken) {
+            try {
+              await completeConsultationNotificationClaim(
+                crmLeadId,
+                lead.referenceId,
+                crmNotificationClaimToken,
+                "failed",
+              );
+            } catch {
+              // The pending CRM row still keeps the request visible to staff.
+            }
+          }
           try {
             await store.updateLead(lead.rowNumber, {
               notificationStatus: "failed",

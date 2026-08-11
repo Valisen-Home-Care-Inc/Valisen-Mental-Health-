@@ -1,7 +1,7 @@
 import {
   QUIZ_INTENT_OPTIONS,
   type QuizIntentOption,
-} from "@/lib/quizIntent";
+} from "@/lib/quizIntentContract";
 
 /**
  * Valisen self-reflection quiz — single source of truth.

@@ -9,11 +9,29 @@ import {
   type FunnelEventRecord,
 } from "@/lib/server/funnelEventStore";
 import { isRateLimited } from "@/lib/server/rateLimit";
+import { QUIZ_VERSION } from "@/lib/quiz";
+import { isQuizIntent } from "@/lib/quizIntentContract";
+import { canonicalizeTrackedPath } from "@/lib/funnelPath";
 
 export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 48_000;
 const MAX_EVENTS = 20;
+const FUNNEL_STEP_EVENTS = new Set([
+  "therapist_finder_started",
+  "therapist_finder_step_completed",
+  "therapist_finder_completed",
+  "possibility_builder_started",
+  "possibility_stage_completed",
+  "possibility_reflection_viewed",
+  "therapist_recommendation_viewed",
+  "possibility_builder_restarted",
+  "consultation_page_viewed",
+  "consultation_form_started",
+  "consultation_step_viewed",
+  "consultation_form_validation_failed",
+  "consultation_request_submitted",
+]);
 const EVENT_KEYS = new Set([
   "eventId",
   "sequence",
@@ -23,6 +41,8 @@ const EVENT_KEYS = new Set([
   "page",
   "stage",
   "quizStep",
+  "quizAttemptId",
+  "quizIntent",
   "funnelStep",
   "ctaPlacement",
   "therapistId",
@@ -37,6 +57,7 @@ const EVENT_KEYS = new Set([
   "elapsedMs",
   "referrerHost",
 ]);
+const SUBMISSION_REFERENCE_PATTERN = /^(?:VC-[A-Za-z0-9_-]{6,36}|VQ-[A-Za-z0-9_-]{4,36})$/;
 
 function clean(value: unknown, max: number): string {
   if (typeof value !== "string") return "";
@@ -82,31 +103,74 @@ function parseEvent(input: unknown): FunnelEventRecord | null {
     event.sequence > 1_000_000 ||
     typeof event.occurredAt !== "string" ||
     Number.isNaN(Date.parse(event.occurredAt)) ||
-    Math.abs(Date.now() - Date.parse(event.occurredAt)) > 7 * 24 * 60 * 60 * 1000 ||
+    Date.parse(event.occurredAt) < Date.now() - 7 * 24 * 60 * 60 * 1000 ||
+    Date.parse(event.occurredAt) > Date.now() + 10 * 60 * 1000 ||
     typeof event.event !== "string" ||
     !(FUNNEL_EVENT_NAMES as readonly string[]).includes(event.event) ||
     typeof event.path !== "string" ||
-    !event.path.startsWith("/") ||
     event.path.length > 180
   ) {
     return null;
   }
   const page = clean(event.page, 40);
   const device = clean(event.deviceCategory, 20);
+  const stage = clean(event.stage, 80);
+  const ctaPlacement = clean(event.ctaPlacement, 50);
+  const therapistId = clean(event.therapistId, 80);
   if (page && !(FUNNEL_PAGES as readonly string[]).includes(page)) return null;
   if (device && !(DEVICE_CATEGORIES as readonly string[]).includes(device)) return null;
+  if (stage && !/^[a-z0-9_-]+$/.test(stage)) return null;
+  if (ctaPlacement && !/^[a-z0-9_-]+$/.test(ctaPlacement)) return null;
+  if (therapistId && !/^[a-z0-9-]+$/.test(therapistId)) return null;
+
+  const hasSubmissionReference = Object.prototype.hasOwnProperty.call(
+    event,
+    "submissionReference",
+  );
+  const submissionReference = clean(event.submissionReference, 40);
+  if (
+    hasSubmissionReference &&
+    (!submissionReference || !SUBMISSION_REFERENCE_PATTERN.test(submissionReference))
+  ) {
+    return null;
+  }
 
   const quizStep = event.quizStep;
+  const quizAttemptId = clean(event.quizAttemptId, 100);
+  const hasQuizIntent = Object.prototype.hasOwnProperty.call(event, "quizIntent");
+  const quizIntent = hasQuizIntent && isQuizIntent(event.quizIntent)
+    ? event.quizIntent
+    : undefined;
   const funnelStep = event.funnelStep;
   if (
     quizStep !== undefined &&
-    (typeof quizStep !== "number" || !Number.isInteger(quizStep) || quizStep < 0 || quizStep > 30)
+    (typeof quizStep !== "number" || !Number.isInteger(quizStep) || quizStep < 0 || quizStep > 18)
+  ) {
+    return null;
+  }
+  if (quizAttemptId && !/^qa-[A-Za-z0-9-]{16,90}$/.test(quizAttemptId)) return null;
+  if (hasQuizIntent && !quizIntent) return null;
+  if (
+    event.event === "quiz_intent_selected" &&
+    (!quizIntent || !quizAttemptId)
+  ) {
+    return null;
+  }
+  if (event.event !== "quiz_intent_selected" && hasQuizIntent) return null;
+  if (
+    (event.event === "quiz_question_viewed" ||
+      event.event === "quiz_question_answered") &&
+    (quizStep === undefined || !quizAttemptId)
   ) {
     return null;
   }
   if (
     funnelStep !== undefined &&
-    (typeof funnelStep !== "number" || !Number.isInteger(funnelStep) || funnelStep < 1 || funnelStep > 10)
+    (typeof funnelStep !== "number" ||
+      !Number.isInteger(funnelStep) ||
+      funnelStep < 1 ||
+      funnelStep > 10 ||
+      !FUNNEL_STEP_EVENTS.has(event.event))
   ) {
     return null;
   }
@@ -126,14 +190,16 @@ function parseEvent(input: unknown): FunnelEventRecord | null {
     sequence: event.sequence,
     occurredAt: new Date(event.occurredAt).toISOString(),
     event: event.event,
-    path: event.path,
+    path: canonicalizeTrackedPath(event.path, page as (typeof FUNNEL_PAGES)[number] | ""),
     page,
-    stage: clean(event.stage, 80),
+    stage,
     quizStep: quizStep as number | undefined,
+    quizAttemptId,
+    quizIntent,
     funnelStep: funnelStep as number | undefined,
-    ctaPlacement: clean(event.ctaPlacement, 50),
-    therapistId: clean(event.therapistId, 80),
-    submissionReference: clean(event.submissionReference, 40),
+    ctaPlacement,
+    therapistId,
+    submissionReference,
     deviceCategory: device,
     utmSource: clean(event.utmSource, 120),
     utmMedium: clean(event.utmMedium, 120),
@@ -175,8 +241,8 @@ export async function POST(request: NextRequest) {
     !/^fs-[a-zA-Z0-9-]{16,90}$/.test(input.sessionId) ||
     typeof input.sessionStartedAt !== "string" ||
     Number.isNaN(Date.parse(input.sessionStartedAt)) ||
-    Math.abs(Date.now() - Date.parse(input.sessionStartedAt)) >
-      7 * 24 * 60 * 60 * 1000 ||
+    Date.parse(input.sessionStartedAt) < Date.now() - 7 * 24 * 60 * 60 * 1000 ||
+    Date.parse(input.sessionStartedAt) > Date.now() + 10 * 60 * 1000 ||
     !Array.isArray(input.events) ||
     input.events.length < 1 ||
     input.events.length > MAX_EVENTS
@@ -187,12 +253,25 @@ export async function POST(request: NextRequest) {
   if (events.some((event) => event === null)) {
     return new NextResponse(null, { status: 400 });
   }
+  const parsedEvents = events as FunnelEventRecord[];
+  const sessionStartedAt = Date.parse(input.sessionStartedAt);
+  if (
+    new Set(parsedEvents.map((event) => event.eventId)).size !== parsedEvents.length ||
+    new Set(parsedEvents.map((event) => event.sequence)).size !== parsedEvents.length ||
+    parsedEvents.some(
+      (event) => Date.parse(event.occurredAt) < sessionStartedAt - 5 * 60 * 1000,
+    )
+  ) {
+    return new NextResponse(null, { status: 400 });
+  }
 
   try {
     await saveFunnelEventBatch(
       input.sessionId,
       new Date(input.sessionStartedAt).toISOString(),
-      events as FunnelEventRecord[],
+      parsedEvents.map((event) =>
+        event.page === "quiz" ? { ...event, quizVersion: QUIZ_VERSION } : event,
+      ),
     );
     return new NextResponse(null, {
       status: 204,
@@ -201,7 +280,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error(
       "funnel-events: persistence failed",
-      error instanceof Error ? error.message : "unknown",
+      error instanceof Error ? error.name : "unknown",
     );
     return NextResponse.json(
       { error: "Tracking storage unavailable." },

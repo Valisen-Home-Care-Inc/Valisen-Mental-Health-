@@ -1,4 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const recordFirstPartyFunnelEvent = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/funnelTracking", () => ({
+  recordFirstPartyFunnelEvent,
+}));
 import {
   getDeviceCategory,
   trackFunnelEvent,
@@ -10,14 +16,18 @@ import { CHECKPOINT_SESSION_STORAGE_KEY } from "@/lib/checkpoints/session";
 
 const originalWindow = globalThis.window;
 
-function installWindow(width: number) {
+beforeEach(() => {
+  recordFirstPartyFunnelEvent.mockReset();
+});
+
+function installWindow(width: number, pathname = "/") {
   const dataLayer: Record<string, unknown>[] = [];
   const storage = new Map<string, string>();
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
       dataLayer,
-      location: { search: "", pathname: "/" },
+      location: { search: "", pathname },
       sessionStorage: {
         getItem: (key: string) => storage.get(key) ?? null,
         setItem: (key: string, value: string) => storage.set(key, value),
@@ -39,6 +49,35 @@ afterEach(() => {
 });
 
 describe("privacy-safe quiz analytics", () => {
+  it("sends only the allow-listed intent category to first-party analytics", () => {
+    const dataLayer = installWindow(390, "/quiz");
+
+    trackQuizEvent("quiz_intent_selected", {
+      intent: "brief_consultation",
+      deviceCategory: "mobile",
+    });
+
+    expect(dataLayer).toEqual([
+      {
+        event: "quiz_intent_selected",
+        device_category: "mobile",
+      },
+    ]);
+    expect(recordFirstPartyFunnelEvent).toHaveBeenCalledWith(
+      "quiz_intent_selected",
+      expect.objectContaining({
+        page: "quiz",
+        quiz_intent: "brief_consultation",
+      }),
+    );
+
+    recordFirstPartyFunnelEvent.mockClear();
+    trackQuizEvent("quiz_completed", { intent: "brief_consultation" });
+    expect(recordFirstPartyFunnelEvent.mock.calls[0][1]).not.toHaveProperty(
+      "quiz_intent",
+    );
+  });
+
   it("emits the stable Jane event and only its allowed non-sensitive fields", () => {
     const dataLayer = installWindow(390);
     const properties = {
@@ -61,10 +100,7 @@ describe("privacy-safe quiz analytics", () => {
     expect(dataLayer).toEqual([
       {
         event: "jane_booking_clicked",
-        quiz_intent: "ready_to_speak",
-        therapist_id: "tim-kahtava",
         cta_placement: "mobile_sticky",
-        quiz_submission_reference: "VQ-ABC123",
         campaign_source: "google",
         campaign_name: "therapy-search",
         device_category: "mobile",
@@ -73,6 +109,8 @@ describe("privacy-safe quiz analytics", () => {
     expect(dataLayer[0]).not.toHaveProperty("score");
     expect(dataLayer[0]).not.toHaveProperty("email");
     expect(dataLayer[0]).not.toHaveProperty("concern");
+    expect(dataLayer[0]).not.toHaveProperty("therapist_id");
+    expect(dataLayer[0]).not.toHaveProperty("quiz_submission_reference");
   });
 
   it("classifies the existing responsive breakpoints consistently", () => {
@@ -104,22 +142,21 @@ describe("privacy-safe quiz analytics", () => {
     expect(dataLayer).toEqual([
       {
         event: "therapist_profile_clicked",
-        quiz_intent: "exploring",
-        therapist_id: "dayong-quan",
         profile_link_placement: "exploring_match_card",
-        quiz_submission_reference: "VQ-PROFILE1",
         campaign_source: "quiz",
         device_category: "mobile",
       },
     ]);
     expect(dataLayer[0]).not.toHaveProperty("email");
     expect(dataLayer[0]).not.toHaveProperty("concern");
+    expect(dataLayer[0]).not.toHaveProperty("therapist_id");
+    expect(dataLayer[0]).not.toHaveProperty("quiz_submission_reference");
   });
 });
 
 describe("privacy-safe acquisition funnel analytics", () => {
-  it("suppresses quiz and general analytics throughout an active checkpoint journey", () => {
-    const dataLayer = installWindow(390);
+  it("suppresses generic analytics only on checkpoint routes", () => {
+    const dataLayer = installWindow(390, "/c/VMH-04");
     window.sessionStorage.setItem(
       CHECKPOINT_SESSION_STORAGE_KEY,
       JSON.stringify({
@@ -136,6 +173,38 @@ describe("privacy-safe acquisition funnel analytics", () => {
     });
 
     expect(dataLayer).toEqual([]);
+
+    const quizDataLayer = installWindow(390, "/quiz");
+    window.sessionStorage.setItem(
+      CHECKPOINT_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+        checkpointCode: "VMH-04",
+      }),
+    );
+    trackQuizEvent("quiz_page_viewed");
+    expect(quizDataLayer).toEqual([{ event: "quiz_page_viewed" }]);
+
+    const consultationDataLayer = installWindow(390, "/consultation");
+    window.sessionStorage.setItem(
+      CHECKPOINT_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        sessionId: "f27de343-dd23-48d7-988a-30ef6a97f31c",
+        checkpointCode: "VMH-04",
+      }),
+    );
+    trackFunnelEvent("consultation_page_viewed", {
+      page: "consultation",
+      ctaPlacement: "consultation_primary",
+    });
+    expect(consultationDataLayer).toEqual([
+      expect.objectContaining({
+        event: "consultation_page_viewed",
+        page: "consultation",
+      }),
+    ]);
   });
 
   it("emits only allow-listed context and never copies finder answers or contact data", () => {
