@@ -121,6 +121,7 @@ export default function QuizFlow() {
   const startedRef = useRef(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
   const prepTimer = useRef<ReturnType<typeof setTimeout>>();
+  const quizTopRef = useRef<HTMLDivElement>(null);
   /** Stable across retries so a delayed response cannot create a duplicate lead. */
   const accessSubmissionIdRef = useRef<string | null>(null);
 
@@ -237,6 +238,14 @@ export default function QuizFlow() {
       deviceCategory: getDeviceCategory(),
     });
   }, [attribution.campaign, attribution.source, index, phase]);
+
+  useEffect(() => {
+    if (phase !== "quiz") return;
+    quizTopRef.current?.scrollIntoView?.({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [index, phase]);
 
   function finish(finalAnswers: Answers) {
     setAnswers(finalAnswers);
@@ -531,7 +540,7 @@ export default function QuizFlow() {
     question.kind === "multi" && Array.isArray(selected) ? (selected as string[]) : [];
 
   return (
-    <div className="mx-auto max-w-[640px]">
+    <div ref={quizTopRef} className="mx-auto max-w-[640px] scroll-mt-28">
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between text-vxs uppercase tracking-[1.2px] text-ink-secondary">
           <span>

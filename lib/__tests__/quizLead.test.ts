@@ -232,12 +232,12 @@ describe("results-access validation", () => {
 
   it("uses separate, versioned privacy and contact-consent wording", () => {
     expect(RESULTS_ACCESS_PRIVACY_TEXT).toBe(
-      "I consent to Valisen Mental Health securely collecting, storing, and using my contact information and quiz responses to create and deliver my personalized results and maintain related administrative records, as described in the Privacy Policy. I authorize Valisen's authorized staff and my recommended or matched therapist to contact me by email, phone, or text about my quiz results, therapist match, consultations, scheduling, and related Valisen therapy services. I authorize Valisen to share my contact details and relevant quiz summary with that therapist for those purposes. This consent does not authorize Valisen to sell my information or enroll me in unrelated promotional marketing.",
+      "I consent to Valisen securely using my contact details and quiz responses to save and deliver my results and keep related records. Valisen's authorized staff or my recommended/matched therapist may contact me by email, phone, or text about my results and related therapy services. Valisen may share my contact details and relevant quiz summary with that therapist. My information will not be sold or used for unrelated marketing.",
     );
     expect(CONTACT_CONSENT_TEXT).toBe(
       "I understand that the proposed times I provide are preferences, not confirmed appointments. I ask Valisen and my matched therapist to coordinate with me about these times using my selected contact method. I understand that an appointment is booked only after I receive confirmation.",
     );
-    expect(RESULTS_ACCESS_PRIVACY_TEXT_VERSION).toBe("2026-07-26.v4");
+    expect(RESULTS_ACCESS_PRIVACY_TEXT_VERSION).toBe("2026-08-13.v5");
     expect(CONTACT_CONSENT_TEXT_VERSION).toBe("2026-07-26.v3");
     expect(
       hasCurrentResultsAccessAuthorization(

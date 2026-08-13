@@ -31,9 +31,9 @@ import { isQuizIntent, type QuizIntent } from "@/lib/quizIntent";
 
 /** Explicit results-access consent shown on the form that unlocks results. */
 export const RESULTS_ACCESS_PRIVACY_TEXT =
-  "I consent to Valisen Mental Health securely collecting, storing, and using my contact information and quiz responses to create and deliver my personalized results and maintain related administrative records, as described in the Privacy Policy. I authorize Valisen's authorized staff and my recommended or matched therapist to contact me by email, phone, or text about my quiz results, therapist match, consultations, scheduling, and related Valisen therapy services. I authorize Valisen to share my contact details and relevant quiz summary with that therapist for those purposes. This consent does not authorize Valisen to sell my information or enroll me in unrelated promotional marketing.";
+  "I consent to Valisen securely using my contact details and quiz responses to save and deliver my results and keep related records. Valisen's authorized staff or my recommended/matched therapist may contact me by email, phone, or text about my results and related therapy services. Valisen may share my contact details and relevant quiz summary with that therapist. My information will not be sold or used for unrelated marketing.";
 
-export const RESULTS_ACCESS_PRIVACY_TEXT_VERSION = "2026-07-26.v4";
+export const RESULTS_ACCESS_PRIVACY_TEXT_VERSION = "2026-08-13.v5";
 
 /**
  * Treat the broad results-access contact/sharing authorization as current only

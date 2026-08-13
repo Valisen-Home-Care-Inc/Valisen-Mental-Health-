@@ -212,10 +212,23 @@ async function completeQuiz(page) {
     );
 
     if (step === 16) {
+      const previousViewport = page.viewport();
+      await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
       await selectButtonContaining(page, "Anxiety or worry");
       const continueButton = await findButton(page, "Continue");
       await continueButton.click();
       await waitForQuestionAdvance(page, counter, 6_000, "Question 17 of 19");
+      await page.waitForFunction(
+        () => {
+          const counter = [...document.querySelectorAll("span")].find(
+            (element) => element.textContent?.trim() === "Question 17 of 19",
+          );
+          const rect = counter?.getBoundingClientRect();
+          return Boolean(rect && rect.top >= 0 && rect.top < innerHeight / 2);
+        },
+        { timeout: 2_000 },
+      );
+      if (previousViewport) await page.setViewport(previousViewport);
       continue;
     }
 
@@ -632,10 +645,9 @@ async function main() {
     await waitForText(page, "Your personalized results are ready");
     const gateText = await bodyText(page);
     for (const expectedConsentPhrase of [
-      "recommended or matched therapist to contact me by email, phone, or text",
+      "recommended/matched therapist may contact me by email, phone, or text",
       "share my contact details and relevant quiz summary with that therapist",
-      "does not authorize Valisen to sell my information",
-      "unrelated promotional marketing",
+      "will not be sold or used for unrelated marketing",
     ]) {
       assert.equal(
         gateText.includes(expectedConsentPhrase),
@@ -727,11 +739,11 @@ async function main() {
     );
     assert.equal(
       accessPayloads[1].privacyTextVersion,
-      "2026-07-26.v4",
+      "2026-08-13.v5",
     );
     assert.match(
       accessPayloads[1].privacyLanguage,
-      /recommended or matched therapist to contact me by email, phone, or text/,
+      /staff or my recommended\/matched therapist may contact me by email, phone, or text/,
     );
     assert.equal("safety" in accessPayloads[1].answers, false);
     assert.equal("language" in accessPayloads[1].answers, false);

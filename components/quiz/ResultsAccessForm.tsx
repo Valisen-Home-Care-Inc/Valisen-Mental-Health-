@@ -332,8 +332,7 @@ export default function ResultsAccessForm({
               className="mt-0.5 h-5 w-5 shrink-0 accent-teal"
             />
             <span id={`${idPrefix}-privacy-copy`} className="text-[13.5px] leading-[1.65] text-ink-secondary">
-              {RESULTS_ACCESS_PRIVACY_TEXT} This consent is required to save and show your
-              results.
+              {RESULTS_ACCESS_PRIVACY_TEXT}
             </span>
           </label>
           {errors.privacy ? (
