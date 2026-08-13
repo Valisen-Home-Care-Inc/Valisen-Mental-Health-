@@ -1,11 +1,10 @@
 /**
- * Durable quiz-lead persistence using the site's existing Google Sheets
- * service-account integration. Quiz records live in their own worksheet and
- * are never mixed with the general intake rows.
+ * Durable quiz-lead persistence in the protected Supabase CRM. The fixed
+ * record-array contract is retained temporarily so existing parsing, email,
+ * private-result, and engagement logic can migrate without data drift.
  */
 
 import crypto from "crypto";
-import { google } from "googleapis";
 import { scoreQuiz, type Answers, type QuizOutcome } from "@/lib/quiz";
 import type { MatchResult } from "@/lib/matching";
 import {
@@ -21,6 +20,7 @@ import {
   type ContactMethod,
   type PreferredContactTime,
 } from "@/lib/quizLead";
+import { callSupabaseRpc } from "@/lib/server/supabaseServer";
 
 export const DEFAULT_QUIZ_LEADS_SHEET_NAME = "Quiz Leads";
 
@@ -115,7 +115,7 @@ export class QuizLeadStoreConfigurationError extends Error {
 
 /**
  * The original quiz-lead schema. Keep this exact prefix stable: appending new
- * columns lets a live worksheet migrate without moving any existing data.
+ * fields lets historical quiz records migrate without moving their positions.
  */
 const LEGACY_HEADERS = [
   "Reference ID",
@@ -193,8 +193,6 @@ const HEADERS = [
   ...CONVERSION_HEADERS,
   ...EXACT_AVAILABILITY_HEADERS,
 ] as const;
-
-const LAST_COLUMN = columnName(HEADERS.length - 1);
 
 const FIELD_INDEX: Record<keyof NewQuizLead, number> = {
   referenceId: 0,
@@ -278,7 +276,7 @@ export type QuizLeadHeaderPlan =
     };
 
 /**
- * Produces an append-only header update. Besides a brand-new sheet and the
+ * Produces an append-only legacy-field update. Besides a brand-new record and the
  * current schema, this accepts the complete 29-column legacy schema or an
  * exact partially migrated prefix. It never treats renamed/reordered columns
  * as safe to rewrite.
@@ -304,10 +302,6 @@ export function planQuizLeadHeaderUpdate(existingHeaders: readonly unknown[]): Q
     firstColumn: columnName(existingHeaders.length),
     headers: HEADERS.slice(existingHeaders.length),
   };
-}
-
-function quoteSheetTitle(title: string): string {
-  return `'${title.replace(/'/g, "''")}'`;
 }
 
 function serializeField(field: keyof NewQuizLead, value: unknown): string | number {
@@ -638,7 +632,7 @@ export function rowToQuizLead(row: unknown[], rowNumber: number): StoredQuizLead
 }
 
 /**
- * Tolerate blank notes/legacy rows in the dedicated worksheet without making
+ * Tolerate blank notes/legacy records without making
  * every valid lead unreachable. Logging includes only the row number.
  */
 export function rowsToQuizLeads(rows: unknown[][], firstRowNumber = 2): StoredQuizLead[] {
@@ -656,192 +650,74 @@ export function rowsToQuizLeads(rows: unknown[][], firstRowNumber = 2): StoredQu
   return leads;
 }
 
-type SheetsClient = ReturnType<typeof google.sheets>;
+type QuizLeadRecordResult = { leadRecord: unknown[] } | null;
 
-class GoogleSheetsQuizLeadStore implements QuizLeadStore {
-  private constructor(
-    private readonly sheets: SheetsClient,
-    private readonly spreadsheetId: string,
-    private readonly sheetName: string,
-  ) {}
+class CrmQuizLeadStore implements QuizLeadStore {
+  private nextHandle = 2;
+  private readonly referencesByHandle = new Map<number, string>();
 
-  static async create(): Promise<GoogleSheetsQuizLeadStore> {
-    const requiredEnvironment = [
-      "GOOGLE_SERVICE_ACCOUNT_EMAIL",
-      "GOOGLE_PRIVATE_KEY",
-      "GOOGLE_SHEET_ID",
-    ];
-    const missing = requiredEnvironment.filter((name) => !process.env[name]);
-    if (missing.length > 0) {
-      throw new QuizLeadStoreConfigurationError(
-        `Missing quiz lead storage configuration: ${missing.join(", ")}`,
-      );
-    }
+  private materialize(record: QuizLeadRecordResult): StoredQuizLead | null {
+    if (!record || !Array.isArray(record.leadRecord)) return null;
+    const handle = this.nextHandle++;
+    const lead = rowToQuizLead(record.leadRecord, handle);
+    this.referencesByHandle.set(handle, lead.referenceId);
+    return lead;
+  }
 
-    const sheetName = (process.env.QUIZ_LEADS_SHEET_NAME || DEFAULT_QUIZ_LEADS_SHEET_NAME).trim();
-    if (!sheetName || sheetName.length > 100 || /[:\\/?*\[\]]/.test(sheetName)) {
-      throw new QuizLeadStoreConfigurationError("QUIZ_LEADS_SHEET_NAME is invalid.");
-    }
-
-    const privateKey = (process.env.GOOGLE_PRIVATE_KEY as string).replace(/\\n/g, "\n");
-    const auth = new google.auth.JWT({
-      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      key: privateKey,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
-    const store = new GoogleSheetsQuizLeadStore(
-      sheets,
-      process.env.GOOGLE_SHEET_ID as string,
-      sheetName,
+  async findByClientSubmissionId(
+    clientSubmissionId: string,
+  ): Promise<StoredQuizLead | null> {
+    const record = await callSupabaseRpc<QuizLeadRecordResult>(
+      "get_quiz_lead_record",
+      {
+        p_client_submission_id: clientSubmissionId,
+        p_submission_token_hash: null,
+      },
     );
-    await store.ensureWorksheet();
-    return store;
+    return this.materialize(record);
   }
 
-  private get rangePrefix(): string {
-    return quoteSheetTitle(this.sheetName);
-  }
-
-  private async ensureWorksheet(): Promise<void> {
-    const metadata = await this.sheets.spreadsheets.get({
-      spreadsheetId: this.spreadsheetId,
-      fields: "sheets.properties",
-    });
-    let worksheet = metadata.data.sheets?.find(
-      (sheet) => sheet.properties?.title === this.sheetName,
-    )?.properties;
-    if (!worksheet) {
-      try {
-        const added = await this.sheets.spreadsheets.batchUpdate({
-          spreadsheetId: this.spreadsheetId,
-          requestBody: {
-            requests: [
-              {
-                addSheet: {
-                  properties: {
-                    title: this.sheetName,
-                    gridProperties: { columnCount: HEADERS.length },
-                  },
-                },
-              },
-            ],
-          },
-        });
-        worksheet = added.data.replies?.[0]?.addSheet?.properties;
-      } catch (error) {
-        // Another warm instance may have created the worksheet between the
-        // read and add. Re-read before treating the add failure as fatal.
-        const retry = await this.sheets.spreadsheets.get({
-          spreadsheetId: this.spreadsheetId,
-          fields: "sheets.properties",
-        });
-        worksheet = retry.data.sheets?.find(
-          (sheet) => sheet.properties?.title === this.sheetName,
-        )?.properties;
-        if (!worksheet) throw error;
-      }
-    }
-
-    if (worksheet?.sheetId == null) {
-      throw new QuizLeadStoreConfigurationError(
-        `The ${this.sheetName} worksheet has no usable sheet ID.`,
-      );
-    }
-
-    // Values API writes beyond the current grid can fail. Expanding only the
-    // column count is non-destructive and keeps all existing rows in place.
-    if ((worksheet.gridProperties?.columnCount ?? 0) < HEADERS.length) {
-      await this.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: this.spreadsheetId,
-        requestBody: {
-          requests: [
-            {
-              updateSheetProperties: {
-                properties: {
-                  sheetId: worksheet.sheetId,
-                  gridProperties: { columnCount: HEADERS.length },
-                },
-                fields: "gridProperties.columnCount",
-              },
-            },
-          ],
-        },
-      });
-    }
-
-    const headerResponse = await this.sheets.spreadsheets.values.get({
-      spreadsheetId: this.spreadsheetId,
-      range: `${this.rangePrefix}!A1:${LAST_COLUMN}1`,
-    });
-    const existingHeaders = headerResponse.data.values?.[0] ?? [];
-    const headerPlan = planQuizLeadHeaderUpdate(existingHeaders);
-    if (headerPlan.kind === "current") return;
-    if (headerPlan.kind === "incompatible") {
-      throw new QuizLeadStoreConfigurationError(
-        `The ${this.sheetName} worksheet has an incompatible header row.`,
-      );
-    }
-
-    await this.sheets.spreadsheets.values.update({
-      spreadsheetId: this.spreadsheetId,
-      range: `${this.rangePrefix}!${headerPlan.firstColumn}1:${LAST_COLUMN}1`,
-      valueInputOption: "RAW",
-      requestBody: { values: [headerPlan.headers] },
-    });
-  }
-
-  private async allLeads(): Promise<StoredQuizLead[]> {
-    const response = await this.sheets.spreadsheets.values.get({
-      spreadsheetId: this.spreadsheetId,
-      range: `${this.rangePrefix}!A2:${LAST_COLUMN}`,
-    });
-    return rowsToQuizLeads(response.data.values ?? [], 2);
-  }
-
-  async findByClientSubmissionId(clientSubmissionId: string): Promise<StoredQuizLead | null> {
-    const leads = await this.allLeads();
-    return leads.find((lead) => lead.clientSubmissionId === clientSubmissionId) ?? null;
-  }
-
-  async findBySubmissionTokenHash(tokenHash: string): Promise<StoredQuizLead | null> {
-    const leads = await this.allLeads();
-    return leads.find((lead) => lead.submissionTokenHash === tokenHash) ?? null;
+  async findBySubmissionTokenHash(
+    tokenHash: string,
+  ): Promise<StoredQuizLead | null> {
+    const record = await callSupabaseRpc<QuizLeadRecordResult>(
+      "get_quiz_lead_record",
+      {
+        p_client_submission_id: null,
+        p_submission_token_hash: tokenHash,
+      },
+    );
+    return this.materialize(record);
   }
 
   async appendLead(lead: NewQuizLead): Promise<StoredQuizLead> {
-    const response = await this.sheets.spreadsheets.values.append({
-      spreadsheetId: this.spreadsheetId,
-      range: `${this.rangePrefix}!A:${LAST_COLUMN}`,
-      valueInputOption: "RAW",
-      insertDataOption: "INSERT_ROWS",
-      requestBody: { values: [quizLeadToRow(lead)] },
-    });
-    const updatedRange = response.data.updates?.updatedRange ?? "";
-    const rowMatch = updatedRange.match(/![A-Z]+(\d+):/i);
-    if (rowMatch) return { ...lead, rowNumber: Number(rowMatch[1]) };
-
-    const persisted = await this.findByClientSubmissionId(lead.clientSubmissionId);
-    if (!persisted) throw new Error("Quiz lead append succeeded but the row could not be located.");
-    return persisted;
+    const record = await callSupabaseRpc<QuizLeadRecordResult>(
+      "save_quiz_lead_record",
+      {
+        p_client_submission_id: lead.clientSubmissionId,
+        p_reference_id: lead.referenceId,
+        p_submission_token_hash: lead.submissionTokenHash,
+        p_lead_record: quizLeadToRow(lead),
+      },
+    );
+    const stored = this.materialize(record);
+    if (!stored) throw new Error("The CRM did not return the saved quiz lead.");
+    return stored;
   }
 
   async updateLead(rowNumber: number, patch: QuizLeadPatch): Promise<void> {
-    if (!Number.isInteger(rowNumber) || rowNumber < 2) {
-      throw new Error("Invalid quiz lead row number.");
-    }
-    const data = (Object.keys(patch) as Array<keyof NewQuizLead>).map((field) => {
-      const column = columnName(FIELD_INDEX[field]);
-      return {
-        range: `${this.rangePrefix}!${column}${rowNumber}`,
-        values: [[serializeField(field, patch[field])]],
-      };
-    });
-    if (data.length === 0) return;
-
-    await this.sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId: this.spreadsheetId,
-      requestBody: { valueInputOption: "RAW", data },
+    const referenceId = this.referencesByHandle.get(rowNumber);
+    if (!referenceId) throw new Error("Invalid quiz lead CRM handle.");
+    const updates = Object.fromEntries(
+      (Object.keys(patch) as Array<keyof NewQuizLead>).map((field) => [
+        String(FIELD_INDEX[field]),
+        serializeField(field, patch[field]),
+      ]),
+    );
+    if (Object.keys(updates).length === 0) return;
+    await callSupabaseRpc("patch_quiz_lead_record", {
+      p_reference_id: referenceId,
+      p_updates: updates,
     });
   }
 }
@@ -850,11 +726,7 @@ let cachedStore: Promise<QuizLeadStore> | null = null;
 
 export function getQuizLeadStore(): Promise<QuizLeadStore> {
   if (!cachedStore) {
-    cachedStore = GoogleSheetsQuizLeadStore.create().catch((error) => {
-      // Do not poison a warm server instance after a transient Sheets error.
-      cachedStore = null;
-      throw error;
-    });
+    cachedStore = Promise.resolve(new CrmQuizLeadStore());
   }
   return cachedStore;
 }

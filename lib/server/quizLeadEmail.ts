@@ -76,11 +76,93 @@ export type QuizUserResultsEmailModel = {
   privateResultsUrl: string;
 };
 
+export type QuizSubmissionFailureEmailModel = {
+  referenceId: string;
+  firstName: string;
+  email: string;
+  phone: string;
+  failedAtLabel: string;
+  failureStage: string;
+  failureCode: string;
+  storageAttemptCount: number;
+  resultCategory: string;
+  scoreBand: string;
+  intent: QuizIntent;
+  recommendedTherapistName: string | null;
+  adminUrl?: string;
+};
+
 type BuiltEmail = {
   subject: string;
   text: string;
   html: string;
 };
+
+export function buildQuizSubmissionFailureEmail(
+  model: QuizSubmissionFailureEmailModel,
+): BuiltEmail {
+  const adminLine = model.adminUrl
+    ? `\nProtected CRM record: ${model.adminUrl}`
+    : "";
+  const text = `QUIZ SUBMISSION NEEDS RECOVERY
+
+The visitor completed the results-access form, but the CRM lead record did not finish. A protected recovery snapshot of the submitted fields is retained for staff review.
+
+Status: FAILED
+Reference: ${model.referenceId}
+Failed at: ${model.failedAtLabel}
+Failure stage: ${model.failureStage}
+Failure code: ${model.failureCode}
+Storage attempt: ${model.storageAttemptCount}
+
+Visitor
+First name: ${model.firstName}
+Email: ${model.email}
+Phone: ${model.phone}
+
+Result snapshot
+Category: ${model.resultCategory}
+Score band: ${model.scoreBand}
+Intent: ${getQuizIntentLabel(model.intent)}
+Recommended therapist: ${model.recommendedTherapistName ?? "No named recommendation"}${adminLine}
+
+Open the protected quiz CRM recovery queue and follow up using reference ${model.referenceId}. Do not ask the visitor to retake the quiz unless the retained record is incomplete.`;
+
+  const adminHtml = model.adminUrl
+    ? `<p style="margin:16px 0 0"><a href="${escapeHtml(model.adminUrl)}" style="color:#17635c;font-weight:700">Open protected CRM record</a></p>`
+    : "";
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#243532;line-height:1.55">
+      <div style="border:1px solid #e5b9b9;background:#fff2f2;border-radius:12px;padding:18px">
+        <p style="margin:0 0 5px;font-size:12px;font-weight:800;letter-spacing:.08em;color:#9f2626">QUIZ SUBMISSION NEEDS RECOVERY</p>
+        <h1 style="margin:0;font-size:23px;color:#7f1d1d">A results submission needs CRM recovery</h1>
+        <p style="margin:12px 0 0">A protected recovery copy of the submitted fields is retained in the CRM.</p>
+      </div>
+      <table style="width:100%;margin-top:18px;border-collapse:collapse;font-size:14px">
+        <tbody>
+          <tr><td style="padding:7px 8px;font-weight:700">Status</td><td style="padding:7px 8px;color:#9f2626;font-weight:800">FAILED</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Reference</td><td style="padding:7px 8px">${escapeHtml(model.referenceId)}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Failed at</td><td style="padding:7px 8px">${escapeHtml(model.failedAtLabel)}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Failure</td><td style="padding:7px 8px">${escapeHtml(model.failureStage)} · ${escapeHtml(model.failureCode)}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Storage attempt</td><td style="padding:7px 8px">${model.storageAttemptCount}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">First name</td><td style="padding:7px 8px">${escapeHtml(model.firstName)}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Email</td><td style="padding:7px 8px">${escapeHtml(model.email)}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Phone</td><td style="padding:7px 8px">${escapeHtml(model.phone)}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Result</td><td style="padding:7px 8px">${escapeHtml(model.resultCategory)} · ${escapeHtml(model.scoreBand)}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Intent</td><td style="padding:7px 8px">${escapeHtml(getQuizIntentLabel(model.intent))}</td></tr>
+          <tr><td style="padding:7px 8px;font-weight:700">Recommended therapist</td><td style="padding:7px 8px">${escapeHtml(model.recommendedTherapistName ?? "No named recommendation")}</td></tr>
+        </tbody>
+      </table>
+      ${adminHtml}
+      <p style="margin-top:18px;font-size:12px;color:#66736f">Use reference ${escapeHtml(model.referenceId)} for recovery. Do not ask the visitor to retake the quiz unless the retained record is incomplete.</p>
+    </div>`;
+
+  return {
+    subject: `URGENT: Quiz submission failed — ${model.referenceId}`,
+    text,
+    html,
+  };
+}
 
 type QuizLeadHeatModel = QuizLeadStatusSnapshot & {
   phone?: string;

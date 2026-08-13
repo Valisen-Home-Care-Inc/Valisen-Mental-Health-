@@ -6,6 +6,7 @@ import type {
   ConsultationWorkflowStatus,
 } from "@/lib/consultationCrm";
 import type { GrowthDashboardData } from "@/lib/growth/dashboard";
+import type { QuizSubmissionRecoveryData } from "@/lib/growth/quizSubmissionRecovery";
 import type { FunnelEventRecord } from "@/lib/server/funnelEventStore";
 import { callSupabaseRpc } from "@/lib/server/supabaseServer";
 import { QUIZ_VERSION } from "@/lib/quiz";
@@ -76,15 +77,101 @@ export async function claimQuizResultSubmission(input: {
   payloadHash: string;
   existingReferenceId?: string;
   leaseSeconds?: number;
+  snapshot: {
+    firstName: string;
+    email: string;
+    phone: string;
+    consentedAt: string;
+    privacyText: string;
+    privacyTextVersion: string;
+    quizVersion: string;
+    scoringVersion: string;
+    answers: Record<string, unknown>;
+    outcome: Record<string, unknown>;
+    resultCategory: string;
+    scoreBand: string;
+    match: Record<string, unknown>;
+    recommendedTherapistSlug?: string;
+    recommendedTherapistName?: string;
+    intent: string;
+    attribution: Record<string, unknown>;
+  };
 }): Promise<QuizResultStorageClaimResult> {
   return callSupabaseRpc<QuizResultStorageClaimResult>(
-    "claim_quiz_result_submission",
+    "claim_quiz_result_submission_v2",
     {
       p_client_submission_id: input.clientSubmissionId,
       p_payload_hash: input.payloadHash,
       p_existing_reference_id: input.existingReferenceId ?? null,
       p_lease_seconds: input.leaseSeconds ?? 300,
+      p_first_name: input.snapshot.firstName,
+      p_email: input.snapshot.email,
+      p_phone: input.snapshot.phone,
+      p_consented_at: input.snapshot.consentedAt,
+      p_privacy_text: input.snapshot.privacyText,
+      p_privacy_text_version: input.snapshot.privacyTextVersion,
+      p_quiz_version: input.snapshot.quizVersion,
+      p_scoring_version: input.snapshot.scoringVersion,
+      p_answers: input.snapshot.answers,
+      p_outcome: input.snapshot.outcome,
+      p_result_category: input.snapshot.resultCategory,
+      p_score_band: input.snapshot.scoreBand,
+      p_match: input.snapshot.match,
+      p_recommended_therapist_slug:
+        input.snapshot.recommendedTherapistSlug ?? null,
+      p_recommended_therapist_name:
+        input.snapshot.recommendedTherapistName ?? null,
+      p_intent: input.snapshot.intent,
+      p_attribution: input.snapshot.attribution,
     },
+  );
+}
+
+export type QuizResultStorageFailureResult = {
+  accepted: boolean;
+  staleClaim: boolean;
+  clientSubmissionId: string;
+  referenceId: string;
+  storageStatus: "pending" | "ready" | "failed";
+  attemptCount: number;
+  alertRequired: boolean;
+  alertAttemptCount: number;
+};
+
+export async function recordQuizResultSubmissionFailure(input: {
+  clientSubmissionId: string;
+  claimToken: string;
+  failureStage: string;
+  failureCode: string;
+}): Promise<QuizResultStorageFailureResult> {
+  return callSupabaseRpc<QuizResultStorageFailureResult>(
+    "record_quiz_result_submission_failure",
+    {
+      p_client_submission_id: input.clientSubmissionId,
+      p_claim_token: input.claimToken,
+      p_failure_stage: input.failureStage,
+      p_failure_code: input.failureCode,
+    },
+  );
+}
+
+export async function completeQuizResultFailureAlert(
+  clientSubmissionId: string,
+  status: "sent" | "failed",
+): Promise<void> {
+  await callSupabaseRpc("complete_quiz_result_failure_alert", {
+    p_client_submission_id: clientSubmissionId,
+    p_alert_status: status,
+  });
+}
+
+export async function fetchQuizSubmissionRecoveryQueue(
+  limit = 100,
+): Promise<QuizSubmissionRecoveryData> {
+  return callSupabaseRpc<QuizSubmissionRecoveryData>(
+    "get_quiz_submission_recovery_queue",
+    { p_limit: limit },
+    15_000,
   );
 }
 
