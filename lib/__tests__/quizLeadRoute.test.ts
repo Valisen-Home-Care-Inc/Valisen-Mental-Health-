@@ -1110,7 +1110,7 @@ describe("POST /api/quiz-lead/pdf", () => {
     const pdfModel = mocks.buildPdf.mock.calls[0][0];
     expect(pdfModel.initialContactAuthorization).toMatchObject({
       status: "granted",
-      textVersion: "2026-07-26.v4",
+      textVersion: "2026-08-13.v5",
     });
     expect(pdfModel.contactHelpRequest).toEqual({
       status: "not_requested",
