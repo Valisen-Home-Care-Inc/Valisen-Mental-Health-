@@ -63,7 +63,7 @@ const mocks = vi.hoisted(() => {
     async appendLead(lead: NewQuizLead) {
       if (appendFailuresRemaining > 0) {
         appendFailuresRemaining -= 1;
-        throw new Error("simulated Sheet append failure");
+        throw new Error("simulated CRM record save failure");
       }
       const stored = { ...lead, rowNumber: nextRow++ };
       records.push(stored);
@@ -109,6 +109,8 @@ const mocks = vi.hoisted(() => {
     recordQuizLeadLink: vi.fn(),
     claimQuizResultSubmission: vi.fn(),
     completeQuizResultSubmissionStorage: vi.fn(),
+    recordQuizResultSubmissionFailure: vi.fn(),
+    completeQuizResultFailureAlert: vi.fn(),
     claimQuizResultEmailDelivery: vi.fn(),
     completeQuizResultEmailDelivery: vi.fn(),
     installGrowthRegistryDefaults() {
@@ -201,6 +203,40 @@ const mocks = vi.hoisted(() => {
           };
         },
       );
+      this.recordQuizResultSubmissionFailure.mockImplementation(
+        async (input: {
+          clientSubmissionId: string;
+          claimToken: string;
+        }) => {
+          const entry = resultRegistry.get(input.clientSubmissionId);
+          if (!entry || entry.claimToken !== input.claimToken) {
+            return {
+              accepted: false,
+              staleClaim: true,
+              clientSubmissionId: input.clientSubmissionId,
+              referenceId: entry?.referenceId ?? "VQ-MISSING0000",
+              storageStatus: entry?.storageStatus ?? "failed",
+              attemptCount: entry?.attemptCount ?? 0,
+              alertRequired: false,
+              alertAttemptCount: 0,
+            };
+          }
+          entry.storageStatus = "failed";
+          entry.sheetRowNumber = undefined;
+          entry.claimToken = undefined;
+          return {
+            accepted: true,
+            staleClaim: false,
+            clientSubmissionId: input.clientSubmissionId,
+            referenceId: entry.referenceId,
+            storageStatus: entry.storageStatus,
+            attemptCount: entry.attemptCount,
+            alertRequired: true,
+            alertAttemptCount: 1,
+          };
+        },
+      );
+      this.completeQuizResultFailureAlert.mockResolvedValue(undefined);
       this.claimQuizResultEmailDelivery.mockImplementation(
         async (input: {
           referenceId: string;
@@ -321,6 +357,8 @@ vi.mock("@/lib/server/growthRepository", () => ({
   claimQuizResultSubmission: mocks.claimQuizResultSubmission,
   completeQuizResultSubmissionStorage:
     mocks.completeQuizResultSubmissionStorage,
+  recordQuizResultSubmissionFailure: mocks.recordQuizResultSubmissionFailure,
+  completeQuizResultFailureAlert: mocks.completeQuizResultFailureAlert,
   claimQuizResultEmailDelivery: mocks.claimQuizResultEmailDelivery,
   completeQuizResultEmailDelivery: mocks.completeQuizResultEmailDelivery,
   upsertConsultationLead: mocks.upsertConsultationLead,
@@ -489,6 +527,8 @@ beforeEach(() => {
   mocks.resetRecords();
   mocks.claimQuizResultSubmission.mockReset();
   mocks.completeQuizResultSubmissionStorage.mockReset();
+  mocks.recordQuizResultSubmissionFailure.mockReset();
+  mocks.completeQuizResultFailureAlert.mockReset();
   mocks.claimQuizResultEmailDelivery.mockReset();
   mocks.completeQuizResultEmailDelivery.mockReset();
   mocks.installGrowthRegistryDefaults();
@@ -602,12 +642,18 @@ describe("POST /api/quiz-lead", () => {
     );
   });
 
-  it("keeps one stable VQ reference when the Sheet append fails and is reconciled on retry", async () => {
+  it("keeps one stable VQ reference when CRM record finalization fails and is reconciled on retry", async () => {
     const payload = accessPayload();
     mocks.failNextAppend();
 
     const first = await postAccess(payload);
-    expect(first.status).toBe(500);
+    expect(first.status).toBe(503);
+    await expect(first.json()).resolves.toMatchObject({
+      ok: false,
+      storageStatus: "failed",
+      failureRecorded: true,
+      retriable: true,
+    });
     expect(mocks.records).toHaveLength(0);
     const registered = mocks.resultRegistry.get(
       String(payload.clientSubmissionId),
@@ -625,7 +671,7 @@ describe("POST /api/quiz-lead", () => {
     expect(mocks.claimQuizResultSubmission).toHaveBeenCalledTimes(2);
   });
 
-  it("returns a retriable 202 without touching Sheet or email when another storage lease is active", async () => {
+  it("returns a retriable 202 without finalizing the CRM record or email when another storage lease is active", async () => {
     const payload = accessPayload();
     mocks.claimQuizResultSubmission.mockResolvedValueOnce({
       accepted: true,
@@ -654,6 +700,25 @@ describe("POST /api/quiz-lead", () => {
     expect(mocks.sendMail).not.toHaveBeenCalled();
   });
 
+  it("attempts the operational path when the initial recovery claim is temporarily unavailable", async () => {
+    mocks.claimQuizResultSubmission.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+
+    const response = await postAccess(accessPayload());
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body).toMatchObject({
+      ok: true,
+      warnings: expect.arrayContaining([
+        expect.stringMatching(/CRM recovery claim/i),
+      ]),
+    });
+    expect(mocks.records).toHaveLength(1);
+    expect(mocks.records[0].firstName).toBe("Alex");
+  });
+
   it("treats a durable email lease as pending and does not race the internal send", async () => {
     const payload = accessPayload();
     mocks.claimQuizResultEmailDelivery.mockResolvedValueOnce({
@@ -680,7 +745,7 @@ describe("POST /api/quiz-lead", () => {
     expect(userResultsMessages()).toHaveLength(1);
   });
 
-  it("retries the same saved lead when its authoritative journey link is temporarily unavailable", async () => {
+  it("does not reject a saved lead when its journey link is temporarily unavailable", async () => {
     const payload = accessPayload({
       funnelSessionId: "fs-fedcba0987654321",
       quizAttemptId: "qa-fedcba0987654321",
@@ -688,9 +753,15 @@ describe("POST /api/quiz-lead", () => {
     mocks.recordQuizLeadLink.mockRejectedValueOnce(new Error("database unavailable"));
 
     const first = await postAccess(payload);
-    expect(first.status).toBe(500);
+    expect(first.status).toBe(201);
+    await expect(first.json()).resolves.toMatchObject({
+      ok: true,
+      warnings: expect.arrayContaining([
+        expect.stringMatching(/analytics link is still pending/i),
+      ]),
+    });
     expect(mocks.records).toHaveLength(1);
-    expect(mocks.sendMail).not.toHaveBeenCalled();
+    expect(mocks.sendMail).toHaveBeenCalledTimes(2);
 
     const retry = await postAccess(payload);
     expect(retry.status).toBe(200);
@@ -698,6 +769,26 @@ describe("POST /api/quiz-lead", () => {
     expect(mocks.records).toHaveLength(1);
     expect(mocks.recordQuizLeadLink).toHaveBeenCalledTimes(2);
     expect(mocks.sendMail).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reject a saved lead when an email delivery claim is unavailable", async () => {
+    mocks.claimQuizResultEmailDelivery.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+
+    const response = await postAccess(accessPayload());
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body).toMatchObject({
+      ok: true,
+      resultsEmailSent: false,
+      userResultsEmailSent: true,
+      warnings: expect.arrayContaining([
+        expect.stringMatching(/clinic notification is still pending/i),
+      ]),
+    });
+    expect(mocks.records).toHaveLength(1);
   });
 
   it("is idempotent across retries and does not resend delivered emails", async () => {

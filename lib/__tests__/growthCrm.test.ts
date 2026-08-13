@@ -404,3 +404,83 @@ describe("unified growth CRM migration", () => {
     }
   });
 });
+
+describe("quiz submission recovery migration", () => {
+  const migration = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260812000000_quiz_submission_recovery.sql",
+    ),
+    "utf8",
+  );
+
+  it("atomically snapshots submitted fields with the fenced VQ claim", () => {
+    expect(migration).toContain(
+      "create or replace function public.claim_quiz_result_submission_v2",
+    );
+    expect(migration).toContain("p_answers ? 'safety'");
+    expect(migration).toContain("snapshot_captured_at");
+    expect(migration).toContain("first_name = coalesce");
+    expect(migration).toContain("email = coalesce");
+    expect(migration).toContain("phone = coalesce");
+  });
+
+  it("records failed storage and exposes a protected operator queue", () => {
+    expect(migration).toContain(
+      "create or replace function public.record_quiz_result_submission_failure",
+    );
+    expect(migration).toContain("failure_alert_status");
+    expect(migration).toContain(
+      "create or replace function public.get_quiz_submission_recovery_queue",
+    );
+    expect(migration).toContain("where submission.sheet_status <> 'ready'");
+    expect(migration).toContain(
+      "grant execute on function public.get_quiz_submission_recovery_queue(integer)",
+    );
+    expect(migration).not.toMatch(
+      /grant\s+(select|insert|update|delete).*\s+to\s+(anon|authenticated)/i,
+    );
+  });
+
+  it("allows eventual funnel linkage instead of rejecting a saved lead", () => {
+    const linkFunction = migration.slice(
+      migration.indexOf(
+        "create or replace function public.record_quiz_lead_link",
+      ),
+    );
+    expect(linkFunction).not.toContain("Quiz funnel session not found.");
+    expect(linkFunction).not.toContain(
+      "Quiz attempt does not belong to the funnel session.",
+    );
+  });
+});
+
+describe("quiz CRM record-store follow-up migration", () => {
+  const migration = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260813000000_quiz_crm_record_store.sql",
+    ),
+    "utf8",
+  );
+
+  it("is safe after an earlier recovery rollout and installs the CRM payload operations", () => {
+    expect(migration).toContain(
+      "add column if not exists submission_token_hash text",
+    );
+    expect(migration).toContain("add column if not exists lead_record jsonb");
+    expect(migration).toContain(
+      "create or replace function public.save_quiz_lead_record",
+    );
+    expect(migration).toContain(
+      "create or replace function public.get_quiz_lead_record",
+    );
+    expect(migration).toContain(
+      "create or replace function public.patch_quiz_lead_record",
+    );
+    expect(migration).toContain("v_answers ? 'safety'");
+    expect(migration).toContain(
+      "grant execute on function public.save_quiz_lead_record",
+    );
+  });
+});

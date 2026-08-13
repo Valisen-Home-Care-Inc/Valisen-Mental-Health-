@@ -454,6 +454,7 @@ deletion schedule.
 | Contact-help scheduling request and notification | `app/api/quiz-lead/contact-consent/route.ts` |
 | Private on-demand results PDF | `app/api/quiz-lead/pdf/route.ts` |
 | Durable worksheet store and schema migration | `lib/server/quizLeadStore.ts` |
+| Protected failed-submission recovery registry | `supabase/migrations/20260812000000_quiz_submission_recovery.sql` |
 | Transactional email builders | `lib/server/quizLeadEmail.ts` |
 | Privacy-limited PDF summary generator | `lib/server/quizSummaryPdf.ts` |
 | Existing data-layer event adapter | `lib/analytics.ts` |
@@ -489,6 +490,10 @@ See `.env.example`.
 Jane destinations are code configuration, not environment variables.
 Analytics uses the existing data layer and needs no additional quiz-specific
 key. There is intentionally no Jane webhook or booking-confirmation secret.
+Quiz scoring and therapist matching are deterministic application code. There
+is no Anthropic/Claude SDK, API key, metered model call, or AI-generated result
+in the quiz submission path; a Claude account balance therefore cannot explain
+submission success or failure.
 
 ## Privacy and failure behavior
 
@@ -526,8 +531,19 @@ key. There is intentionally no Jane webhook or booking-confirmation secret.
   fingerprints, and fenced completions reduce abuse and duplicates.
 - Server logs use internal references and error classes rather than submitted
   contact details or quiz answers.
-- A storage failure keeps the browser's in-memory answers available for retry.
-  Email failures do not undo a successful storage operation.
+- A valid consented request atomically stores a protected Supabase recovery
+  snapshot (contact fields, submitted non-safety answers, calculated outcome,
+  match, consent, and attribution) when it claims its stable reference. If the
+  Google Sheets mirror then fails, the CRM marks the reference `failed`, keeps
+  the complete snapshot in the protected recovery queue, and attempts an
+  urgent email to `QUIZ_LEAD_TO_EMAIL`.
+- If Supabase is temporarily unavailable, the route falls back to the existing
+  Google Sheets path so the recovery service does not become a new single
+  point of failure. If both storage providers fail, the browser keeps the
+  in-memory answers for retry and the route still attempts the failure alert.
+- Analytics-link and email-claim failures are warnings after a Sheet row has
+  been saved; they no longer turn a successful lead save into the generic red
+  submission error. Email failures do not undo a successful storage operation.
 - A Jane outbound click is never labeled as a booking. Appointment completion
   must not be inferred without a future verified Jane integration.
 
@@ -563,13 +579,17 @@ test storage/mail adapters.
 - **Operational**: verify worksheet migration on a copy of the live header,
   configure a production token secret, test all three email paths, and treat
   Jane click counts as outbound interest rather than completed bookings.
-- **Hosting/idempotency**: apply the unified growth CRM migration before the
-  application deploy. Verify that concurrent requests with one client
+- **Hosting/idempotency**: apply the unified growth CRM migration, then
+  `20260812000000_quiz_submission_recovery.sql`, and finally
+  `20260813000000_quiz_crm_record_store.sql` before the application deploy.
+  Verify that concurrent requests with one client
   submission ID receive the same `VQ-*` reference, that the loser receives a
   retriable `202` while the storage lease is active, and that an append-success/
   completion-failure retry reconciles the existing Sheet row rather than
   appending another one. Supabase is the exact identity/claim authority; the
-  Sheet status columns are reconciliation mirrors.
+  Sheet status columns are reconciliation mirrors. Confirm the protected quiz
+  dashboard shows the recovery queue and that a simulated Sheet failure stores
+  all non-safety submission fields with `failed` status.
 - **Email recovery**: configure operational monitoring or a durable retry job
   for transactional-email failures; the current persisted failed state retries
   when the same idempotent submission or scheduling request is sent again.

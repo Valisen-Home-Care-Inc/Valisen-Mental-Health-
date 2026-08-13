@@ -43,6 +43,7 @@ import {
   type StoredQuizLead,
 } from "@/lib/server/quizLeadStore";
 import {
+  buildQuizSubmissionFailureEmail,
   buildQuizResultsAccessEmail,
   buildQuizUserResultsEmail,
 } from "@/lib/server/quizLeadEmail";
@@ -50,10 +51,13 @@ import { buildQuizSummaryPdf } from "@/lib/server/quizSummaryPdf";
 import {
   claimQuizResultEmailDelivery,
   claimQuizResultSubmission,
+  completeQuizResultFailureAlert,
   completeQuizResultEmailDelivery,
   completeQuizResultSubmissionStorage,
+  recordQuizResultSubmissionFailure,
   recordQuizLeadLink,
   type QuizResultEmailDeliveryKind,
+  type QuizResultStorageClaimResult,
 } from "@/lib/server/growthRepository";
 import { isRateLimited } from "@/lib/server/rateLimit";
 import {
@@ -244,7 +248,7 @@ async function mirrorLeadPatch(
     await store.updateLead(lead.rowNumber, patch);
   } catch (error) {
     console.warn(
-      `quiz-lead: Sheet mirror update failed (${context}) ${lead.referenceId}`,
+      `quiz-lead: CRM state update failed (${context}) ${lead.referenceId}`,
       error instanceof Error ? error.name : "unknown",
     );
   }
@@ -273,6 +277,72 @@ type DeliveryResult = {
   pending?: boolean;
   lead: StoredQuizLead;
 };
+
+function storageFailureCode(error: unknown): string {
+  if (error instanceof QuizLeadStoreConfigurationError) {
+    return "crm_configuration";
+  }
+  return "crm_operation";
+}
+
+async function sendQuizStorageFailureAlert(input: {
+  clientSubmissionId: string;
+  referenceId: string;
+  storageAttemptCount: number;
+  failureStage: string;
+  failureCode: string;
+  lead: QuizResultFingerprintSource;
+}): Promise<void> {
+  let status: "sent" | "failed" = "failed";
+  try {
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      throw new Error("Failure alert email is not configured.");
+    }
+    const email = buildQuizSubmissionFailureEmail({
+      referenceId: input.referenceId,
+      firstName: input.lead.firstName,
+      email: input.lead.email,
+      phone: input.lead.phone,
+      failedAtLabel: torontoLabel(new Date()),
+      failureStage: input.failureStage,
+      failureCode: input.failureCode,
+      storageAttemptCount: input.storageAttemptCount,
+      resultCategory: input.lead.resultCategory,
+      scoreBand: input.lead.scoreBand,
+      intent: input.lead.intent,
+      recommendedTherapistName:
+        input.lead.recommendedTherapistName ?? null,
+      adminUrl: configuredAdminUrl(input.referenceId),
+    });
+    const delivery = await createMailTransport().sendMail({
+      from: `"Valisen Mental Health" <${process.env.GMAIL_USER}>`,
+      to: QUIZ_LEAD_TO_EMAIL,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+      messageId: `<quiz-storage-failed-${input.referenceId.toLowerCase()}@valisenmentalhealth.com>`,
+    });
+    if (Array.isArray(delivery?.accepted) && delivery.accepted.length === 0) {
+      throw new Error("SMTP did not accept the failure-alert recipient.");
+    }
+    status = "sent";
+    console.log(`quiz-lead: storage failure alert sent ${input.referenceId}`);
+  } catch (error) {
+    console.error(
+      `quiz-lead: storage failure alert failed ${input.referenceId}:`,
+      error instanceof Error ? error.name : "unknown error",
+    );
+  }
+
+  await completeQuizResultFailureAlert(input.clientSubmissionId, status).catch(
+    (error) => {
+      console.warn(
+        `quiz-lead: failure alert marker unavailable ${input.referenceId}`,
+        error instanceof Error ? error.name : "unknown error",
+      );
+    },
+  );
+}
 
 async function ensureInternalResultsEmail(
   store: QuizLeadStore,
@@ -684,8 +754,9 @@ function successBody(
   internal: DeliveryResult,
   user: DeliveryResult,
   duplicate: boolean,
+  operationalWarnings: string[] = [],
 ) {
-  const warnings: string[] = [];
+  const warnings: string[] = [...operationalWarnings];
   if (!internal.sent) {
     warnings.push(
       internal.pending
@@ -774,53 +845,87 @@ export async function POST(req: NextRequest) {
     return await withQuizLeadLock(
       `access:${payload.clientSubmissionId}`,
       async () => {
-        const store = await getQuizLeadStore();
-        let persisted = await store.findByClientSubmissionId(
-          payload.clientSubmissionId,
+        // Intent changes presentation only; it is deliberately excluded from
+        // both score and therapist matching.
+        const outcome = scoreQuiz(payload.answers);
+        const match = matchTherapist(
+          outcome,
+          extractPreferences(payload.answers),
         );
-        const duplicate = Boolean(persisted);
-        const prepared: QuizResultFingerprintSource | null = persisted
-          ? null
-          : (() => {
-              // Intent is deliberately not passed into either function: it
-              // changes presentation only, never score or therapist match.
-              const outcome = scoreQuiz(payload.answers);
-              const match = matchTherapist(
-                outcome,
-                extractPreferences(payload.answers),
-              );
-              const suggested =
-                match.status === "match"
-                  ? getTherapistBySlug(match.therapistSlug)
-                  : undefined;
-              return {
-                firstName: payload.firstName,
-                email: payload.email,
-                phone: payload.phone,
-                privacyText: payload.privacyLanguage,
-                privacyTextVersion: payload.privacyTextVersion,
-                quizVersion: QUIZ_VERSION,
-                scoringVersion: SCORING_VERSION,
-                answers: payload.answers,
-                outcome,
-                resultCategory: getResultContent(outcome).leadLabel,
-                scoreBand: scoreBandFor(outcome.score),
-                match,
-                recommendedTherapistSlug: suggested?.slug,
-                recommendedTherapistName: suggested?.name,
-                intent: payload.intent,
-                attribution: payload.attribution,
-              };
-            })();
-        const payloadHash = quizResultPayloadHash(
-          persisted ?? (prepared as QuizResultFingerprintSource),
-        );
-        const storageClaim = await claimQuizResultSubmission({
-          clientSubmissionId: payload.clientSubmissionId,
-          payloadHash,
-          existingReferenceId: persisted?.referenceId,
-          leaseSeconds: Math.round(CLAIM_LEASE_MS / 1000),
-        });
+        const suggested =
+          match.status === "match"
+            ? getTherapistBySlug(match.therapistSlug)
+            : undefined;
+        const prepared: QuizResultFingerprintSource = {
+          firstName: payload.firstName,
+          email: payload.email,
+          phone: payload.phone,
+          privacyText: payload.privacyLanguage,
+          privacyTextVersion: payload.privacyTextVersion,
+          quizVersion: QUIZ_VERSION,
+          scoringVersion: SCORING_VERSION,
+          answers: payload.answers,
+          outcome,
+          resultCategory: getResultContent(outcome).leadLabel,
+          scoreBand: scoreBandFor(outcome.score),
+          match,
+          recommendedTherapistSlug: suggested?.slug,
+          recommendedTherapistName: suggested?.name,
+          intent: payload.intent,
+          attribution: payload.attribution,
+        };
+        const payloadHash = quizResultPayloadHash(prepared);
+        const submittedAt = new Date().toISOString();
+        const operationalWarnings: string[] = [];
+        let registryAvailable = true;
+        let storageClaim: QuizResultStorageClaimResult;
+        try {
+          storageClaim = await claimQuizResultSubmission({
+            clientSubmissionId: payload.clientSubmissionId,
+            payloadHash,
+            leaseSeconds: Math.round(CLAIM_LEASE_MS / 1000),
+            snapshot: {
+              firstName: prepared.firstName,
+              email: prepared.email,
+              phone: prepared.phone,
+              consentedAt: submittedAt,
+              privacyText: prepared.privacyText,
+              privacyTextVersion: prepared.privacyTextVersion,
+              quizVersion: prepared.quizVersion,
+              scoringVersion: prepared.scoringVersion,
+              answers: prepared.answers,
+              outcome: prepared.outcome,
+              resultCategory: prepared.resultCategory,
+              scoreBand: prepared.scoreBand,
+              match: prepared.match,
+              recommendedTherapistSlug: prepared.recommendedTherapistSlug,
+              recommendedTherapistName: prepared.recommendedTherapistName,
+              intent: prepared.intent,
+              attribution: prepared.attribution,
+            },
+          });
+        } catch (error) {
+          // If the first CRM claim is unavailable, continue only far enough to
+          // attempt the separately configured operational email alert.
+          registryAvailable = false;
+          storageClaim = {
+            accepted: true,
+            claimed: true,
+            reason: "claimed",
+            clientSubmissionId: payload.clientSubmissionId,
+            referenceId: makeReferenceId(),
+            storageStatus: "pending",
+            attemptCount: 1,
+            retryAfterSeconds: 0,
+          };
+          operationalWarnings.push(
+            "The CRM recovery claim is temporarily unavailable.",
+          );
+          console.warn(
+            "quiz-lead: recovery registry unavailable; attempting email fallback",
+            error instanceof Error ? error.name : "unknown error",
+          );
+        }
         if (!storageClaim.accepted) {
           throw new Error("The quiz result storage claim was not accepted.");
         }
@@ -844,24 +949,43 @@ export async function POST(req: NextRequest) {
         ) {
           throw new Error("The quiz result storage claim is unavailable.");
         }
-        if (
-          persisted &&
-          persisted.referenceId !== storageClaim.referenceId
-        ) {
-          throw new Error("The quiz result registry does not match the saved result.");
-        }
+        let effectiveReferenceId = storageClaim.referenceId;
+        let submissionToken = "";
+        let tokenHash = "";
+        let store: QuizLeadStore | null = null;
+        let persisted: StoredQuizLead | null = null;
+        let duplicate = false;
+        let storageStage = "crm_store_initialize";
 
-        const submissionToken = createSubmissionToken(
-          storageClaim.referenceId,
-          payload.clientSubmissionId,
-        );
-        const tokenHash = hashSubmissionToken(submissionToken);
-
-        if (storageClaim.claimed) {
-          if (!storageClaim.claimToken) {
-            throw new Error("The quiz result storage claim token is missing.");
+        try {
+          store = await getQuizLeadStore();
+          storageStage = "crm_store_lookup";
+          persisted = await store.findByClientSubmissionId(
+            payload.clientSubmissionId,
+          );
+          duplicate = Boolean(persisted);
+          if (!registryAvailable && persisted) {
+            effectiveReferenceId = persisted.referenceId;
           }
-          try {
+          if (
+            registryAvailable &&
+            persisted &&
+            persisted.referenceId !== storageClaim.referenceId
+          ) {
+            throw new Error(
+              "The quiz result registry does not match the saved result.",
+            );
+          }
+          submissionToken = createSubmissionToken(
+            effectiveReferenceId,
+            payload.clientSubmissionId,
+          );
+          tokenHash = hashSubmissionToken(submissionToken);
+
+          if (storageClaim.claimed) {
+            if (registryAvailable && !storageClaim.claimToken) {
+              throw new Error("The quiz result storage claim token is missing.");
+            }
             // A previous worker can append successfully and die before it
             // finalizes the registry. On a later lease attempt, reconcile the
             // stable client/VQ identity once more before considering an append.
@@ -874,7 +998,7 @@ export async function POST(req: NextRequest) {
                 reconciled.referenceId !== storageClaim.referenceId
               ) {
                 throw new Error(
-                  "The reconciled Sheet record does not match the quiz registry.",
+                  "The reconciled CRM record does not match the quiz registry.",
                 );
               }
               persisted = reconciled;
@@ -893,12 +1017,10 @@ export async function POST(req: NextRequest) {
                 };
               }
             } else {
-              if (!prepared) {
-                throw new Error("The quiz result payload is missing.");
-              }
-              const now = new Date().toISOString();
+              storageStage = "crm_record_save";
+              const now = submittedAt;
               const lead: NewQuizLead = {
-                referenceId: storageClaim.referenceId,
+                referenceId: effectiveReferenceId,
                 submissionTokenHash: tokenHash,
                 clientSubmissionId: payload.clientSubmissionId,
                 createdAt: now,
@@ -918,70 +1040,177 @@ export async function POST(req: NextRequest) {
                 updatedAt: now,
               };
               persisted = await store.appendLead(lead);
-              console.log(`quiz-lead: saved ${storageClaim.referenceId}`);
+              console.log(`quiz-lead: saved ${effectiveReferenceId}`);
             }
 
-            const completion = await completeQuizResultSubmissionStorage({
-              clientSubmissionId: payload.clientSubmissionId,
-              claimToken: storageClaim.claimToken,
-              status: "ready",
-              sheetRowNumber: persisted.rowNumber,
-            });
-            if (!completion.accepted || completion.staleClaim) {
-              throw new Error("The quiz result storage claim became stale.");
+            if (registryAvailable && storageClaim.claimToken) {
+              storageStage = "storage_registry_finalize";
+              const completion = await completeQuizResultSubmissionStorage({
+                clientSubmissionId: payload.clientSubmissionId,
+                claimToken: storageClaim.claimToken,
+                status: "ready",
+                sheetRowNumber: persisted.rowNumber,
+              });
+              if (!completion.accepted || completion.staleClaim) {
+                throw new Error("The quiz result storage claim became stale.");
+              }
             }
-          } catch (error) {
-            await completeQuizResultSubmissionStorage({
-              clientSubmissionId: payload.clientSubmissionId,
-              claimToken: storageClaim.claimToken,
-              status: "failed",
-            }).catch(() => undefined);
-            throw error;
+          } else {
+            if (!persisted) {
+              throw new Error(
+                "The quiz result registry is ready, but the CRM record is missing.",
+              );
+            }
+            if (tokenHash !== persisted.submissionTokenHash) {
+              storageStage = "crm_token_repair";
+              const updatedAt = new Date().toISOString();
+              await store.updateLead(persisted.rowNumber, {
+                submissionTokenHash: tokenHash,
+                updatedAt,
+              });
+              persisted = {
+                ...persisted,
+                submissionTokenHash: tokenHash,
+                updatedAt,
+              };
+            }
           }
-        } else {
-          if (!persisted) {
-            throw new Error(
-              "The quiz result registry is ready, but the Sheet record is missing.",
+        } catch (error) {
+          // Once the CRM record exists, never tell the visitor their lead was
+          // lost merely because a secondary registry marker was unavailable.
+          if (persisted) {
+            console.warn(
+              `quiz-lead: post-persistence storage marker unavailable ${persisted.referenceId}`,
+              error instanceof Error ? error.name : "unknown error",
             );
-          }
-          if (tokenHash !== persisted.submissionTokenHash) {
-            const updatedAt = new Date().toISOString();
-            await store.updateLead(persisted.rowNumber, {
-              submissionTokenHash: tokenHash,
-              updatedAt,
-            });
-            persisted = {
-              ...persisted,
-              submissionTokenHash: tokenHash,
-              updatedAt,
-            };
+            operationalWarnings.push(
+              "Your result was saved, but an internal tracking update is still pending.",
+            );
+          } else {
+            const failureCode = storageFailureCode(error);
+            let failureRecorded = false;
+            let alertRequired = true;
+            let alertAttemptCount = storageClaim.attemptCount;
+            if (
+              registryAvailable &&
+              storageClaim.claimed &&
+              storageClaim.claimToken
+            ) {
+              try {
+                const failure = await recordQuizResultSubmissionFailure({
+                  clientSubmissionId: payload.clientSubmissionId,
+                  claimToken: storageClaim.claimToken,
+                  failureStage: storageStage,
+                  failureCode,
+                });
+                failureRecorded = failure.accepted && !failure.staleClaim;
+                alertRequired = failure.alertRequired;
+                alertAttemptCount = failure.alertAttemptCount;
+              } catch (markerError) {
+                console.warn(
+                  `quiz-lead: durable failure marker unavailable ${effectiveReferenceId}`,
+                  markerError instanceof Error
+                    ? markerError.name
+                    : "unknown error",
+                );
+              }
+            }
+            if (alertRequired) {
+              await sendQuizStorageFailureAlert({
+                clientSubmissionId: payload.clientSubmissionId,
+                referenceId: effectiveReferenceId,
+                storageAttemptCount: alertAttemptCount,
+                failureStage: storageStage,
+                failureCode,
+                lead: prepared,
+              });
+            }
+            console.error(
+              `quiz-lead: storage failed ${effectiveReferenceId} (${storageStage}/${failureCode})`,
+            );
+            return noStoreJson(
+              {
+                ok: false,
+                error: failureRecorded
+                  ? "We saved a protected recovery copy, but couldn't finish preparing your results. Please try again."
+                  : "We couldn't finish saving your results. Your answers are still here, so please try again.",
+                retriable: true,
+                referenceId: effectiveReferenceId,
+                storageStatus: "failed",
+                failureRecorded,
+              },
+              503,
+            );
           }
         }
 
-        if (!persisted) {
+        if (!store || !persisted) {
           throw new Error("The quiz result was not persisted.");
         }
         // This is the authoritative, privacy-safe bridge from the consented
         // lead to its anonymous journey. If it fails, the same client id can
         // safely retry and repair the link instead of leaving a permanent gap.
-        await recordQuizLeadLink({
-          referenceId: persisted.referenceId,
-          funnelSessionId: payload.funnelSessionId,
-          quizAttemptId: payload.quizAttemptId,
-          quizVersion: persisted.quizVersion,
-          scoringVersion: persisted.scoringVersion,
-          intent: persisted.intent,
-          recommendedTherapist: persisted.recommendedTherapistSlug,
-          consentedAt: persisted.privacyAcknowledgedAt,
-        });
-        const internal = await ensureInternalResultsEmail(store, persisted);
-        const user = await ensureUserResultsEmail(
-          store,
-          internal.lead,
-          submissionToken,
-        );
+        try {
+          await recordQuizLeadLink({
+            referenceId: persisted.referenceId,
+            funnelSessionId: payload.funnelSessionId,
+            quizAttemptId: payload.quizAttemptId,
+            quizVersion: persisted.quizVersion,
+            scoringVersion: persisted.scoringVersion,
+            intent: persisted.intent,
+            recommendedTherapist: persisted.recommendedTherapistSlug,
+            consentedAt: persisted.privacyAcknowledgedAt,
+          });
+        } catch (error) {
+          console.warn(
+            `quiz-lead: journey link pending ${persisted.referenceId}`,
+            error instanceof Error ? error.name : "unknown error",
+          );
+          operationalWarnings.push(
+            "Your result was saved, but its analytics link is still pending.",
+          );
+        }
+
+        let internal: DeliveryResult;
+        try {
+          internal = await ensureInternalResultsEmail(store, persisted);
+        } catch (error) {
+          console.warn(
+            `quiz-lead: internal email claim unavailable ${persisted.referenceId}`,
+            error instanceof Error ? error.name : "unknown error",
+          );
+          operationalWarnings.push(
+            "Your result was saved, but the clinic notification is still pending.",
+          );
+          internal = { sent: false, pending: true, lead: persisted };
+        }
+
+        let user: DeliveryResult;
+        try {
+          user = await ensureUserResultsEmail(
+            store,
+            internal.lead,
+            submissionToken,
+          );
+        } catch (error) {
+          console.warn(
+            `quiz-lead: visitor email claim unavailable ${persisted.referenceId}`,
+            error instanceof Error ? error.name : "unknown error",
+          );
+          operationalWarnings.push(
+            "Your result is available here, but the results email is still pending.",
+          );
+          user = { sent: false, pending: true, lead: internal.lead };
+        }
         return noStoreJson(
-          successBody(user.lead, submissionToken, internal, user, duplicate),
+          successBody(
+            user.lead,
+            submissionToken,
+            internal,
+            user,
+            duplicate,
+            operationalWarnings,
+          ),
           duplicate ? 200 : 201,
         );
       },

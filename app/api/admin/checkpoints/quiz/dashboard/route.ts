@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveCheckpointDateRange } from "@/lib/checkpoints/dashboardMetrics";
 import { requireCheckpointAdminApi } from "@/lib/server/checkpointAdminAuth";
 import { fetchGrowthDashboard } from "@/lib/server/growthRepository";
+import { fetchQuizSubmissionRecoveryQueue } from "@/lib/server/growthRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
 
 export const runtime = "nodejs";
@@ -24,9 +25,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await fetchGrowthDashboard(range.from, range.to);
+    const [data, recovery] = await Promise.all([
+      fetchGrowthDashboard(range.from, range.to),
+      fetchQuizSubmissionRecoveryQueue(),
+    ]);
     return NextResponse.json(
-      { data },
+      { data, recovery },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
     );
   } catch (error) {

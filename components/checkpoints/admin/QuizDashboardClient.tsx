@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -13,6 +14,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
+import type {
+  QuizSubmissionRecoveryData,
+  QuizSubmissionRecoveryRecord,
+} from "@/lib/growth/quizSubmissionRecovery";
 import {
   formatGrowthStage,
   quizQuestionLabel,
@@ -91,12 +96,15 @@ function intentAndMatch(session: GrowthSessionSummary) {
 
 export default function QuizDashboardClient({
   initialData,
+  initialRecovery,
   initialError,
 }: {
   initialData: GrowthDashboardData | null;
+  initialRecovery: QuizSubmissionRecoveryData | null;
   initialError: string | null;
 }) {
   const [data, setData] = useState(initialData);
+  const [recovery, setRecovery] = useState(initialRecovery);
   const [error, setError] = useState(initialError);
   const [range, setRange] = useState<CheckpointDatePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
@@ -119,12 +127,17 @@ export default function QuizDashboardClient({
         cache: "no-store",
       });
       const body = (await response.json().catch(() => null)) as
-        | { data?: GrowthDashboardData; error?: string }
+        | {
+            data?: GrowthDashboardData;
+            recovery?: QuizSubmissionRecoveryData;
+            error?: string;
+          }
         | null;
-      if (!response.ok || !body?.data) {
+      if (!response.ok || !body?.data || !body.recovery) {
         throw new Error(body?.error || "Quiz analytics could not be loaded.");
       }
       setData(body.data);
+      setRecovery(body.recovery);
       setLastUpdated(body.data.generatedAt);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Quiz analytics could not be loaded.");
@@ -221,6 +234,8 @@ export default function QuizDashboardClient({
               );
             })}
           </section>
+
+          <QuizSubmissionRecoveryQueue data={recovery} />
 
           <section className="mt-5 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6" aria-labelledby="quiz-funnel-title">
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -415,6 +430,96 @@ export default function QuizDashboardClient({
         </>
       ) : !error ? <div className="mt-8 grid min-h-[300px] place-items-center"><RefreshCw size={24} className="animate-spin text-[#4e7d76]" aria-label="Loading quiz analytics" /></div> : null}
     </main>
+  );
+}
+
+function recoveryStatusClass(status: QuizSubmissionRecoveryRecord["storageStatus"]) {
+  return status === "failed"
+    ? "bg-[#fdeaea] text-[#922d2d]"
+    : "bg-[#fff4d8] text-[#805b12]";
+}
+
+function recoveryFields(record: QuizSubmissionRecoveryRecord) {
+  return {
+    firstName: record.firstName,
+    email: record.email,
+    phone: record.phone,
+    consentedAt: record.consentedAt,
+    privacyText: record.privacyText,
+    privacyTextVersion: record.privacyTextVersion,
+    quizVersion: record.quizVersion,
+    scoringVersion: record.scoringVersion,
+    answers: record.answers,
+    outcome: record.outcome,
+    resultCategory: record.resultCategory,
+    scoreBand: record.scoreBand,
+    match: record.match,
+    recommendedTherapistSlug: record.recommendedTherapistSlug,
+    recommendedTherapistName: record.recommendedTherapistName,
+    intent: record.intent,
+    attribution: record.attribution,
+  };
+}
+
+function QuizSubmissionRecoveryQueue({
+  data,
+}: {
+  data: QuizSubmissionRecoveryData | null;
+}) {
+  if (!data) return null;
+  const unresolved = data.pendingCount + data.failedCount;
+  return (
+    <section
+      className={`mt-5 overflow-hidden rounded-[20px] border bg-white shadow-[0_8px_35px_rgba(25,47,43,0.05)] ${
+        unresolved ? "border-[#e3b2a8]" : "border-black/[0.065]"
+      }`}
+      aria-labelledby="quiz-recovery-title"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
+        <div>
+          <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[1.2px] text-[#8f4a39]">
+            <AlertTriangle size={14} aria-hidden="true" /> Submission safety net
+          </p>
+          <h2 id="quiz-recovery-title" className="mt-1 text-[21px] font-semibold tracking-[-0.5px]">
+            Quiz submission recovery queue
+          </h2>
+          <p className="mt-1 max-w-[760px] text-[10.5px] leading-4 text-[#7d8986]">
+            Protected copies of consented submissions whose CRM lead record is pending or failed. Resolve failed records promptly; the complete submitted fields remain below.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] font-semibold">
+          <span className="rounded-full bg-[#fff4d8] px-3 py-1.5 text-[#805b12]">{data.pendingCount} pending</span>
+          <span className="rounded-full bg-[#fdeaea] px-3 py-1.5 text-[#922d2d]">{data.failedCount} failed</span>
+          {data.alertFailureCount ? <span className="rounded-full bg-[#fdeaea] px-3 py-1.5 text-[#922d2d]">{data.alertFailureCount} email alerts failed</span> : null}
+        </div>
+      </div>
+      {data.submissions.length ? (
+        <div className="overflow-x-auto border-t border-black/[0.06]">
+          <table className="w-full min-w-[1100px] border-collapse text-left">
+            <thead className="bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]">
+              <tr><th className="px-4 py-3">Visitor</th><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Storage</th><th className="px-4 py-3">Failure</th><th className="px-4 py-3">Alert email</th><th className="px-4 py-3">Updated</th><th className="px-4 py-3">Retained fields</th></tr>
+            </thead>
+            <tbody className="divide-y divide-black/[0.055]">
+              {data.submissions.map((record) => (
+                <tr key={record.referenceId} className="align-top text-[11px] text-[#53615e]">
+                  <td className="px-4 py-3.5"><span className="block font-semibold text-[#2f403d]">{record.firstName || "Snapshot pending"}</span><a className="block text-[#356f68] underline-offset-2 hover:underline" href={record.email ? `mailto:${record.email}` : undefined}>{record.email || "—"}</a><span className="block text-[10px] text-[#7e8986]">{record.phone || "—"}</span></td>
+                  <td className="px-4 py-3.5"><span className="font-mono text-[10px]">{record.referenceId}</span><span className="mt-1 block text-[9.5px] text-[#87918e]">Attempt {record.storageAttemptCount}</span></td>
+                  <td className="px-4 py-3.5"><span className={`inline-flex rounded-full px-2.5 py-1 text-[9.5px] font-bold uppercase ${recoveryStatusClass(record.storageStatus)}`}>{record.storageStatus}</span></td>
+                  <td className="px-4 py-3.5"><span className="block font-medium text-[#70483f]">{record.lastFailureStage || "Save still in progress"}</span><span className="block text-[9.5px] text-[#8b7671]">{record.lastFailureCode || "No failure recorded"}</span></td>
+                  <td className="px-4 py-3.5"><span className="font-semibold capitalize">{record.failureAlertStatus.replaceAll("_", " ")}</span><span className="block text-[9.5px] text-[#87918e]">{record.failureAlertAttempts} attempt{record.failureAlertAttempts === 1 ? "" : "s"}</span></td>
+                  <td className="px-4 py-3.5">{formatDate(record.updatedAt, true)}</td>
+                  <td className="px-4 py-3.5">
+                    <details className="max-w-[440px]"><summary className="cursor-pointer font-semibold text-[#276e68]">View complete copy</summary><pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f4f6f4] p-3 font-mono text-[9px] leading-4 text-[#45524f]">{JSON.stringify(recoveryFields(record), null, 2)}</pre></details>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="border-t border-black/[0.06] bg-[#f8fbf9] px-6 py-8 text-center"><p className="text-[13px] font-semibold text-[#35655e]">No unresolved quiz submissions</p><p className="mt-1 text-[10.5px] text-[#7e8986]">Every protected recovery snapshot has a completed CRM lead record.</p></div>
+      )}
+    </section>
   );
 }
 

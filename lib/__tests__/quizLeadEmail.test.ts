@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildQuizLeadEmail,
   buildQuizResultsAccessEmail,
+  buildQuizSubmissionFailureEmail,
   buildQuizUserResultsEmail,
   scoreQuizLeadHeat,
   type QuizLeadEmailModel,
@@ -282,6 +283,37 @@ describe("buildQuizLeadEmail", () => {
         expect.stringMatching(/no explicit booking-help request/i),
       ]),
     );
+  });
+});
+
+describe("buildQuizSubmissionFailureEmail", () => {
+  it("gives operators the recovery reference, failure state, and contact copy", () => {
+    const email = buildQuizSubmissionFailureEmail({
+      referenceId: "VQ-FAILED12345",
+      firstName: "Alex",
+      email: "alex@example.com",
+      phone: "613-555-0100",
+      failedAtLabel: "Wednesday, August 12, 2026 at 9:01 p.m.",
+      failureStage: "crm_record_save",
+      failureCode: "crm_operation",
+      storageAttemptCount: 2,
+      resultCategory: "Worry and tension stood out",
+      scoreBand: "Coping, but under some strain",
+      intent: "ready_to_speak",
+      recommendedTherapistName: "Tim Kahtava",
+      adminUrl: "https://admin.example.com/quiz/VQ-FAILED12345",
+    });
+
+    expect(email.subject).toContain("VQ-FAILED12345");
+    for (const content of [email.text, email.html]) {
+      expect(content).toMatch(/failed/i);
+      expect(content).toContain("VQ-FAILED12345");
+      expect(content).toContain("Alex");
+      expect(content).toContain("alex@example.com");
+      expect(content).toContain("613-555-0100");
+      expect(content).toContain("crm_record_save");
+      expect(content).toMatch(/protected recovery (?:copy|snapshot)/i);
+    }
   });
 });
 
