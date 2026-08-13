@@ -2,11 +2,14 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 
 export class SupabaseServerError extends Error {
   status: number;
+  /** Safe HTTP status from PostgREST; response bodies are never retained. */
+  upstreamStatus?: number;
 
-  constructor(message: string, status = 500) {
+  constructor(message: string, status = 500, upstreamStatus?: number) {
     super(message);
     this.name = "SupabaseServerError";
     this.status = status;
+    this.upstreamStatus = upstreamStatus;
   }
 }
 
@@ -92,6 +95,7 @@ export async function callSupabaseRpc<T>(
         ? "The checkpoint placement changed before this request completed."
         : "Operations database operation failed.",
       response.status === 409 ? 409 : 503,
+      response.status,
     );
   }
 
