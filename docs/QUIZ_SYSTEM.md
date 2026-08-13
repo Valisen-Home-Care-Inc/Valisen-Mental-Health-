@@ -455,6 +455,7 @@ deletion schedule.
 | Private on-demand results PDF | `app/api/quiz-lead/pdf/route.ts` |
 | Durable worksheet store and schema migration | `lib/server/quizLeadStore.ts` |
 | Protected failed-submission recovery registry | `supabase/migrations/20260812000000_quiz_submission_recovery.sql` |
+| Internal tester flags and statistics exclusions | `supabase/migrations/20260814000000_quiz_test_data_flags.sql` |
 | Transactional email builders | `lib/server/quizLeadEmail.ts` |
 | Privacy-limited PDF summary generator | `lib/server/quizSummaryPdf.ts` |
 | Existing data-layer event adapter | `lib/analytics.ts` |
@@ -581,7 +582,8 @@ test storage/mail adapters.
   Jane click counts as outbound interest rather than completed bookings.
 - **Hosting/idempotency**: apply the unified growth CRM migration, then
   `20260812000000_quiz_submission_recovery.sql`, and finally
-  `20260813000000_quiz_crm_record_store.sql` before the application deploy.
+  `20260813000000_quiz_crm_record_store.sql` and
+  `20260814000000_quiz_test_data_flags.sql` before the application deploy.
   Verify that concurrent requests with one client
   submission ID receive the same `VQ-*` reference, that the loser receives a
   retriable `202` while the storage lease is active, and that an append-success/

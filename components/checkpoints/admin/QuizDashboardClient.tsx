@@ -8,7 +8,10 @@ import {
   Clock3,
   MousePointerClick,
   RefreshCw,
+  Search,
+  ShieldCheck,
   TrendingUp,
+  UserRoundCog,
   UserRoundCheck,
   Users,
 } from "lucide-react";
@@ -18,6 +21,10 @@ import type {
   QuizSubmissionRecoveryData,
   QuizSubmissionRecoveryRecord,
 } from "@/lib/growth/quizSubmissionRecovery";
+import type {
+  QuizTestCandidate,
+  QuizTestData,
+} from "@/lib/growth/quizTestData";
 import {
   formatGrowthStage,
   quizQuestionLabel,
@@ -97,14 +104,17 @@ function intentAndMatch(session: GrowthSessionSummary) {
 export default function QuizDashboardClient({
   initialData,
   initialRecovery,
+  initialTestData,
   initialError,
 }: {
   initialData: GrowthDashboardData | null;
   initialRecovery: QuizSubmissionRecoveryData | null;
+  initialTestData: QuizTestData | null;
   initialError: string | null;
 }) {
   const [data, setData] = useState(initialData);
   const [recovery, setRecovery] = useState(initialRecovery);
+  const [testData, setTestData] = useState(initialTestData);
   const [error, setError] = useState(initialError);
   const [range, setRange] = useState<CheckpointDatePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
@@ -130,14 +140,16 @@ export default function QuizDashboardClient({
         | {
             data?: GrowthDashboardData;
             recovery?: QuizSubmissionRecoveryData;
+            testData?: QuizTestData;
             error?: string;
           }
         | null;
-      if (!response.ok || !body?.data || !body.recovery) {
+      if (!response.ok || !body?.data || !body.recovery || !body.testData) {
         throw new Error(body?.error || "Quiz analytics could not be loaded.");
       }
       setData(body.data);
       setRecovery(body.recovery);
+      setTestData(body.testData);
       setLastUpdated(body.data.generatedAt);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Quiz analytics could not be loaded.");
@@ -234,6 +246,11 @@ export default function QuizDashboardClient({
               );
             })}
           </section>
+
+          <QuizTestDataManager
+            data={testData}
+            onChanged={() => loadData()}
+          />
 
           <QuizSubmissionRecoveryQueue data={recovery} />
 
@@ -437,6 +454,148 @@ function recoveryStatusClass(status: QuizSubmissionRecoveryRecord["storageStatus
   return status === "failed"
     ? "bg-[#fdeaea] text-[#922d2d]"
     : "bg-[#fff4d8] text-[#805b12]";
+}
+
+function QuizTestDataManager({
+  data,
+  onChanged,
+}: {
+  data: QuizTestData | null;
+  onChanged: () => Promise<void>;
+}) {
+  const [query, setQuery] = useState("");
+  const [showOnlyTests, setShowOnlyTests] = useState(false);
+  const [changingKey, setChangingKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!data) return null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const records = data.records.filter((record) => {
+    if (showOnlyTests && !record.isTest) return false;
+    if (!normalizedQuery) return true;
+    return [
+      record.referenceId,
+      record.sessionId,
+      record.firstName,
+      record.email,
+    ].some((value) => value?.toLowerCase().includes(normalizedQuery));
+  });
+
+  async function changeFlag(record: QuizTestCandidate) {
+    if (changingKey) return;
+    setChangingKey(record.recordKey);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/checkpoints/quiz/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          ...(record.sessionId ? { sessionId: record.sessionId } : {}),
+          ...(record.referenceId ? { referenceId: record.referenceId } : {}),
+          isTest: !record.isTest,
+          label: "Internal tester",
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.error || "The tester flag could not be updated.");
+      }
+      await onChanged();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The tester flag could not be updated.",
+      );
+    } finally {
+      setChangingKey(null);
+    }
+  }
+
+  return (
+    <section
+      className="mt-5 overflow-hidden rounded-[20px] border border-[#b9d2cc] bg-white shadow-[0_8px_35px_rgba(25,47,43,0.05)]"
+      aria-labelledby="quiz-test-data-title"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
+        <div>
+          <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[1.2px] text-[#3c746b]">
+            <ShieldCheck size={14} aria-hidden="true" /> Data quality
+          </p>
+          <h2 id="quiz-test-data-title" className="mt-1 text-[21px] font-semibold tracking-[-0.5px]">
+            Internal tester records
+          </h2>
+          <p className="mt-1 max-w-[790px] text-[10.5px] leading-4 text-[#7d8986]">
+            Mark your own or your partner&apos;s journey as a test. Connected quiz attempts, leads, and consultation records remain available here but are removed from CRM statistics. An identified tester&apos;s future submissions are classified automatically by email.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] font-semibold">
+          <span className="rounded-full bg-[#e5f3ee] px-3 py-1.5 text-[#28665b]">
+            {data.flaggedCount} excluded records
+          </span>
+          <span className="rounded-full bg-[#eef1ef] px-3 py-1.5 text-[#61716d]">
+            {data.testerIdentityCount} known testers
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-black/[0.06] bg-[#f8faf8] px-5 py-3 sm:px-6">
+        <label className="relative min-w-[250px] flex-1 sm:max-w-[420px]">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#82908c]" aria-hidden="true" />
+          <span className="sr-only">Search tester records</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search name, email, reference, or session"
+            className="min-h-10 w-full rounded-[10px] border border-black/10 bg-white pl-9 pr-3 text-[11px] outline-none focus:border-[#5a9087]"
+          />
+        </label>
+        <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-black/[0.08] bg-white px-3 text-[10.5px] font-semibold text-[#5e6d69]">
+          <input
+            type="checkbox"
+            checked={showOnlyTests}
+            onChange={(event) => setShowOnlyTests(event.target.checked)}
+            className="h-4 w-4 accent-[#286f68]"
+          />
+          Show tests only
+        </label>
+      </div>
+
+      {error ? (
+        <p role="alert" className="border-t border-[#eccabd] bg-[#fff5f0] px-5 py-3 text-[11px] text-[#8d452e] sm:px-6">
+          {error}
+        </p>
+      ) : null}
+
+      {records.length ? (
+        <div className="max-h-[520px] overflow-auto border-t border-black/[0.06]">
+          <table className="w-full min-w-[1120px] border-collapse text-left">
+            <thead className="sticky top-0 z-[1] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]">
+              <tr><th className="px-4 py-3">Person / record</th><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Quiz activity</th><th className="px-4 py-3">Last seen</th><th className="px-4 py-3">Statistics</th><th className="px-4 py-3">Action</th></tr>
+            </thead>
+            <tbody className="divide-y divide-black/[0.055]">
+              {records.map((record) => (
+                <tr key={record.recordKey} className={`text-[11px] text-[#53615e] ${record.isTest ? "bg-[#f1f8f5]" : ""}`}>
+                  <td className="px-4 py-3.5"><span className="block font-semibold text-[#2f403d]">{record.firstName || (record.recordKind === "attempt" ? "Anonymous attempt" : "Quiz lead")}</span><span className="block text-[10px] text-[#77847f]">{record.email || "No contact details submitted"}</span></td>
+                  <td className="px-4 py-3.5"><span className="block font-mono text-[10px]">{record.referenceId || "No lead reference"}</span>{record.sessionId ? <span className="mt-1 block max-w-[230px] truncate font-mono text-[9px] text-[#87918e]" title={record.sessionId}>{record.sessionId}</span> : null}</td>
+                  <td className="px-4 py-3.5"><span className="block font-medium">{record.quizCompleted ? "Completed" : `Reached Q${record.maxQuizQuestion || 1}`}</span><span className="block text-[9.5px] text-[#87918e]">{record.attemptCount} attempt{record.attemptCount === 1 ? "" : "s"}</span></td>
+                  <td className="px-4 py-3.5">{formatDate(record.lastSeenAt, true)}</td>
+                  <td className="px-4 py-3.5">{record.isTest ? <span className="inline-flex rounded-full bg-[#dff1ea] px-2.5 py-1 text-[9.5px] font-bold uppercase text-[#28665b]">Excluded test</span> : <span className="inline-flex rounded-full bg-[#edf0ee] px-2.5 py-1 text-[9.5px] font-semibold text-[#62706d]">Included</span>}{record.testMarkedAt ? <span className="mt-1 block text-[9px] text-[#87918e]">Flagged {formatDate(record.testMarkedAt)}</span> : null}</td>
+                  <td className="px-4 py-3.5"><button type="button" onClick={() => void changeFlag(record)} disabled={Boolean(changingKey)} className={`inline-flex min-h-9 items-center gap-2 rounded-[9px] px-3 text-[10.5px] font-semibold transition disabled:opacity-50 ${record.isTest ? "border border-black/10 bg-white text-[#65736f]" : "bg-[#286f68] text-white"}`}><UserRoundCog size={13} aria-hidden="true" />{changingKey === record.recordKey ? "Saving…" : record.isTest ? "Include as real" : "Mark as test"}</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="grid min-h-[120px] place-items-center border-t border-black/[0.06] px-6 text-center"><p className="text-[11px] text-[#7e8986]">No quiz records match this filter.</p></div>
+      )}
+    </section>
+  );
 }
 
 function recoveryFields(record: QuizSubmissionRecoveryRecord) {

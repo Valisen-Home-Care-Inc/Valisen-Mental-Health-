@@ -7,6 +7,10 @@ import type {
 } from "@/lib/consultationCrm";
 import type { GrowthDashboardData } from "@/lib/growth/dashboard";
 import type { QuizSubmissionRecoveryData } from "@/lib/growth/quizSubmissionRecovery";
+import type {
+  QuizTestData,
+  QuizTestFlagResult,
+} from "@/lib/growth/quizTestData";
 import type { FunnelEventRecord } from "@/lib/server/funnelEventStore";
 import { callSupabaseRpc } from "@/lib/server/supabaseServer";
 import { QUIZ_VERSION } from "@/lib/quiz";
@@ -173,6 +177,28 @@ export async function fetchQuizSubmissionRecoveryQueue(
     { p_limit: limit },
     15_000,
   );
+}
+
+export async function fetchQuizTestCandidates(
+  limit = 250,
+): Promise<QuizTestData> {
+  return callSupabaseRpc<QuizTestData>("get_quiz_test_candidates", {
+    p_limit: limit,
+  });
+}
+
+export async function setQuizTestFlag(input: {
+  sessionId?: string;
+  referenceId?: string;
+  isTest: boolean;
+  label?: string;
+}): Promise<QuizTestFlagResult> {
+  return callSupabaseRpc<QuizTestFlagResult>("set_quiz_test_flag", {
+    p_session_key: input.sessionId ?? null,
+    p_reference_id: input.referenceId ?? null,
+    p_is_test: input.isTest,
+    p_label: input.label ?? "Internal tester",
+  });
 }
 
 export type QuizResultStorageCompletionResult = {
