@@ -9,6 +9,7 @@ vi.mock("@/lib/server/funnelEventStore", () => ({
 
 import { POST } from "@/app/api/funnel-events/route";
 import { resetRateLimitState } from "@/lib/server/rateLimit";
+import { SupabaseServerError } from "@/lib/server/supabaseServer";
 
 const ORIGIN = "https://valisenmentalhealth.com";
 
@@ -213,5 +214,42 @@ describe("first-party funnel event boundary", () => {
       expect(invalid.status).toBe(400);
       expect(saveFunnelEventBatch).not.toHaveBeenCalled();
     }
+  });
+
+  it("stops replaying a deterministic PostgREST rejection without exposing its body", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    saveFunnelEventBatch.mockRejectedValueOnce(
+      new SupabaseServerError("Operations database operation failed.", 503, 400),
+    );
+
+    const response = await POST(request([event()]));
+
+    expect(response.status).toBe(422);
+    expect(response.headers.get("Cache-Control")).toContain("no-store");
+    await expect(response.json()).resolves.toEqual({ error: "Tracking batch rejected." });
+    expect(consoleError).toHaveBeenCalledWith(
+      "funnel-events: persistence failed",
+      "SupabaseServerError",
+      "upstream-400",
+    );
+    consoleError.mockRestore();
+  });
+
+  it("backs off a temporary storage failure", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    saveFunnelEventBatch.mockRejectedValueOnce(
+      new SupabaseServerError("Operations database is unavailable.", 503),
+    );
+
+    const response = await POST(request([event()]));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("5");
+    expect(consoleError).toHaveBeenCalledWith(
+      "funnel-events: persistence failed",
+      "SupabaseServerError",
+      "upstream-unavailable",
+    );
+    consoleError.mockRestore();
   });
 });

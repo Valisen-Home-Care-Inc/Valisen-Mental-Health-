@@ -12,6 +12,7 @@ import { isRateLimited } from "@/lib/server/rateLimit";
 import { QUIZ_VERSION } from "@/lib/quiz";
 import { isQuizIntent } from "@/lib/quizIntentContract";
 import { canonicalizeTrackedPath } from "@/lib/funnelPath";
+import { SupabaseServerError } from "@/lib/server/supabaseServer";
 
 export const runtime = "nodejs";
 
@@ -278,13 +279,31 @@ export async function POST(request: NextRequest) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
+    const upstreamStatus =
+      error instanceof SupabaseServerError ? error.upstreamStatus : undefined;
     console.error(
       "funnel-events: persistence failed",
       error instanceof Error ? error.name : "unknown",
+      upstreamStatus ? `upstream-${upstreamStatus}` : "upstream-unavailable",
     );
+
+    // The route has already validated the privacy-safe payload. If PostgREST
+    // still rejects its shape, replaying the same anonymous batch cannot heal
+    // it and previously caused a rapid retry storm. A 422 tells the browser to
+    // acknowledge that batch while keeping transient database failures
+    // retryable. No database response body is logged or returned.
+    if (upstreamStatus === 400 || upstreamStatus === 422) {
+      return NextResponse.json(
+        { error: "Tracking batch rejected." },
+        { status: 422, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     return NextResponse.json(
       { error: "Tracking storage unavailable." },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
+      {
+        status: 503,
+        headers: { "Cache-Control": "no-store", "Retry-After": "5" },
+      },
     );
   }
 }

@@ -8,6 +8,8 @@ const SESSION_KEY = "valisen:funnel-session:v1";
 const PENDING_KEY = "valisen:funnel-pending:v1";
 const ENDPOINT = "/api/funnel-events";
 const FLUSH_DELAY_MS = 700;
+const RETRY_BASE_DELAY_MS = 5_000;
+const RETRY_MAX_DELAY_MS = 5 * 60 * 1000;
 const MAX_BATCH_SIZE = 20;
 const MAX_PENDING_EVENTS = 250;
 
@@ -51,6 +53,34 @@ let normalFlushInFlight: Promise<void> | null = null;
 let lifecycleBound = false;
 let lastStage = "page_view";
 let lastQuizAttemptId: string | undefined;
+let retryFailureCount = 0;
+let retryNotBefore = 0;
+let lastBeaconBatchKey = "";
+let exitQueuedForPageHide = false;
+
+export function funnelRetryDelayMs(
+  failureCount: number,
+  retryAfterHeader?: string | null,
+  now = Date.now(),
+): number {
+  const safeFailureCount = Math.max(1, Math.min(16, Math.floor(failureCount)));
+  const exponential = Math.min(
+    RETRY_MAX_DELAY_MS,
+    RETRY_BASE_DELAY_MS * 2 ** (safeFailureCount - 1),
+  );
+  if (!retryAfterHeader) return exponential;
+
+  const seconds = Number(retryAfterHeader);
+  const retryAfterMs = Number.isFinite(seconds)
+    ? seconds * 1000
+    : Date.parse(retryAfterHeader) - now;
+  if (!Number.isFinite(retryAfterMs) || retryAfterMs <= 0) return exponential;
+  return Math.min(RETRY_MAX_DELAY_MS, Math.max(exponential, retryAfterMs));
+}
+
+export function isRetryableFunnelResponseStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
 
 function randomId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -104,7 +134,12 @@ function hydrateQueue(sessionId: string) {
   queueHydrated = true;
   try {
     const stored = JSON.parse(window.sessionStorage.getItem(PENDING_KEY) || "null") as
-      | { sessionId?: unknown; events?: unknown }
+      | {
+          sessionId?: unknown;
+          events?: unknown;
+          retryFailureCount?: unknown;
+          retryNotBefore?: unknown;
+        }
       | null;
     if (stored?.sessionId !== sessionId || !Array.isArray(stored.events)) return;
     queue = stored.events
@@ -124,6 +159,18 @@ function hydrateQueue(sessionId: string) {
         );
       })
       .slice(-MAX_PENDING_EVENTS);
+    if (
+      typeof stored.retryFailureCount === "number" &&
+      Number.isInteger(stored.retryFailureCount) &&
+      stored.retryFailureCount > 0 &&
+      typeof stored.retryNotBefore === "number" &&
+      Number.isFinite(stored.retryNotBefore) &&
+      stored.retryNotBefore > Date.now() &&
+      stored.retryNotBefore <= Date.now() + RETRY_MAX_DELAY_MS
+    ) {
+      retryFailureCount = Math.min(stored.retryFailureCount, 16);
+      retryNotBefore = stored.retryNotBefore;
+    }
     const highestPendingSequence = queue.reduce(
       (highest, event) => Math.max(highest, event.sequence),
       0,
@@ -148,7 +195,13 @@ function persistQueue(sessionId: string) {
     }
     window.sessionStorage.setItem(
       PENDING_KEY,
-      JSON.stringify({ sessionId, events: queue.slice(-MAX_PENDING_EVENTS) }),
+      JSON.stringify({
+        sessionId,
+        events: queue.slice(-MAX_PENDING_EVENTS),
+        ...(retryNotBefore > Date.now()
+          ? { retryFailureCount, retryNotBefore }
+          : {}),
+      }),
     );
   } catch {
     // Tracking must never block the visitor experience.
@@ -197,8 +250,15 @@ function bindLifecycle() {
   if (lifecycleBound) return;
   lifecycleBound = true;
   window.addEventListener("pagehide", () => {
-    enqueue("session_exit", { stage: lastStage }, true);
+    if (!exitQueuedForPageHide) {
+      exitQueuedForPageHide = true;
+      enqueue("session_exit", { stage: lastStage }, true);
+    }
     flush(true);
+  });
+  window.addEventListener("pageshow", () => {
+    exitQueuedForPageHide = false;
+    lastBeaconBatchKey = "";
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
@@ -210,15 +270,24 @@ function bindLifecycle() {
 }
 
 function scheduleFlush() {
-  if (queue.length >= MAX_BATCH_SIZE) {
-    void flush(false);
-    return;
-  }
   if (flushTimer) return;
+  const normalDelay = queue.length >= MAX_BATCH_SIZE ? 0 : FLUSH_DELAY_MS;
+  const retryDelay = Math.max(0, retryNotBefore - Date.now());
   flushTimer = setTimeout(() => {
     flushTimer = null;
     void flush(false);
-  }, FLUSH_DELAY_MS);
+  }, Math.max(normalDelay, retryDelay));
+}
+
+function resetRetryState() {
+  retryFailureCount = 0;
+  retryNotBefore = 0;
+}
+
+function recordRetryableFailure(retryAfterHeader?: string | null) {
+  retryFailureCount = Math.min(retryFailureCount + 1, 16);
+  retryNotBefore =
+    Date.now() + funnelRetryDelayMs(retryFailureCount, retryAfterHeader);
 }
 
 function enqueue(
@@ -280,11 +349,15 @@ function enqueue(
   if (!lifecycleEvent) scheduleFlush();
 }
 
-async function flush(useBeacon: boolean) {
+async function flush(useBeacon: boolean, force = false) {
   if (typeof window === "undefined") return;
   const session = getSession();
   hydrateQueue(session.id);
   if (!queue.length) return;
+  if (!force && retryNotBefore > Date.now()) {
+    scheduleFlush();
+    return;
+  }
   if (flushTimer) {
     clearTimeout(flushTimer);
     flushTimer = null;
@@ -296,15 +369,20 @@ async function flush(useBeacon: boolean) {
     events,
   });
   if (useBeacon && navigator.sendBeacon) {
-    navigator.sendBeacon(
+    const beaconBatchKey = events.map((event) => event.eventId).join(",");
+    if (beaconBatchKey === lastBeaconBatchKey) return;
+    const handedOff = navigator.sendBeacon(
       ENDPOINT,
       new Blob([body], { type: "application/json" }),
     );
-    // A beacon only confirms browser hand-off, not a successful database
-    // commit. Keep the idempotent batch persisted so the next visible page
-    // can confirm it with a normal request before removing it.
-    persistQueue(session.id);
-    return;
+    if (handedOff) {
+      lastBeaconBatchKey = beaconBatchKey;
+      // A beacon only confirms browser hand-off, not a successful database
+      // commit. Keep the idempotent batch persisted so the next visible page
+      // can confirm it with a normal request before removing it.
+      persistQueue(session.id);
+      return;
+    }
   }
   if (normalFlushInFlight) return normalFlushInFlight;
 
@@ -317,13 +395,18 @@ async function flush(useBeacon: boolean) {
         credentials: "same-origin",
         keepalive: true,
       });
-      if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
+      if (response.ok || !isRetryableFunnelResponseStatus(response.status)) {
         const acknowledged = new Set(events.map((event) => event.eventId));
         queue = queue.filter((event) => !acknowledged.has(event.eventId));
+        resetRetryState();
+        persistQueue(session.id);
+      } else {
+        recordRetryableFailure(response.headers.get("retry-after"));
         persistQueue(session.id);
       }
     } catch {
-      // The persisted idempotent batch will be retried on this page or the next.
+      recordRetryableFailure();
+      persistQueue(session.id);
     } finally {
       normalFlushInFlight = null;
       if (queue.length) scheduleFlush();
@@ -366,7 +449,7 @@ export async function flushFirstPartyFunnelEvents(): Promise<boolean> {
   hydrateQueue(session.id);
   for (let batch = 0; batch < 20 && queue.length; batch += 1) {
     const pendingBefore = queue.length;
-    await flush(false);
+    await flush(false, true);
     if (queue.length >= pendingBefore) return false;
   }
   return queue.length === 0;
