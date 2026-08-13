@@ -484,3 +484,39 @@ describe("quiz CRM record-store follow-up migration", () => {
     );
   });
 });
+
+describe("quiz tester classification migration", () => {
+  const migration = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260814000000_quiz_test_data_flags.sql",
+    ),
+    "utf8",
+  );
+
+  it("propagates an internal tester flag and excludes it at dashboard cohort roots", () => {
+    expect(migration).toContain("create table public.growth_test_identities");
+    expect(migration).toContain("create or replace function public.set_quiz_test_flag");
+    expect(migration).toContain("create or replace function public.get_quiz_test_candidates");
+    expect(migration).toContain("and not session.is_test");
+    expect(migration).toContain("and not request.is_test");
+    expect(migration).toContain("where not lead.is_test");
+    expect(migration).toContain("quiz_result_submission_test_identity");
+    expect(migration).toContain("consultation_lead_test_identity");
+  });
+
+  it("keeps tester identities and flag operations service-role-only", () => {
+    expect(migration).toContain(
+      "alter table public.growth_test_identities enable row level security;",
+    );
+    expect(migration).toContain(
+      "revoke all on table public.growth_test_identities from public, anon, authenticated, service_role;",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.set_quiz_test_flag(text, text, boolean, text) to service_role;",
+    );
+    expect(migration).not.toMatch(
+      /grant\s+(select|insert|update|delete).*\s+to\s+(anon|authenticated)/i,
+    );
+  });
+});

@@ -4,6 +4,7 @@ import { requireCheckpointAdminPage } from "@/lib/server/checkpointAdminAuth";
 import {
   fetchGrowthDashboard,
   fetchQuizSubmissionRecoveryQueue,
+  fetchQuizTestCandidates,
 } from "@/lib/server/growthRepository";
 
 export const dynamic = "force-dynamic";
@@ -13,15 +14,17 @@ export default async function QuizAnalyticsPage() {
   const range = resolveCheckpointDateRange("30d");
   let data = null;
   let recovery = null;
+  let testData = null;
   let error: string | null = null;
 
   if (!range) {
     error = "The default analytics range could not be created.";
   } else {
     try {
-      [data, recovery] = await Promise.all([
+      [data, recovery, testData] = await Promise.all([
         fetchGrowthDashboard(range.from, range.to),
         fetchQuizSubmissionRecoveryQueue(),
+        fetchQuizTestCandidates(),
       ]);
     } catch (caught) {
       error = caught instanceof Error ? caught.message : "Quiz analytics are unavailable.";
@@ -32,6 +35,7 @@ export default async function QuizAnalyticsPage() {
     <QuizDashboardClient
       initialData={data}
       initialRecovery={recovery}
+      initialTestData={testData}
       initialError={error}
     />
   );
