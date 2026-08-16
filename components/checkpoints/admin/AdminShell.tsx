@@ -14,17 +14,17 @@ import { useState, type ReactNode } from "react";
 
 const NAVIGATION = [
   {
+    href: "/admin/checkpoints/quiz",
+    label: "Quiz analytics",
+    icon: BarChart3,
+    active: (pathname: string) => pathname.startsWith("/admin/checkpoints/quiz"),
+  },
+  {
     href: "/admin/checkpoints",
     label: "Checkpoints",
     icon: Activity,
     active: (pathname: string) =>
       pathname === "/admin/checkpoints" || /^\/admin\/checkpoints\/VMH-/.test(pathname),
-  },
-  {
-    href: "/admin/checkpoints/quiz",
-    label: "Quiz analytics",
-    icon: BarChart3,
-    active: (pathname: string) => pathname.startsWith("/admin/checkpoints/quiz"),
   },
   {
     href: "/admin/checkpoints/consultations",

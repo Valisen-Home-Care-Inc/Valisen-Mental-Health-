@@ -280,7 +280,8 @@ export async function getCheckpointAdminPageSession(): Promise<CheckpointAdminSe
 }
 
 export function sanitizeCheckpointAdminReturnPath(path: string | undefined): string {
-  const fallback = "/admin/checkpoints";
+  const adminRoot = "/admin/checkpoints";
+  const fallback = "/admin/checkpoints/quiz";
   if (!path || !path.startsWith("/") || path.startsWith("//") || /[\r\n\\]/.test(path)) {
     return fallback;
   }
@@ -289,7 +290,7 @@ export function sanitizeCheckpointAdminReturnPath(path: string | undefined): str
     const parsed = new URL(path, base);
     if (
       parsed.origin !== base.origin ||
-      (parsed.pathname !== fallback && !parsed.pathname.startsWith(`${fallback}/`))
+      (parsed.pathname !== adminRoot && !parsed.pathname.startsWith(`${adminRoot}/`))
     ) {
       return fallback;
     }

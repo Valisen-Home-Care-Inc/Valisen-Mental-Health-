@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Download,
   MousePointerClick,
   RefreshCw,
   Search,
@@ -17,6 +18,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
+import {
+  buildQuizAnalyticsExport,
+  quizAnalyticsExportFilename,
+} from "@/lib/growth/quizAnalyticsExport";
 import type {
   QuizSubmissionRecoveryData,
   QuizSubmissionRecoveryRecord,
@@ -158,6 +163,22 @@ export default function QuizDashboardClient({
     }
   }
 
+  function exportAnalytics() {
+    if (!data) return;
+    const blob = new Blob(
+      [JSON.stringify(buildQuizAnalyticsExport(data), null, 2)],
+      { type: "application/json;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = quizAnalyticsExportFilename(data);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   const maxReached = Math.max(1, ...((data?.quizQuestions ?? []).map((item) => item.reached)));
 
   return (
@@ -202,6 +223,16 @@ export default function QuizDashboardClient({
           </div>
           <button
             type="button"
+            onClick={exportAnalytics}
+            disabled={!data || loading}
+            className="inline-flex min-h-11 items-center gap-2 rounded-[12px] border border-[#b8d2cc] bg-white px-3.5 text-[11px] font-semibold text-[#286f68] shadow-[0_4px_18px_rgba(28,46,43,0.05)] transition hover:border-[#79a89d] hover:bg-[#f5faf8] disabled:cursor-not-allowed disabled:opacity-50"
+            title="Download the selected analytics range as privacy-safe JSON"
+          >
+            <Download size={15} aria-hidden="true" />
+            Export for ChatGPT
+          </button>
+          <button
+            type="button"
             onClick={() => void loadData()}
             disabled={loading}
             className="grid h-11 w-11 place-items-center rounded-[12px] border border-black/[0.07] bg-white text-[#53625f] shadow-[0_4px_18px_rgba(28,46,43,0.05)] transition hover:text-[#1e5f5a] disabled:opacity-60"
@@ -222,7 +253,12 @@ export default function QuizDashboardClient({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-[#7a8582]">
         <span className="inline-flex items-center gap-1.5"><CalendarDays size={13} aria-hidden="true" />{data ? `${formatDate(data.range.from)} – ${formatDate(data.range.to)}` : "No range loaded"}</span>
-        <span aria-live="polite">Updated {formatDate(lastUpdated, true)}</span>
+        <span className="text-right">
+          <span aria-live="polite">Updated {formatDate(lastUpdated, true)}</span>
+          <span className="block text-[9.5px] text-[#8d9794]">
+            Export excludes contact details, quiz answers, and identifiers.
+          </span>
+        </span>
       </div>
 
       {error ? (
