@@ -144,10 +144,16 @@ describe("checkpoint admin request guards", () => {
 
   it("does not allow an external post-login redirect", () => {
     expect(sanitizeCheckpointAdminReturnPath("https://attacker.example")).toBe(
-      "/admin/checkpoints",
+      "/admin/checkpoints/quiz",
     );
     expect(sanitizeCheckpointAdminReturnPath("//attacker.example/admin/checkpoints")).toBe(
-      "/admin/checkpoints",
+      "/admin/checkpoints/quiz",
+    );
+    expect(sanitizeCheckpointAdminReturnPath(undefined)).toBe(
+      "/admin/checkpoints/quiz",
+    );
+    expect(sanitizeCheckpointAdminReturnPath("/admin/checkpoints/consultations")).toBe(
+      "/admin/checkpoints/consultations",
     );
     expect(sanitizeCheckpointAdminReturnPath("/admin/checkpoints/VMH-04?range=30d")).toBe(
       "/admin/checkpoints/VMH-04?range=30d",
