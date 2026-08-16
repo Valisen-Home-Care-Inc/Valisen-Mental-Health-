@@ -3,9 +3,14 @@ import {
   quizQuestionLabel,
   type GrowthDashboardData,
 } from "@/lib/growth/dashboard";
+import {
+  QUESTIONS,
+  QUIZ_VERSION,
+  SCORING_VERSION,
+} from "@/lib/quiz";
 import { getQuizIntentLabel, isQuizIntent } from "@/lib/quizIntent";
 
-const EXPORT_SCHEMA_VERSION = "1.0";
+const EXPORT_SCHEMA_VERSION = "1.1";
 
 function datePart(value: string): string {
   const parsed = new Date(value);
@@ -17,6 +22,27 @@ function datePart(value: string): string {
 function intentLabel(value?: string): string | null {
   if (!value) return null;
   return isQuizIntent(value) ? getQuizIntentLabel(value) : value;
+}
+
+function questionDefinition(question: (typeof QUESTIONS)[number], index: number) {
+  return {
+    questionNumber: index + 1,
+    id: question.id,
+    kind: question.kind,
+    text: question.text,
+    helperText: question.helper ?? null,
+    answerMode: question.kind === "multi" ? "multiple choice" : "single choice",
+    scored: question.kind === "scored",
+    dimensions: question.kind === "scored" ? question.dimensions : [],
+    options: question.options.map((option) => ({
+      label: option.label,
+      value: option.value,
+    })),
+    analyticsHandling:
+      question.kind === "safety"
+        ? "The safety response is never stored or sent to analytics. Only aggregate reach, answer, and exit milestones are available."
+        : "Individual answers are not included in this export. Only aggregate reach, answer, and exit milestones are available.",
+  };
 }
 
 /**
@@ -41,14 +67,25 @@ export function buildQuizAnalyticsExport(
     analyticsGeneratedAt: data.generatedAt,
     selectedDateRange: data.range,
     suggestedPrompt:
-      "Analyze this quiz funnel data. Identify the biggest conversion leaks, question-level friction, source quality differences, and the highest-impact experiments Valisen should run next. Separate observations from hypotheses and rank recommendations by likely impact and confidence.",
+      "Analyze this quiz funnel using the included current questionnaire wording and answer choices. Identify the biggest conversion leaks, question-level friction, wording or answer-option issues, source quality differences, and the highest-impact experiments Valisen should run next. Separate observations from hypotheses, do not infer clinical outcomes from aggregate behavior, and rank recommendations by likely impact and confidence.",
     privacy: {
       testRecordsExcludedFromStatistics: true,
       containsContactDetails: false,
       containsQuizAnswers: false,
       containsSafetyResponses: false,
       containsSessionOrSubmissionIdentifiers: false,
-      note: "This export contains aggregate analytics and de-identified journey milestones only.",
+      containsQuestionnaireDesign: true,
+      note: "This export contains aggregate analytics, de-identified journey milestones, and the static questionnaire design. The listed answer options are form context, not visitor responses.",
+    },
+    questionnaire: {
+      quizVersion: QUIZ_VERSION,
+      scoringVersion: SCORING_VERSION,
+      totalQuestions: QUESTIONS.length,
+      purpose:
+        "Educational self-reflection and therapist matching; this is not a diagnostic or validated clinical screening instrument.",
+      analyticsLimitation:
+        "The analytics show whether each question was reached, answered, or exited. They do not reveal which answer any visitor selected.",
+      questions: QUESTIONS.map(questionDefinition),
     },
     metricNotes: {
       questionsFinished:
@@ -80,10 +117,16 @@ export function buildQuizAnalyticsExport(
       ...item,
       label: intentLabel(item.intent),
     })),
-    questionFriction: data.quizQuestions.map((question) => ({
-      ...question,
-      label: quizQuestionLabel(question.questionNumber),
-    })),
+    questionFriction: data.quizQuestions.map((question) => {
+      const definition = QUESTIONS[question.questionNumber - 1];
+      return {
+        ...question,
+        questionId: definition?.id ?? null,
+        questionKind: definition?.kind ?? null,
+        questionText: definition?.text ?? quizQuestionLabel(question.questionNumber),
+        label: quizQuestionLabel(question.questionNumber),
+      };
+    }),
     acquisitionSources: data.sources.map((source) => {
       const { quizCompletions: questionsFinished, quizLeads: completedSubmissions, ...rest } = source;
       return { ...rest, questionsFinished, completedSubmissions };

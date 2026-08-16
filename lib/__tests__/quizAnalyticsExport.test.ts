@@ -66,12 +66,47 @@ describe("quiz analytics export", () => {
     expect(exported.kpis.quizVisitors).toBe(10);
     expect(exported.kpis.quizQuestionsFinished).toBe(4);
     expect(exported.kpis.completedSubmissions).toBe(3);
+    expect(exported.schemaVersion).toBe("1.1");
+    expect(exported.questionnaire.totalQuestions).toBe(19);
+    expect(exported.questionnaire.quizVersion).toBe("5.0.0");
+    expect(exported.questionnaire.questions).toHaveLength(19);
+    expect(exported.questionnaire.questions[0]).toMatchObject({
+      questionNumber: 1,
+      id: "intro",
+      text: "What brought you here today?",
+      answerMode: "single choice",
+      scored: false,
+    });
+    expect(exported.questionnaire.questions[0].options).toContainEqual({
+      label: "I'm curious and just exploring",
+      value: "curious",
+    });
+    expect(exported.questionnaire.questions[1]).toMatchObject({
+      id: "worry_1",
+      kind: "scored",
+      dimensions: ["worry"],
+    });
+    expect(exported.questionnaire.questions[17]).toMatchObject({
+      id: "safety",
+      kind: "safety",
+    });
+    expect(exported.questionnaire.questions[17].analyticsHandling).toContain(
+      "never stored",
+    );
+    expect(exported.questionnaire.questions[18]).toMatchObject({
+      id: "intent",
+      questionNumber: 19,
+    });
     expect(exported.questionFriction[0].label).toContain("What brought you here");
+    expect(exported.questionFriction[0].questionText).toBe(
+      "What brought you here today?",
+    );
     expect(exported.recentJourneys[0].lastStage).toContain("answered");
     expect(exported.recentJourneys[0].questionsFinished).toBe(true);
     expect(exported.recentJourneys[0].completedSubmission).toBe(true);
     expect(exported.conversionJourney[0].label).toBe("Quiz visitors");
     expect(exported.privacy.containsContactDetails).toBe(false);
+    expect(exported.privacy.containsQuestionnaireDesign).toBe(true);
     expect(serialized).not.toContain("private-session-key");
     expect(serialized).not.toContain("private-submission-reference");
     expect(serialized).not.toContain("sessionId");
