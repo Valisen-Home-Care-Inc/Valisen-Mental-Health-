@@ -67,9 +67,9 @@ function kpiCards(data: GrowthDashboardData) {
     : 0;
   return [
     { label: "Quiz visitors", value: formatCount(data.kpis.quizVisitors), note: "Tracked /quiz sessions", icon: Users },
-    { label: "Quiz attempts", value: formatCount(data.kpis.quizAttempts), note: `${formatPercent(data.kpis.quizAttemptCompletionRate)} completed`, icon: TrendingUp },
-    { label: "Quiz completed", value: formatCount(data.kpis.quizCompletions), note: formatPercent(data.kpis.quizCompletionRate), icon: CheckCircle2 },
-    { label: "Contact leads", value: formatCount(data.kpis.quizLeads), note: "Results access submitted", icon: TrendingUp },
+    { label: "Quiz attempts", value: formatCount(data.kpis.quizAttempts), note: `${formatPercent(data.kpis.quizAttemptCompletionRate)} finished all questions`, icon: TrendingUp },
+    { label: "Questions finished", value: formatCount(data.kpis.quizCompletions), note: `${formatPercent(data.kpis.quizCompletionRate)} reached the final form`, icon: CheckCircle2 },
+    { label: "Completed submissions", value: formatCount(data.kpis.quizLeads), note: "Contact form saved successfully", icon: TrendingUp },
     { label: "Matches viewed", value: formatCount(data.kpis.therapistMatchesViewed), note: `${formatPercent(matchViewRate)} of result views`, icon: UserRoundCheck },
     { label: "Consult clicks", value: formatCount(data.kpis.consultationClicks), note: "Request CTA selected", icon: MousePointerClick },
     { label: "Consult requests", value: formatCount(data.kpis.consultationRequests), note: `${formatPercent(data.kpis.quizToConsultationRate)} of visitors · ${formatCount(data.kpis.duplicateConsultationRequests)} duplicate`, icon: CalendarDays },
@@ -77,6 +77,10 @@ function kpiCards(data: GrowthDashboardData) {
     { label: "Consults booked", value: formatCount(data.kpis.consultationBookings), note: `${formatPercent(data.kpis.opportunityToBookingRate)} of opportunities`, icon: Clock3 },
     { label: "Paid therapy", value: formatCount(data.kpis.paidTherapyConversions), note: formatPercent(data.kpis.bookingToPaidTherapyRate), icon: BarChart3 },
   ];
+}
+
+function funnelStageLabel(key: string, label: string) {
+  return key === "quiz_completions" ? "19 questions finished" : label;
 }
 
 type EnrichedGrowthSession = GrowthSessionSummary & {
@@ -323,7 +327,7 @@ export default function QuizDashboardClient({
                     style={{ gridRow: data.quizFunnel.length >= 14 ? 2 : 1 }}
                   >
                     <p className="text-[9px] font-bold uppercase leading-4 tracking-[0.6px] text-[#76837f]">
-                      {index + 1}. {stage.label}
+                      {index + 1}. {funnelStageLabel(stage.key, stage.label)}
                     </p>
                     <p className="mt-2 text-[25px] font-semibold tracking-[-0.8px] tabular-nums text-[#253532]">
                       {formatCount(stage.count)}
@@ -400,7 +404,7 @@ export default function QuizDashboardClient({
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1460px] border-collapse text-left">
                   <thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]">
-                    <tr><th className="px-4 py-3">Source / campaign</th><th className="px-4 py-3">Sessions</th><th className="px-4 py-3">Starts</th><th className="px-4 py-3">Completed</th><th className="px-4 py-3">Leads</th><th className="px-4 py-3">Consult clicks</th><th className="px-4 py-3">Raw requests</th><th className="px-4 py-3">Duplicates</th><th className="px-4 py-3">Opportunities</th><th className="px-4 py-3">Booked</th><th className="px-4 py-3">Paid</th></tr>
+                    <tr><th className="px-4 py-3">Source / campaign</th><th className="px-4 py-3">Sessions</th><th className="px-4 py-3">Starts</th><th className="px-4 py-3">Questions finished</th><th className="px-4 py-3">Saved submissions</th><th className="px-4 py-3">Consult clicks</th><th className="px-4 py-3">Raw requests</th><th className="px-4 py-3">Duplicates</th><th className="px-4 py-3">Opportunities</th><th className="px-4 py-3">Booked</th><th className="px-4 py-3">Paid</th></tr>
                   </thead>
                   <tbody className="divide-y divide-black/[0.055]">
                     {data.sources.map((source) => (
@@ -454,7 +458,18 @@ export default function QuizDashboardClient({
                           </td>
                           <td className="px-4 py-3.5 tabular-nums">{session.lastQuizQuestion || "—"} / {session.maxQuizQuestion || "—"}</td>
                           <td className="px-4 py-3.5">
-                            <SignalPill active={session.quizCompleted} activeLabel="Completed" inactiveLabel="In progress" />
+                            {session.submissionReference ? (
+                              <SignalPill active activeLabel="Completed" inactiveLabel="" />
+                            ) : session.quizCompleted ? (
+                              <span className="inline-flex flex-col gap-1">
+                                <span className="inline-flex rounded-full bg-[#fff4d8] px-2.5 py-1 text-[9.5px] font-semibold text-[#805b12]">
+                                  Questions finished
+                                </span>
+                                <span className="text-[9px] text-[#8a9491]">Final form not submitted</span>
+                              </span>
+                            ) : (
+                              <SignalPill active={false} activeLabel="" inactiveLabel="In progress" />
+                            )}
                           </td>
                           <td className="max-w-[250px] px-4 py-3.5">
                             <span className="block truncate font-medium text-[#34423f]" title={context.intent || undefined}>
@@ -618,7 +633,7 @@ function QuizTestDataManager({
                 <tr key={record.recordKey} className={`text-[11px] text-[#53615e] ${record.isTest ? "bg-[#f1f8f5]" : ""}`}>
                   <td className="px-4 py-3.5"><span className="block font-semibold text-[#2f403d]">{record.firstName || (record.recordKind === "attempt" ? "Anonymous attempt" : "Quiz lead")}</span><span className="block text-[10px] text-[#77847f]">{record.email || "No contact details submitted"}</span></td>
                   <td className="px-4 py-3.5"><span className="block font-mono text-[10px]">{record.referenceId || "No lead reference"}</span>{record.sessionId ? <span className="mt-1 block max-w-[230px] truncate font-mono text-[9px] text-[#87918e]" title={record.sessionId}>{record.sessionId}</span> : null}</td>
-                  <td className="px-4 py-3.5"><span className="block font-medium">{record.quizCompleted ? "Completed" : `Reached Q${record.maxQuizQuestion || 1}`}</span><span className="block text-[9.5px] text-[#87918e]">{record.attemptCount} attempt{record.attemptCount === 1 ? "" : "s"}</span></td>
+                  <td className="px-4 py-3.5"><span className="block font-medium">{record.recordKind === "lead" ? "Final form submitted" : record.quizCompleted ? "Questions finished — final form not submitted" : `Reached Q${record.maxQuizQuestion || 1}`}</span><span className="block text-[9.5px] text-[#87918e]">{record.attemptCount} attempt{record.attemptCount === 1 ? "" : "s"}</span></td>
                   <td className="px-4 py-3.5">{formatDate(record.lastSeenAt, true)}</td>
                   <td className="px-4 py-3.5">{record.isTest ? <span className="inline-flex rounded-full bg-[#dff1ea] px-2.5 py-1 text-[9.5px] font-bold uppercase text-[#28665b]">Excluded test</span> : <span className="inline-flex rounded-full bg-[#edf0ee] px-2.5 py-1 text-[9.5px] font-semibold text-[#62706d]">Included</span>}{record.testMarkedAt ? <span className="mt-1 block text-[9px] text-[#87918e]">Flagged {formatDate(record.testMarkedAt)}</span> : null}</td>
                   <td className="px-4 py-3.5"><button type="button" onClick={() => void changeFlag(record)} disabled={Boolean(changingKey)} className={`inline-flex min-h-9 items-center gap-2 rounded-[9px] px-3 text-[10.5px] font-semibold transition disabled:opacity-50 ${record.isTest ? "border border-black/10 bg-white text-[#65736f]" : "bg-[#286f68] text-white"}`}><UserRoundCog size={13} aria-hidden="true" />{changingKey === record.recordKey ? "Saving…" : record.isTest ? "Include as real" : "Mark as test"}</button></td>

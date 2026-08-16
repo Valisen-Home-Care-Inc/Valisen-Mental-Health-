@@ -28,6 +28,12 @@ export function buildQuizAnalyticsExport(
   data: GrowthDashboardData,
   exportedAt = new Date().toISOString(),
 ) {
+  const {
+    quizAttemptCompletions,
+    quizCompletions,
+    quizLeads,
+    ...unambiguousKpis
+  } = data.kpis;
   return {
     schemaVersion: EXPORT_SCHEMA_VERSION,
     exportType: "Valisen quiz analytics",
@@ -45,6 +51,10 @@ export function buildQuizAnalyticsExport(
       note: "This export contains aggregate analytics and de-identified journey milestones only.",
     },
     metricNotes: {
+      questionsFinished:
+        "The visitor answered all 19 questions and reached the final contact form; this does not mean they submitted it.",
+      completedSubmissions:
+        "The final contact form was successfully saved and has a durable quiz lead reference.",
       consultationRequests:
         "Immutable request submissions, including records later marked duplicate.",
       consultationOpportunities:
@@ -53,8 +63,19 @@ export function buildQuizAnalyticsExport(
         "An exit is assigned to the latest current question and matures after 30 minutes or an explicit browser exit.",
       rates: "All rate values are percentages from 0 to 100.",
     },
-    kpis: data.kpis,
-    conversionJourney: data.quizFunnel,
+    kpis: {
+      ...unambiguousKpis,
+      quizAttemptQuestionsFinished: quizAttemptCompletions,
+      quizQuestionsFinished: quizCompletions,
+      completedSubmissions: quizLeads,
+    },
+    conversionJourney: data.quizFunnel.map((stage) => ({
+      ...stage,
+      label:
+        stage.key === "quiz_completions"
+          ? "19 questions finished — final form reached"
+          : stage.label,
+    })),
     intentMix: data.quizIntentMix.map((item) => ({
       ...item,
       label: intentLabel(item.intent),
@@ -63,7 +84,10 @@ export function buildQuizAnalyticsExport(
       ...question,
       label: quizQuestionLabel(question.questionNumber),
     })),
-    acquisitionSources: data.sources,
+    acquisitionSources: data.sources.map((source) => {
+      const { quizCompletions: questionsFinished, quizLeads: completedSubmissions, ...rest } = source;
+      return { ...rest, questionsFinished, completedSubmissions };
+    }),
     recentJourneys: data.recentSessions.map((session, index) => ({
       journeyNumber: index + 1,
       startedAt: session.startedAt,
@@ -72,7 +96,8 @@ export function buildQuizAnalyticsExport(
       lastQuizQuestion: session.lastQuizQuestion ?? null,
       maxQuizQuestion: session.maxQuizQuestion,
       quizVersion: session.quizVersion ?? null,
-      quizCompleted: session.quizCompleted,
+      questionsFinished: session.quizCompleted,
+      completedSubmission: Boolean(session.submissionReference),
       consultationClicked: session.consultationClicked,
       consultationSubmitted: session.consultationSubmitted,
       intent: intentLabel(session.quizIntent),
