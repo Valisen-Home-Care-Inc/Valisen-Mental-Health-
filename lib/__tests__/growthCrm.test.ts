@@ -45,6 +45,19 @@ describe("growth CRM contracts", () => {
       "answered",
     );
   });
+
+  it("reserves completed CRM language for an actual final-form submission", () => {
+    const dashboard = readFileSync(
+      join(process.cwd(), "components/checkpoints/admin/QuizDashboardClient.tsx"),
+      "utf8",
+    );
+
+    expect(dashboard).toContain('label: "Questions finished"');
+    expect(dashboard).toContain('label: "Completed submissions"');
+    expect(dashboard).toContain("session.submissionReference ?");
+    expect(dashboard).toContain("Final form not submitted");
+    expect(dashboard).not.toContain('active={session.quizCompleted} activeLabel="Completed"');
+  });
 });
 
 describe("unified growth CRM migration", () => {

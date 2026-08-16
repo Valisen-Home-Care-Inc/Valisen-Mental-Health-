@@ -252,6 +252,9 @@ export default function QuizFlow() {
     const selectedIntent = finalAnswers.intent;
     if (isQuizIntent(selectedIntent)) setIntent(selectedIntent);
     setPhase("access");
+    // Historical analytics name: this event means all questions were
+    // answered and the final contact form was reached. It does not mean that
+    // form was submitted; the CRM reserves "Completed" for a saved lead.
     trackQuizEvent("quiz_completed", {
       intent: isQuizIntent(selectedIntent) ? selectedIntent : undefined,
       campaignSource: attribution.source,

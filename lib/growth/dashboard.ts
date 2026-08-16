@@ -83,9 +83,11 @@ export type GrowthSessionSummary = {
   maxQuizQuestion: number;
   lastQuizQuestion?: number;
   quizVersion?: string;
+  /** All 19 questions were answered; the final contact form may still be unsubmitted. */
   quizCompleted: boolean;
   consultationClicked: boolean;
   consultationSubmitted: boolean;
+  /** Present only after the final results-access form was saved successfully. */
   submissionReference?: string;
   therapistId?: string;
   quizIntent?: string;

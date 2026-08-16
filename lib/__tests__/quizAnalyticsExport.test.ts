@@ -46,7 +46,7 @@ const dashboard: GrowthDashboardData = {
     lastStage: "quiz_question_8_answered",
     maxQuizQuestion: 8,
     lastQuizQuestion: 8,
-    quizCompleted: false,
+    quizCompleted: true,
     consultationClicked: false,
     consultationSubmitted: false,
     quizIntent: "book_consultation",
@@ -64,13 +64,29 @@ describe("quiz analytics export", () => {
     const serialized = JSON.stringify(exported);
 
     expect(exported.kpis.quizVisitors).toBe(10);
+    expect(exported.kpis.quizQuestionsFinished).toBe(4);
+    expect(exported.kpis.completedSubmissions).toBe(3);
     expect(exported.questionFriction[0].label).toContain("What brought you here");
     expect(exported.recentJourneys[0].lastStage).toContain("answered");
+    expect(exported.recentJourneys[0].questionsFinished).toBe(true);
+    expect(exported.recentJourneys[0].completedSubmission).toBe(true);
+    expect(exported.conversionJourney[0].label).toBe("Quiz visitors");
     expect(exported.privacy.containsContactDetails).toBe(false);
     expect(serialized).not.toContain("private-session-key");
     expect(serialized).not.toContain("private-submission-reference");
     expect(serialized).not.toContain("sessionId");
     expect(serialized).not.toContain("submissionReference");
+    expect(serialized).not.toContain('"quizCompleted"');
+
+    const formNotSubmitted = buildQuizAnalyticsExport({
+      ...dashboard,
+      recentSessions: dashboard.recentSessions.map((session) => ({
+        ...session,
+        submissionReference: undefined,
+      })),
+    });
+    expect(formNotSubmitted.recentJourneys[0].questionsFinished).toBe(true);
+    expect(formNotSubmitted.recentJourneys[0].completedSubmission).toBe(false);
   });
 
   it("uses the selected analytics range in the filename", () => {
