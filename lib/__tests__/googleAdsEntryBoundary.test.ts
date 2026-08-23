@@ -126,6 +126,25 @@ describe("same-domain Google Ads entry boundary", () => {
     ).toBe(false);
   });
 
+  it("accepts the canonical Host header behind Netlify's internal Next origin", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const response = await GET(
+      new NextRequest(
+        "https://internal-next-runtime.invalid/google-ads/anxiety?gclid=Abcdef_123",
+        { headers: { host: "valisenmentalhealth.com" } },
+      ),
+      context(["anxiety"]),
+    );
+    const destination = new URL(response.headers.get("location") || "");
+    const fragment = new URLSearchParams(destination.hash.slice(1));
+    expect(destination.origin).toBe("https://valisenmentalhealth.com");
+    expect(destination.pathname).toBe("/lp/anxiety-therapy");
+    expect(fragment.has(GOOGLE_ADS_ENTRY_FRAGMENT_KEY)).toBe(true);
+    expect(fragment.get(`${GOOGLE_ADS_CLICK_FRAGMENT_PREFIX}gclid`)).toBe(
+      "Abcdef_123",
+    );
+  });
+
   it("clears an earlier Ads journey on an explicit untracked entry", async () => {
     const response = await GET(
       new NextRequest("https://valisenmentalhealth.com/google-ads/couples"),
