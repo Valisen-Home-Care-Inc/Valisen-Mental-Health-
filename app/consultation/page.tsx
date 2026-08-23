@@ -56,6 +56,7 @@ import {
   CONSULTATION_DAYS_LABEL,
   consumeConsultationPrefill,
   isValidConsultationPhone,
+  shouldTrackConsultationSubmission,
   type ConsultationAvailability,
 } from "@/lib/consultation";
 import {
@@ -64,6 +65,20 @@ import {
   type SpecificTherapistSlug,
 } from "@/lib/intake";
 import { getFirstPartyFunnelSessionId } from "@/lib/funnelTracking";
+import {
+  captureGoogleAdsJourneyFromUrl,
+  confirmedConsultationReferenceIsValid,
+  getGoogleAdsJourneyToken,
+  googleAdsThankYouUrl,
+  isGoogleAdsJourneyActive,
+  type GoogleAdsFormFieldId,
+} from "@/lib/googleAdsJourney";
+import {
+  flushGoogleAdsEvents,
+  getGoogleAdsCampaignAttribution,
+  recordGoogleAdsEvent,
+  startGoogleAdsTracking,
+} from "@/lib/googleAdsTracking";
 
 type FormStep = 1 | 2;
 type CheckpointAttributionStatus =
@@ -128,11 +143,68 @@ const CONSENT_TEXT =
   "I consent to Valisen Mental Health using the name, email address, and phone number I have provided to contact me regarding my consultation request and to coordinate a consultation within my preferred availability.";
 const CONSENT_VERSION = "consultation-coordination-v1";
 
+const GOOGLE_ADS_ERROR_FIELDS: Partial<
+  Record<keyof ConsultationFormData, GoogleAdsFormFieldId>
+> = {
+  firstName: "first-name",
+  lastName: "last-name",
+  email: "email",
+  phone: "phone",
+  therapyType: "therapy-type",
+  preferredTherapist: "preferred-therapist",
+  additionalInfo: "additional-info",
+  availability: "availability",
+  consent: "consent",
+};
+
 function makeSubmissionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
   return `consult-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function retryGoogleAdsThankYouReceipt(
+  sessionId: string,
+  referenceId: string,
+  journeyToken: string,
+): Promise<string | null> {
+  for (const delayMs of [350, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 60_000]) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, delayMs));
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3_000);
+    try {
+      const response = await fetch("/api/google-ads/consultation-conversion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: controller.signal,
+        body: JSON.stringify({ sessionId, referenceId, journeyToken }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | {
+            googleAdsThankYouReady?: boolean;
+            googleAdsConversionReceipt?: string;
+          }
+        | null;
+      if (
+        response.ok &&
+        body?.googleAdsThankYouReady === true &&
+        googleAdsThankYouUrl(body.googleAdsConversionReceipt)
+      ) {
+        return body.googleAdsConversionReceipt || null;
+      }
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        return null;
+      }
+    } catch {
+      // The durable request is already safe; bounded background repair follows.
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+  return null;
 }
 
 function CircleCheck() {
@@ -207,7 +279,11 @@ export default function ConsultationPage() {
   const checkpointRepairMountedRef = useRef(false);
   const quizSubmissionTokenRef = useRef<string | null>(null);
   const funnelSessionIdRef = useRef<string | null>(null);
+  const googleAdsSessionIdRef = useRef<string | null>(null);
+  const googleAdsJourneyRef = useRef(false);
+  const googleAdsJourneyTokenRef = useRef<string | null>(null);
   const attributionRef = useRef<CampaignAttribution>({});
+  const submittedConversionReferenceRef = useRef<string | null>(null);
 
   const markCheckpointAttributionSaved = useCallback(() => {
     const storage = getCheckpointSessionStorage();
@@ -299,6 +375,10 @@ export default function ConsultationPage() {
   useEffect(() => {
     checkpointRepairMountedRef.current = true;
     formStartedAtRef.current = Date.now();
+    captureGoogleAdsJourneyFromUrl();
+    const googleAdsJourney = isGoogleAdsJourneyActive();
+    googleAdsJourneyRef.current = googleAdsJourney;
+    googleAdsJourneyTokenRef.current = getGoogleAdsJourneyToken() ?? null;
     const params = new URLSearchParams(window.location.search);
     const therapist = params.get("therapist");
     const preferredTherapist =
@@ -310,7 +390,7 @@ export default function ConsultationPage() {
     const pendingRepairToken = readPendingCheckpointAttributionRepair(
       sessionStorage,
     );
-    if (pendingRepairToken) {
+    if (pendingRepairToken && !googleAdsJourney) {
       checkpointRepairTokenRef.current = pendingRepairToken;
       checkpointRetryAttemptRef.current = 0;
       checkpointRetryAllowedRef.current = true;
@@ -326,10 +406,16 @@ export default function ConsultationPage() {
     } catch {
       // The form remains fully usable when browser storage is unavailable.
     }
-    const checkpointSession = readCheckpointSession(sessionStorage);
+    const checkpointSession = googleAdsJourney
+      ? null
+      : readCheckpointSession(sessionStorage);
     if (checkpointSession) {
       setCheckpointContext(checkpointSession);
       void trackCheckpointEvent(checkpointSession, "consultation_started");
+    } else if (googleAdsJourney) {
+      googleAdsSessionIdRef.current = startGoogleAdsTracking() ?? null;
+      attributionRef.current = getGoogleAdsCampaignAttribution();
+      recordGoogleAdsEvent("consultation_step_viewed", { formStep: 1 });
     } else {
       funnelSessionIdRef.current = getFirstPartyFunnelSessionId() ?? null;
       attributionRef.current = captureCampaignAttribution(window.location.search);
@@ -342,7 +428,9 @@ export default function ConsultationPage() {
       email: prefill?.email || current.email,
       phone: prefill?.phone || current.phone,
     }));
-    const rawSource = checkpointSession
+    const rawSource = googleAdsJourney
+      ? "google_ads"
+      : checkpointSession
       ? "mental_battery_checkpoint"
       : params.get("source") || "direct";
     setSource(rawSource.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "direct");
@@ -445,6 +533,9 @@ export default function ConsultationPage() {
       ctaPlacement: "consultation_primary",
       funnelStep: step,
     });
+    if (googleAdsJourneyRef.current) {
+      recordGoogleAdsEvent("form_started", { formStep: step });
+    }
   }
 
   function set<K extends keyof ConsultationFormData>(
@@ -490,6 +581,16 @@ export default function ConsultationPage() {
       ctaPlacement: "consultation_primary",
       funnelStep: currentStep,
     });
+    if (googleAdsJourneyRef.current) {
+      const field = Object.keys(next)
+        .map((key) => GOOGLE_ADS_ERROR_FIELDS[key as keyof ConsultationFormData])
+        .find(Boolean);
+      recordGoogleAdsEvent("consultation_validation_failed", {
+        formStep: currentStep,
+        targetType: field ? "form_field" : undefined,
+        targetId: field,
+      });
+    }
     window.setTimeout(() => {
       formRef.current
         ?.querySelector<HTMLElement>("[data-error='true']")
@@ -510,6 +611,9 @@ export default function ConsultationPage() {
       ctaPlacement: "consultation_primary",
       funnelStep: 2,
     });
+    if (googleAdsJourneyRef.current) {
+      recordGoogleAdsEvent("consultation_step_viewed", { formStep: 2 });
+    }
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -538,6 +642,13 @@ export default function ConsultationPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      if (
+        googleAdsJourneyRef.current &&
+        googleAdsSessionIdRef.current
+      ) {
+        // Analytics is best-effort and must never gate the intake request.
+        void flushGoogleAdsEvents(false, 1_200);
+      }
       const response = await fetch("/api/submit-intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -560,6 +671,8 @@ export default function ConsultationPage() {
           source,
           quizSubmissionToken: quizSubmissionTokenRef.current ?? undefined,
           funnelSessionId: funnelSessionIdRef.current ?? undefined,
+          googleAdsSessionId: googleAdsSessionIdRef.current ?? undefined,
+          googleAdsJourneyToken: googleAdsJourneyTokenRef.current ?? undefined,
           attribution:
             Object.keys(attributionRef.current).length > 0
               ? attributionRef.current
@@ -578,19 +691,70 @@ export default function ConsultationPage() {
             referenceId?: string;
             checkpointAttributionSaved?: boolean;
             checkpointAttributionRepairToken?: string;
+            googleAdsThankYouReady?: boolean;
+            googleAdsConversionReceipt?: string;
           }
         | null;
       if (!response.ok || !body?.ok) {
         throw new Error(body?.error || "Something went wrong. Please try again.");
       }
+      const confirmedReference = shouldTrackConsultationSubmission(
+        body.referenceId,
+        submittedConversionReferenceRef.current,
+      );
+      if (confirmedReference && body.referenceId) {
+        submittedConversionReferenceRef.current = body.referenceId;
+        if (googleAdsJourneyRef.current) {
+          recordGoogleAdsEvent("consultation_submitted", {
+            formStep: 2,
+            submissionReference: body.referenceId,
+          });
+        } else {
+          trackFunnelEvent("consultation_request_submitted", {
+            page: "consultation",
+            ctaPlacement: "consultation_primary",
+            funnelStep: 2,
+            funnelCompleted: true,
+            submissionReference: body.referenceId,
+          });
+        }
+      }
+      if (
+        googleAdsJourneyRef.current &&
+        confirmedReference &&
+        confirmedConsultationReferenceIsValid(body.referenceId) &&
+        body.googleAdsThankYouReady === true
+      ) {
+        const thankYouUrl = googleAdsThankYouUrl(
+          body.googleAdsConversionReceipt,
+        );
+        if (thankYouUrl) {
+          void flushGoogleAdsEvents(true);
+          window.location.replace(thankYouUrl);
+          return;
+        }
+      }
+      if (
+        googleAdsJourneyRef.current &&
+        confirmedReference &&
+        googleAdsSessionIdRef.current &&
+        googleAdsJourneyTokenRef.current &&
+        confirmedConsultationReferenceIsValid(body.referenceId)
+      ) {
+        setSubmitted(true);
+        void retryGoogleAdsThankYouReceipt(
+          googleAdsSessionIdRef.current,
+          body.referenceId,
+          googleAdsJourneyTokenRef.current || "",
+        ).then((receipt) => {
+          const thankYouUrl = googleAdsThankYouUrl(receipt);
+          if (!thankYouUrl) return;
+          void flushGoogleAdsEvents(true);
+          window.location.replace(thankYouUrl);
+        });
+        return;
+      }
       setSubmitted(true);
-      trackFunnelEvent("consultation_request_submitted", {
-        page: "consultation",
-        ctaPlacement: "consultation_primary",
-        funnelStep: 2,
-        funnelCompleted: true,
-        submissionReference: body.referenceId,
-      });
       if (checkpointContext) {
         if (body.checkpointAttributionSaved === true) {
           markCheckpointAttributionSaved();

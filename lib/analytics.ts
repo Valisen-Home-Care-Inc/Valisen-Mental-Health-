@@ -13,6 +13,7 @@ import {
   type CampaignAttribution,
 } from "@/lib/campaignAttribution";
 import { recordFirstPartyFunnelEvent } from "@/lib/funnelTracking";
+import { isGoogleAdsJourneyActive } from "@/lib/googleAdsJourney";
 
 export type QuizEvent =
   | "quiz_page_viewed"
@@ -94,10 +95,17 @@ export type FunnelEvent =
   | "consultation_jane_secondary_clicked"
   | "jane_booking_clicked";
 
+export type PaidSearchFunnelPage =
+  | "paid_search_anxiety"
+  | "paid_search_depression"
+  | "paid_search_couples";
+
 export type FunnelPage =
   | "homepage"
   | "therapist_directory"
   | "therapist_profile"
+  | "paid_search_landing"
+  | PaidSearchFunnelPage
   | "quiz"
   | "consultation"
   | "sitewide";
@@ -172,6 +180,11 @@ function isCheckpointRoute(): boolean {
   );
 }
 
+function isGoogleAdsRoute(): boolean {
+  if (typeof window === "undefined") return false;
+  return isGoogleAdsJourneyActive();
+}
+
 function cleanEventValue(
   value: string | undefined,
   maxLength = 120,
@@ -197,7 +210,7 @@ export function trackQuizEvent(
   propertiesOrStep: SafeQuizEventProperties | number = {},
 ) {
   if (typeof window === "undefined") return;
-  if (isCheckpointRoute()) return;
+  if (isCheckpointRoute() || isGoogleAdsRoute()) return;
   const properties: SafeQuizEventProperties =
     typeof propertiesOrStep === "number"
       ? { quizStep: propertiesOrStep }
@@ -295,16 +308,22 @@ export function trackFunnelEvent(
   properties: SafeFunnelEventProperties,
 ) {
   if (typeof window === "undefined") return;
-  if (isCheckpointRoute()) return;
+  if (isCheckpointRoute() || isGoogleAdsRoute()) return;
 
   const attribution =
     properties.attribution ?? captureCampaignAttribution(window.location.search);
+  const marketingPage = properties.page.startsWith("paid_search_")
+    ? "paid_search_landing"
+    : properties.page;
   const marketingPayload: Record<string, unknown> = {
     event,
-    page: properties.page,
+    page: marketingPage,
     device_category: getDeviceCategory(),
   };
-  const firstPartyPayload: Record<string, unknown> = { ...marketingPayload };
+  const firstPartyPayload: Record<string, unknown> = {
+    ...marketingPayload,
+    page: properties.page,
+  };
 
   if (properties.ctaPlacement) {
     marketingPayload.cta_placement = properties.ctaPlacement;

@@ -4,7 +4,9 @@ import {
   CONSULTATION_DAYS,
   CONSULTATION_DAYS_LABEL,
   consumeConsultationPrefill,
+  isConfirmedConsultationReference,
   isValidConsultationPhone,
+  shouldTrackConsultationSubmission,
   stageConsultationPrefill,
 } from "@/lib/consultation";
 
@@ -54,6 +56,30 @@ describe("consultation form contract", () => {
     expect(isValidConsultationPhone("+1 (647) 555-0123")).toBe(true);
     expect(isValidConsultationPhone("")).toBe(false);
     expect(isValidConsultationPhone("call me")).toBe(false);
+  });
+
+  it("treats only a server-issued VC reference as a confirmed request", () => {
+    expect(isConfirmedConsultationReference("VC-ABC123456789")).toBe(true);
+    expect(isConfirmedConsultationReference("VQ-ABC123456789")).toBe(false);
+    expect(isConfirmedConsultationReference("VC-")).toBe(false);
+    expect(isConfirmedConsultationReference(undefined)).toBe(false);
+    expect(isConfirmedConsultationReference("private@example.com")).toBe(false);
+  });
+
+  it("emits a confirmed submission conversion at most once per reference", () => {
+    expect(shouldTrackConsultationSubmission("VC-ABC123456789", null)).toBe(
+      true,
+    );
+    expect(
+      shouldTrackConsultationSubmission(
+        "VC-ABC123456789",
+        "VC-ABC123456789",
+      ),
+    ).toBe(false);
+    expect(shouldTrackConsultationSubmission(undefined, null)).toBe(false);
+    expect(shouldTrackConsultationSubmission("honeypot-success", null)).toBe(
+      false,
+    );
   });
 
   it("moves quiz contact details through one short-lived, one-time handoff", () => {

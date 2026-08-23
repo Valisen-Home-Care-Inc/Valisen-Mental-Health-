@@ -18,6 +18,11 @@ describe("consultation routing", () => {
     expect(getConsultationRequestUrl("dayong-quan", "profile_card")).toBe(
       "/consultation?therapist=dayong-quan&source=profile_card",
     );
+    expect(
+      getConsultationRequestUrl("meryem-ibrahim", "paid_search_landing"),
+    ).toBe(
+      "/consultation?therapist=meryem-ibrahim&source=paid_search_landing",
+    );
   });
 
   it("drops unverified therapist and unsafe source values", () => {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 const EFFECTIVE_DATE = "July 26, 2026";
-const LAST_UPDATED = "August 10, 2026";
+const LAST_UPDATED = "August 23, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -33,9 +34,9 @@ export default function PrivacyPolicyPage() {
                 Valisen Mental Health (&ldquo;Valisen&rdquo;, &ldquo;we&rdquo;, &ldquo;our&rdquo;,
                 or &ldquo;us&rdquo;) is a therapy clinic based in Ottawa, Ontario, Canada,
                 operating at{" "}
-                <a href="https://valisenmentalhealth.ca" className="text-teal hover:underline">
+                <Link href="/" className="text-teal hover:underline">
                   valisenmentalhealth.ca
-                </a>
+                </Link>
                 . Our Registered Psychotherapists and Registered Social Workers provide virtual therapy services directly to clients across Ontario.
               </p>
               <p>
@@ -222,7 +223,8 @@ export default function PrivacyPolicyPage() {
                 <li>
                   <strong className="text-ink">Service providers:</strong> Trusted third-party
                   vendors (e.g., secure form processing, email delivery, Cloudflare Turnstile bot
-                  verification, and access-controlled spreadsheet storage) who are contractually
+                  verification, access-controlled operational storage, and configured conversion
+                  measurement) who are contractually
                   bound to protect your information and use it only to provide services to us.
                 </li>
                 <li>
@@ -342,6 +344,30 @@ export default function PrivacyPolicyPage() {
                   page, quiz question, or consultation step reached and whether a consultation CTA
                   or secondary Jane link was clicked. The event endpoint rejects contact
                   information, quiz answers, scores, safety answers, and written messages.
+                </li>
+                <li>
+                  <strong className="text-ink">Dedicated Google Ads journeys:</strong> Visits to
+                  an allow-listed Google Ads entry address can start a separate random, per-tab
+                  session in an access-controlled event store. A short-lived, purpose-bound
+                  signed marker is kept in that tab so ordinary, Meta, and other website visits
+                  do not enter this reporting stream. The marker ends after 30 minutes without
+                  journey activity, on a new non-Google campaign/direct navigation, or after its
+                  absolute expiry. We retain allow-listed page paths, structural
+                  section identifiers, active foreground time, scroll milestones, safe click
+                  categories, consultation-form progression, and non-clinical UTM campaign
+                  identifiers. We do not place form values, names, contact details, free text,
+                  quiz answers or results, search terms, crisis-resource calls, DOM content, or
+                  arbitrary URLs in those events. Google click identifiers may be held only in
+                  the current tab and made available to the Google conversion tag after a durable
+                  consultation request; the identifiers are not copied into Valisen&apos;s CRM or
+                  journey event records. If you voluntarily submit the consultation form, the
+                  confirmed request may be linked to that anonymous journey so we can measure the
+                  consultation conversion. Unlinked detailed events are retained for no more than
+                  90 days; all detailed journey events and unlinked summaries are removed after no
+                  more than 13 months. A linked summary follows the administrative consultation
+                  record&apos;s retention period. Detailed journey events remain first-party and are
+                  not sent to Google. Opening the underlying landing page without a valid entry
+                  marker does not enter this event stream.
                 </li>
               </ul>
               <p className="mt-3">

@@ -16,6 +16,12 @@ import {
 describe("growth CRM contracts", () => {
   it("maps trusted sources without trusting a quiz-looking query string", () => {
     expect(
+      sourceKindFromDetail("google_ads", {
+        googleAds: true,
+        quizVerified: true,
+      }),
+    ).toBe("google_ads");
+    expect(
       sourceKindFromDetail("quiz_result", { quizVerified: true }),
     ).toBe("quiz");
     expect(sourceKindFromDetail("quiz_result")).toBe("website");
@@ -33,6 +39,7 @@ describe("growth CRM contracts", () => {
     expect(isConsultationConversionStage("paid_therapy")).toBe(true);
     expect(isConsultationConversionStage("jane_clicked")).toBe(false);
     expect(isConsultationSourceKind("quiz")).toBe(true);
+    expect(isConsultationSourceKind("google_ads")).toBe(true);
     expect(isConsultationSourceKind("meta")).toBe(false);
   });
 

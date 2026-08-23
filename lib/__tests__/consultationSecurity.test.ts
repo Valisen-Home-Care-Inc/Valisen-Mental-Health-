@@ -7,6 +7,7 @@ const flowMocks = vi.hoisted(() => ({
   completeConsultationNotificationClaim: vi.fn(),
   findBySubmissionTokenHash: vi.fn(),
   sendMail: vi.fn(),
+  linkGoogleAdsConsultation: vi.fn(),
   upsertConsultationLead: vi.fn(),
   verifyTurnstile: vi.fn(),
 }));
@@ -37,6 +38,10 @@ vi.mock("@/lib/server/growthRepository", () => ({
   upsertConsultationLead: flowMocks.upsertConsultationLead,
 }));
 
+vi.mock("@/lib/server/googleAdsRepository", () => ({
+  linkGoogleAdsConsultation: flowMocks.linkGoogleAdsConsultation,
+}));
+
 vi.mock("nodemailer", () => ({
   default: {
     createTransport: vi.fn(() => ({ sendMail: flowMocks.sendMail })),
@@ -52,6 +57,7 @@ import {
   resetRateLimitState,
 } from "@/lib/server/rateLimit";
 import { verifyCheckpointAttributionRepairToken } from "@/lib/server/checkpointAttributionRepair";
+import { createGoogleAdsJourney } from "@/lib/server/googleAdsJourneySession";
 
 const consentLanguage =
   "I consent to Valisen Mental Health using the name, email address, and phone number I have provided to contact me regarding my consultation request and to coordinate a consultation within my preferred availability.";
@@ -94,11 +100,29 @@ function request(body: unknown, origin = "https://valisenmentalhealth.com") {
   });
 }
 
+function googleAdsProof() {
+  const proof = createGoogleAdsJourney({
+    landingPath: "/lp/anxiety-therapy",
+    search:
+      "?utm_source=google&utm_medium=cpc&utm_campaign=trusted_campaign&utm_content=creative_7&gclid=abcdef123",
+  });
+  if (!proof) throw new Error("Google Ads journey proof was not created");
+  return proof;
+}
+
 beforeEach(() => {
   resetRateLimitState();
   persistCheckpointConsultation.mockReset();
   flowMocks.findBySubmissionTokenHash.mockReset().mockResolvedValue(null);
   flowMocks.sendMail.mockReset().mockResolvedValue({ messageId: "test-message" });
+  flowMocks.linkGoogleAdsConsultation.mockReset().mockImplementation(
+    async (input: { sessionId: string; referenceId: string }) => ({
+      accepted: true,
+      linked: true,
+      sessionId: input.sessionId,
+      referenceId: input.referenceId,
+    }),
+  );
   flowMocks.claimConsultationNotification.mockReset().mockResolvedValue({
     accepted: true,
     claimed: true,
@@ -131,6 +155,8 @@ beforeEach(() => {
   flowMocks.verifyTurnstile.mockReset().mockResolvedValue({ ok: true });
   process.env.GMAIL_USER = "sender@example.com";
   process.env.GMAIL_APP_PASSWORD = "test-password";
+  process.env.GOOGLE_ADS_CONVERSION_SECRET =
+    "consultation-google-ads-test-secret-longer-than-thirty-two-bytes";
   delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   delete process.env.GOOGLE_PRIVATE_KEY;
   delete process.env.GOOGLE_SHEET_ID;
@@ -138,6 +164,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  delete process.env.GOOGLE_ADS_CONVERSION_SECRET;
 });
 
 describe("consultation submission boundary", () => {
@@ -167,6 +194,23 @@ describe("consultation submission boundary", () => {
     const response = await POST(request(payload({ website: "spam.example" })));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ ok: true });
+  });
+
+  it("never issues an ads conversion receipt for honeypot fake success", async () => {
+    const proof = googleAdsProof();
+    const response = await POST(
+      request(
+        payload({
+          website: "spam.example",
+          googleAdsSessionId: proof.claim.sessionId,
+          googleAdsJourneyToken: proof.token,
+        }),
+      ),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(flowMocks.linkGoogleAdsConsultation).not.toHaveBeenCalled();
   });
 
   it("requires the exact, versioned consultation consent", async () => {
@@ -211,6 +255,108 @@ describe("consultation submission boundary", () => {
       ),
     );
     expect(answerSmuggling.status).toBe(400);
+  });
+
+  it("downgrades an unverified Google Ads browser claim without blocking intake", async () => {
+    const response = await POST(
+      request(
+        payload({
+          source: "google_ads",
+          googleAdsSessionId: "gas-12345678-1234-4234-9234-123456789abc",
+        }),
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKind: "website",
+        sourceDetail: "website",
+      }),
+    );
+    expect(flowMocks.linkGoogleAdsConsultation).not.toHaveBeenCalled();
+  });
+
+  it("server-forces a signed same-domain journey into its isolated source and receipt", async () => {
+    const proof = googleAdsProof();
+    const response = await POST(
+      request(
+        payload({
+          source: "website",
+          funnelSessionId: "fs-12345678-1234-4234-9234-123456789abc",
+          googleAdsSessionId: proof.claim.sessionId,
+          googleAdsJourneyToken: proof.token,
+          attribution: {
+            source: "meta",
+            medium: "paid-social",
+            campaign: "client_claim",
+          },
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      ok: true,
+      googleAdsThankYouReady: true,
+    });
+    expect(body.googleAdsConversionReceipt).toEqual(expect.any(String));
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKind: "google_ads",
+        sourceDetail: "google_ads",
+        funnelSessionId: undefined,
+        attribution: {
+          source: "google",
+          medium: "cpc",
+          campaign: "trusted_campaign",
+          content: "creative_7",
+        },
+      }),
+    );
+    expect(flowMocks.linkGoogleAdsConsultation).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: proof.claim.sessionId }),
+    );
+  });
+
+  it("uses the signed session instead of a stale client session ID", async () => {
+    const proof = googleAdsProof();
+    const response = await POST(
+      request(
+        payload({
+          source: "website",
+          googleAdsSessionId: "gas-12345678-1234-4234-9234-123456789abc",
+          googleAdsJourneyToken: proof.token,
+        }),
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(flowMocks.linkGoogleAdsConsultation).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: proof.claim.sessionId }),
+    );
+  });
+
+  it("keeps the saved success inline when the ads journey link is not verified", async () => {
+    const proof = googleAdsProof();
+    flowMocks.linkGoogleAdsConsultation.mockResolvedValueOnce({
+      accepted: false,
+      linked: false,
+    });
+    const response = await POST(
+      request(
+        payload({
+          googleAdsSessionId: proof.claim.sessionId,
+          googleAdsJourneyToken: proof.token,
+        }),
+      ),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      googleAdsThankYouReady: false,
+    });
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
   it("accepts a verified quiz handoff with VMH attribution and preserves both CRM links", async () => {

@@ -8,11 +8,18 @@ import {
   BriefcaseBusiness,
   ClipboardList,
   LogOut,
+  Megaphone,
   RefreshCw,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 const NAVIGATION = [
+  {
+    href: "/admin/checkpoints/google-ads",
+    label: "Google Ads",
+    icon: Megaphone,
+    active: (pathname: string) => pathname.startsWith("/admin/checkpoints/google-ads"),
+  },
   {
     href: "/admin/checkpoints/quiz",
     label: "Quiz analytics",

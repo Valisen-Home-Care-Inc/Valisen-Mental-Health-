@@ -21,6 +21,7 @@ export type ConsultationConversionStage =
   (typeof CONSULTATION_CONVERSION_STAGES)[number];
 
 export const CONSULTATION_SOURCE_KINDS = [
+  "google_ads",
   "mental_battery_checkpoint",
   "quiz",
   "direct",
@@ -31,6 +32,7 @@ export const CONSULTATION_SOURCE_KINDS = [
 ] as const;
 
 export const CONSULTATION_SOURCE_DETAILS = [
+  "google_ads",
   "direct",
   "website",
   "therapist_profile",
@@ -47,6 +49,7 @@ export const CONSULTATION_SOURCE_DETAILS = [
   "possibility_help",
   "quiz_result",
   "quiz_results_email",
+  "paid_search_landing",
   "mental_battery_checkpoint",
   "legacy_intake",
   "legacy_booking",
@@ -186,6 +189,7 @@ export const CONVERSION_STAGE_LABELS: Record<
 };
 
 export const SOURCE_KIND_LABELS: Record<ConsultationSourceKind, string> = {
+  google_ads: "Google Ads",
   mental_battery_checkpoint: "Mental Battery",
   quiz: "Therapist quiz",
   direct: "Direct",
@@ -224,8 +228,13 @@ export function isConsultationSourceKind(
 
 export function sourceKindFromDetail(
   source: string,
-  options: { quizVerified?: boolean; checkpoint?: boolean } = {},
+  options: {
+    googleAds?: boolean;
+    quizVerified?: boolean;
+    checkpoint?: boolean;
+  } = {},
 ): ConsultationSourceKind {
+  if (options.googleAds || source === "google_ads") return "google_ads";
   if (options.checkpoint) return "mental_battery_checkpoint";
   if (options.quizVerified) return "quiz";
   if (source === "direct") return "direct";

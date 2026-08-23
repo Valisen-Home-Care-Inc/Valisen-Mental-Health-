@@ -7,6 +7,7 @@ function currentPage(pathname: string): FunnelPage {
   if (pathname === "/") return "homepage";
   if (pathname === "/therapists") return "therapist_directory";
   if (pathname.startsWith("/therapists/")) return "therapist_profile";
+  if (pathname.startsWith("/lp/")) return "paid_search_landing";
   if (pathname === "/quiz") return "quiz";
   if (pathname === "/consultation") return "consultation";
   return "sitewide";

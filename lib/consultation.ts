@@ -50,6 +50,29 @@ export function isValidConsultationPhone(value: string): boolean {
   );
 }
 
+/**
+ * A server-issued consultation reference is the reliable signal that the
+ * request reached Valisen's durable consultation workflow. Bot-honeypot
+ * responses intentionally omit one while still returning a generic success.
+ */
+export function isConfirmedConsultationReference(
+  value: unknown,
+): value is string {
+  return (
+    typeof value === "string" &&
+    /^VC-[A-Za-z0-9_-]{6,36}$/.test(value)
+  );
+}
+
+export function shouldTrackConsultationSubmission(
+  value: unknown,
+  trackedReference: string | null,
+): value is string {
+  return (
+    isConfirmedConsultationReference(value) && value !== trackedReference
+  );
+}
+
 export type ConsultationPrefill = {
   firstName: string;
   email: string;
