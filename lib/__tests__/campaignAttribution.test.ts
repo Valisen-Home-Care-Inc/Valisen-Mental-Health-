@@ -1,11 +1,27 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   CAMPAIGN_ATTRIBUTION_KEYS,
+  GOOGLE_ADS_CLICK_KEYS,
   MAX_ATTRIBUTION_VALUE_LENGTH,
   campaignAttributionFromSearch,
+  captureCampaignTermAndStripFromUrl,
+  captureGoogleAdsClickAttribution,
   cleanCampaignAttribution,
   formatCampaignAttribution,
+  getStoredGoogleAdsClickAttribution,
+  googleAdsClickAttributionFromSearch,
+  stageGoogleAdsClickAttributionForConversion,
+  stripGoogleAdsClickAttributionFromUrl,
 } from "@/lib/campaignAttribution";
+
+const originalWindow = globalThis.window;
+
+afterEach(() => {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: originalWindow,
+  });
+});
 
 describe("campaign attribution cleaning", () => {
   it("retains only the four non-sensitive campaign fields", () => {
@@ -100,6 +116,139 @@ describe("campaign attribution URL extraction", () => {
       medium: "email",
       content: "card",
     });
+  });
+});
+
+describe("Google Ads click attribution handoff", () => {
+  it("retains only Google click identifiers in the isolated first-party shape", () => {
+    const attribution = googleAdsClickAttributionFromSearch(
+      "?gclid=google-123&gbraid=braid-456&wbraid=web-789&utm_term=anxiety+therapy&email=person%40example.com&fbclid=meta-123",
+    );
+
+    expect(GOOGLE_ADS_CLICK_KEYS).toEqual(["gclid", "gbraid", "wbraid"]);
+    expect(attribution).toEqual({
+      gclid: "google-123",
+      gbraid: "braid-456",
+      wbraid: "web-789",
+    });
+    expect(JSON.stringify(attribution)).not.toMatch(
+      /anxiety|person@|fbclid|utm_term/i,
+    );
+  });
+
+  it("keeps the first touch in session storage without adding it to campaign analytics", () => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: { search: "" },
+        sessionStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      },
+    });
+
+    expect(
+      captureGoogleAdsClickAttribution("?gclid=first-click&wbraid=web-click"),
+    ).toEqual({ gclid: "first-click", wbraid: "web-click" });
+    expect(captureGoogleAdsClickAttribution("?gclid=second-click")).toEqual({
+      gclid: "first-click",
+      wbraid: "web-click",
+    });
+    expect(getStoredGoogleAdsClickAttribution()).toEqual({
+      gclid: "first-click",
+      wbraid: "web-click",
+    });
+  });
+
+  it("stages only stored Google click IDs on the confirmed conversion URL", () => {
+    const storage = new Map<string, string>();
+    const historyCalls: string[] = [];
+    storage.set(
+      "valisen:first-touch-google-click:v1",
+      JSON.stringify({ gclid: "click-123", email: "private@example.com" }),
+    );
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: {
+          href: "https://valisenmentalhealth.com/thank-you?email=private@example.com#private",
+        },
+        history: {
+          state: null,
+          replaceState: (_state: unknown, _title: string, url: string) =>
+            historyCalls.push(url),
+        },
+        sessionStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+        },
+      },
+    });
+
+    const clear = stageGoogleAdsClickAttributionForConversion();
+    expect(historyCalls).toEqual(["/thank-you?gclid=click-123"]);
+    clear();
+    expect(historyCalls).toEqual([
+      "/thank-you?gclid=click-123",
+      "/thank-you",
+    ]);
+  });
+
+  it("strips captured click IDs while preserving safe campaign fields", () => {
+    const historyCalls: string[] = [];
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: {
+          href:
+            "https://valisenmentalhealth.com/lp/anxiety-therapy?utm_campaign=anxiety&gclid=click-123&wbraid=web-456#therapists",
+        },
+        history: {
+          state: { navigation: "state" },
+          replaceState: (_state: unknown, _title: string, url: string) =>
+            historyCalls.push(url),
+        },
+      },
+    });
+
+    stripGoogleAdsClickAttributionFromUrl();
+    expect(historyCalls).toEqual([
+      "/lp/anxiety-therapy?utm_campaign=anxiety#therapists",
+    ]);
+  });
+});
+
+describe("sensitive campaign-term cleanup", () => {
+  it("stores utm_term and removes only that field before marketing tags load", () => {
+    const storage = new Map<string, string>();
+    const historyCalls: string[] = [];
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: {
+          href:
+            "https://valisenmentalhealth.com/lp/anxiety-therapy?utm_source=google&utm_term=private+search&gclid=click-123#therapists",
+        },
+        history: {
+          state: { navigation: "state" },
+          replaceState: (_state: unknown, _title: string, url: string) =>
+            historyCalls.push(url),
+        },
+        sessionStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      },
+    });
+
+    expect(captureCampaignTermAndStripFromUrl()).toBe("private search");
+    expect(storage.get("valisen:first-touch-utm-term:v1")).toBe(
+      "private search",
+    );
+    expect(historyCalls).toEqual([
+      "/lp/anxiety-therapy?utm_source=google&gclid=click-123#therapists",
+    ]);
   });
 });
 

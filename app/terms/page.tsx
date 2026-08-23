@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 
@@ -31,9 +32,9 @@ export default function TermsPage() {
               <p>
                 These Terms of Service (&ldquo;Terms&rdquo;) govern your use of the website
                 located at{" "}
-                <a href="https://valisenmentalhealth.com" className="text-teal hover:underline">
+                <Link href="/" className="text-teal hover:underline">
                   valisenmentalhealth.com
-                </a>{" "}
+                </Link>{" "}
                 and any services provided by Valisen Mental Health (&ldquo;Valisen&rdquo;,
                 &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), a mental health
                 clinic based in Ottawa, Ontario, Canada.

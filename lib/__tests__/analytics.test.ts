@@ -155,6 +155,27 @@ describe("privacy-safe quiz analytics", () => {
 });
 
 describe("privacy-safe acquisition funnel analytics", () => {
+  it("keeps paid-search intent first-party while exposing only a neutral page to GTM", () => {
+    const dataLayer = installWindow(390, "/lp/anxiety-therapy");
+
+    trackFunnelEvent("landing_page_viewed", {
+      page: "paid_search_anxiety",
+      landingPageVariant: "paid",
+      attribution: { source: "google", medium: "cpc" },
+    });
+
+    expect(dataLayer).toEqual([
+      expect.objectContaining({
+        event: "landing_page_viewed",
+        page: "paid_search_landing",
+      }),
+    ]);
+    expect(recordFirstPartyFunnelEvent).toHaveBeenCalledWith(
+      "landing_page_viewed",
+      expect.objectContaining({ page: "paid_search_anxiety" }),
+    );
+  });
+
   it("suppresses generic analytics only on checkpoint routes", () => {
     const dataLayer = installWindow(390, "/c/VMH-04");
     window.sessionStorage.setItem(

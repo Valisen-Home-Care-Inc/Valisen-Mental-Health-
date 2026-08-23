@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
+import GoogleAdsJourneyBoundary from "@/components/GoogleAdsJourneyBoundary";
 import SiteAnalyticsBoundary from "@/components/SiteAnalyticsBoundary";
 import "./globals.css";
 
@@ -129,6 +130,29 @@ const SCHEMA = {
   ],
 };
 
+const GOOGLE_ADS_ENTRY_BOOTSTRAP = `(function(){try{
+  var u=new URL(window.location.href),p=new URLSearchParams(u.hash.slice(1));
+  var k="vmh_ga",t=p.get(k),s="valisen:google-ads-journey-proof:v1";
+  var c="valisen:first-touch-google-click:v1";
+  var stateKeys=[s,c,"valisen:google-ads-conversion-proof:v1","valisen:google-ads-session:v2","valisen:google-ads-pending:v2","valisen:google-ads-thank-you:v2"];
+  var clear=function(){for(var j=0;j<stateKeys.length;j++){sessionStorage.removeItem(stateKeys[j])}};
+  var reset=p.get("vmh_gx")==="1"||u.searchParams.has("fbclid");
+  var source=(u.searchParams.get("utm_source")||"").toLowerCase();
+  if(source&&source!=="google"){reset=true}
+  if(t===null&&document.referrer){try{if(new URL(document.referrer).origin!==u.origin){reset=true}}catch(_){reset=true}}
+  if(t===null&&!document.referrer){var n=performance.getEntriesByType&&performance.getEntriesByType("navigation")[0];if(n&&n.type==="navigate"&&sessionStorage.getItem(s)){reset=true}}
+  if(t===null&&sessionStorage.getItem(s)){try{var z=JSON.parse(sessionStorage.getItem("valisen:google-ads-session:v2")||"null"),d=Date.parse(z&&z.lastActivityAt||"");if(z&&(!isFinite(d)||d<Date.now()-1800000)){reset=true}}catch(_){reset=true}}
+  if(t===null&&reset){clear()}
+  if(t!==null){var v=/^v1\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(t)&&t.length<=2500;
+    if(v){sessionStorage.setItem(s,t);var a={},ks=["gclid","gbraid","wbraid"];
+      for(var i=0;i<ks.length;i++){var f="vmh_"+ks[i],x=p.get(f)||u.searchParams.get(ks[i]);if(x&&/^[A-Za-z0-9._~-]{6,500}$/.test(x)){a[ks[i]]=x}p.delete(f);u.searchParams.delete(ks[i])}
+      if(Object.keys(a).length){sessionStorage.setItem(c,JSON.stringify(a))}else{sessionStorage.removeItem(c)}
+    }else{clear()}}
+  p.delete(k);p.delete("vmh_gx");
+  var active=sessionStorage.getItem(s);if(active&&/^v1\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(active)){window.dataLayer=window.dataLayer||[];var g=function(){window.dataLayer.push(arguments)};g("consent","default",{ad_storage:"denied",analytics_storage:"denied",ad_user_data:"denied",ad_personalization:"denied",wait_for_update:500})}
+  if(t!==null||reset){var q=u.searchParams.toString(),h=p.toString();history.replaceState(history.state,"",u.pathname+(q?"?"+q:"")+(h?"#"+h:""))}
+}catch(_){}})();`;
+
 export default function RootLayout({
   children,
 }: {
@@ -138,11 +162,18 @@ export default function RootLayout({
     <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
       <head>
         <script
+          id="google-ads-entry-bootstrap"
+          dangerouslySetInnerHTML={{
+            __html: GOOGLE_ADS_ENTRY_BOOTSTRAP,
+          }}
+        />
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA) }}
         />
       </head>
       <body>
+        <GoogleAdsJourneyBoundary />
         <SiteAnalyticsBoundary />
         {children}
       </body>

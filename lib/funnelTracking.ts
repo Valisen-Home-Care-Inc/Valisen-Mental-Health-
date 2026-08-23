@@ -3,6 +3,7 @@ import {
   type FirstPartyFunnelEvent,
 } from "@/lib/funnelEvents";
 import { isQuizIntent } from "@/lib/quizIntentContract";
+import { isGoogleAdsJourneyActive } from "@/lib/googleAdsJourney";
 
 const SESSION_KEY = "valisen:funnel-session:v1";
 const PENDING_KEY = "valisen:funnel-pending:v1";
@@ -420,6 +421,7 @@ export function recordFirstPartyFunnelEvent(
   payload: Record<string, unknown>,
 ) {
   if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (isGoogleAdsJourneyActive()) return;
   if (!(FUNNEL_EVENT_NAMES as readonly string[]).includes(event)) return;
   enqueue(event as FirstPartyFunnelEvent, payload);
 }
@@ -432,6 +434,7 @@ export function getFirstPartyFunnelSessionId(): string | undefined {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return undefined;
   }
+  if (isGoogleAdsJourneyActive()) return undefined;
   return getSession().id;
 }
 
@@ -445,6 +448,7 @@ export async function flushFirstPartyFunnelEvents(): Promise<boolean> {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return false;
   }
+  if (isGoogleAdsJourneyActive()) return false;
   const session = getSession();
   hydrateQueue(session.id);
   for (let batch = 0; batch < 20 && queue.length; batch += 1) {

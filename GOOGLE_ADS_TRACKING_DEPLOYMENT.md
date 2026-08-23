@@ -1,0 +1,153 @@
+# Google Ads same-domain tracking: setup and QA
+
+## What changed
+
+Google Ads no longer needs `ads.valisenmentalhealth.com`. Every ad uses a fixed
+entry route on the main site, such as `/google-ads/anxiety`. That route redirects
+to the real page and creates a signed, per-tab Google Ads journey.
+
+The visitor sees the same production pages and navigation as everyone else.
+Only a valid signed entry can write to the Google Ads CRM. Direct, organic,
+Meta, copied landing-page URLs, crawlers, Netlify aliases, and deploy previews
+cannot opt themselves into that stream. A new non-Google campaign, a direct
+new navigation, an explicit untracked entry, or 30 minutes of inactivity clears
+the marker.
+
+The tracker records only closed structural data: allow-listed page/section
+visits, active time, scroll milestones, safe click categories, consultation CTA
+clicks, form progression, a durable consultation link, and staff-updated booked
+or paid stages. It does not store names, contact values, form text, quiz answers,
+search terms, raw click IDs, crisis-resource calls, DOM content, or arbitrary
+URLs in journey events.
+
+## URLs to view manually
+
+Untracked visual previews (these look exactly like the ad experience but do not
+create Ads CRM data):
+
+- `http://localhost:3000/lp/anxiety-therapy`
+- `http://localhost:3000/lp/depression-therapy`
+- `http://localhost:3000/lp/couples-therapy`
+- `http://localhost:3000/admin/checkpoints/google-ads`
+
+Tracked local test, with `GOOGLE_ADS_CONVERSION_SECRET` configured locally:
+
+`http://localhost:3000/google-ads/anxiety?gclid=local-test-123&utm_campaign=manual_test&utm_content=creative_1`
+
+Production CRM:
+
+`https://valisenmentalhealth.com/admin/checkpoints/google-ads`
+
+A direct `/thank-you` visit intentionally returns to `/consultation`. The thank
+you page appears only after a durable Google Ads consultation request and a
+one-use signed conversion receipt.
+
+## Deployment steps
+
+1. Leave the already-applied
+   `supabase/migrations/20260823000000_google_ads_journey.sql` alone. “Success,
+   no rows” was the expected result.
+2. In the Supabase SQL Editor, run only the new forward migration:
+   `supabase/migrations/20260823010000_google_ads_same_domain_hardening.sql`.
+   “Success, no rows” is again expected.
+3. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+   must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
+   not put it in Supabase.
+4. Keep the existing Supabase URL/service-role credentials in Netlify; this
+   change adds no new browser/public API key.
+5. Deploy the main Netlify site.
+6. Test one signed entry, navigate to at least two pages, submit one real
+   Turnstile-protected test consultation, and verify one journey/consultation in
+   the CRM.
+7. After the main-domain test passes, remove the obsolete subdomain setup:
+   remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
+   GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
+   allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host
+   from `TURNSTILE_ALLOWED_HOSTNAMES`. Keep the main/apex hostname.
+
+The second migration also makes conversion confirmation safe to retry after a
+lost response, creates the Ads session from a verified consultation even when
+the event endpoint was blocked, permits cloned-tab event sequences, and applies
+retention cleanup: unconverted detailed events expire after 90 days; all
+detailed events and unconverted summaries expire after 13 months. Linked CRM
+records retain their summary under the clinic’s administrative retention rules.
+
+## Google Ads final URLs
+
+Use only these apex-domain entry URLs:
+
+- General: `https://valisenmentalhealth.com/google-ads/general`
+- Anxiety: `https://valisenmentalhealth.com/google-ads/anxiety`
+- Depression: `https://valisenmentalhealth.com/google-ads/depression`
+- Couples: `https://valisenmentalhealth.com/google-ads/couples`
+- Mandarin: `https://valisenmentalhealth.com/google-ads/mandarin`
+- Arabic: `https://valisenmentalhealth.com/google-ads/arabic`
+
+Keep Google Ads auto-tagging on. An optional Final URL suffix may use:
+
+`utm_campaign={campaignid}&utm_content={creative}`
+
+The server forces `utm_source=google` and `utm_medium=cpc`. Never append
+`{keyword}`, `utm_term`, a search query, email, phone, or any contact/form value.
+Raw `gclid`, `gbraid`, and `wbraid` values are moved into a one-time fragment,
+kept only in that browser tab, and removed from the visible landing URL.
+
+## GTM conversion setup
+
+The application emits this event only after the server atomically confirms the
+linked consultation:
+
+`google_ads_consultation_conversion`
+
+Create Data Layer Variables for:
+
+- `analytics_context`
+- `vmh_conversion_only`
+- `vmh_conversion_id`
+
+Create one Google Ads conversion tag using the real conversion ID and label.
+Set its Transaction ID from `vmh_conversion_id`. Its trigger must require every
+condition below:
+
+- Custom Event equals `google_ads_consultation_conversion`
+- Page Hostname equals `valisenmentalhealth.com`
+- Page Path equals `/thank-you`
+- `analytics_context` equals `google_ads_conversion_only`
+- `vmh_conversion_only` equals `true`
+
+Do not use an All Pages, pageview-only, hostname-only, URL-only, or path-only
+conversion trigger. Direct visits and refreshes must not count.
+
+Because the confirmed thank-you loads the existing GTM container on the main
+hostname, add an exception to every ordinary GA4, Meta, remarketing, and other
+All Pages tag when `analytics_context` equals
+`google_ads_conversion_only`. Only the dedicated conversion tag may fire in
+that context. Consent Mode defaults are queued as denied before the conversion;
+personalized-ad signals remain disabled.
+
+Keep click-ID staging in place and use Tag Assistant on one real auto-tagged
+click. Verify exactly one Google Ads tag conversion, the same transaction ID on
+any network retry, zero conversion on refresh, and no GA4/Meta/remarketing tag
+in the conversion-only context. Do not spend until this test passes.
+
+## Automated and manual verification
+
+With the app running locally and the signing secret configured, run:
+
+```text
+npm test
+npm run lint
+npm run typecheck
+npm run build
+npm run test:google-ads-ui
+```
+
+The browser QA writes screenshots and a report to `artifacts/google-ads/`.
+Production still needs a real Turnstile submission, Supabase/CRM verification,
+and Tag Assistant because local mocks cannot prove live Google attribution.
+
+Finally, this is behavioral analytics on mental-health pages that may later be
+linked to a voluntarily submitted consultation. Before ad spend, have the
+clinic’s privacy adviser approve the notice/consent approach and retention
+schedule. Do not enable health-based remarketing, advertiser-created health
+audiences, or enhanced-conversion contact uploads without a separate review.

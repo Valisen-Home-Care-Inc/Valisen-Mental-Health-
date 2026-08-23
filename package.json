@@ -16,6 +16,8 @@
     "screenshots:funnel": "node scripts/funnel-screenshots.mjs",
     "screenshots:possibility": "node scripts/possibility-builder-screenshots.mjs",
     "screenshots:consultation": "node scripts/consultation-screenshots.mjs",
+    "test:paid-search-ui": "node scripts/paid-search-landing-qa.mjs",
+    "test:google-ads-ui": "node scripts/google-ads-session-qa.mjs",
     "test:checkpoints-ui": "node scripts/checkpoint-system-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "screenshot": "node screenshot.js"

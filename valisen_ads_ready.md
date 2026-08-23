@@ -338,11 +338,13 @@ affirmations
 
 ## 4. Ad Titles + Descriptions (Responsive Search Ads)
 
+> **August 2026 landing routes:** Anxiety ads → `/lp/anxiety-therapy`; depression ads → `/lp/depression-therapy`; couples, marriage, and relationship ads → `/lp/couples-therapy`. Before launch, remove or substantiate legacy claims below such as “No waitlist,” “Start Therapy This Week,” “Insurance-Covered Therapy,” and “covered by most group plans.” Current landing-page copy promises none of those outcomes or coverage terms.
+
 All headlines verified at **≤30 characters**. All descriptions **≤90 characters**. No outcome guarantees, no unverifiable superlatives. Every claim maps to on-site content.
 
 ### Campaign 1 — Anxiety (PRIMARY)
 **Primary keyword:** anxiety therapist Ottawa
-**Final URL:** https://valisenmentalhealth.com/anxiety-therapy-ottawa
+**Final URL:** https://valisenmentalhealth.com/google-ads/anxiety
 
 **Headlines (15):**
 1. Anxiety Therapist Ottawa
@@ -371,7 +373,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 ### Campaign 2 — General Therapy / Registered Psychotherapist
 **Primary keyword:** registered psychotherapist Ottawa
-**Final URL:** https://valisenmentalhealth.com
+**Final URL:** https://valisenmentalhealth.com/google-ads/general
 
 **Headlines (15):**
 1. Registered Psychotherapist
@@ -400,7 +402,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 ### Campaign 3 — Online Therapy / Telehealth
 **Primary keyword:** online therapy Ottawa
-**Final URL:** https://valisenmentalhealth.com
+**Final URL:** https://valisenmentalhealth.com/google-ads/general
 
 **Headlines (15):**
 1. Online Therapy in Ottawa
@@ -425,15 +427,15 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 3. Covered by most group benefit plans. Receipts provided for easy reimbursement.
 4. Support for anxiety, depression and stress, wherever you are. Get started today.
 
-> **Optional Campaign 4 — Mandarin (high-ROI, near-zero competition).** Route directly to Dayong Quan's profile or free-consultation booking page. Sample headlines (≤30): "Mandarin Therapist Ottawa", "普通话心理咨询", "Mandarin Speaking Therapist", "Online Therapy in Mandarin", "Book a Free 20-Min Call". Keep this separate so reporting isolates the differentiator.
+> **Optional Campaign 4 — Mandarin (high-ROI, near-zero competition).** Route to `https://valisenmentalhealth.com/google-ads/mandarin`, not directly to the sensitive consultation route. Sample headlines (≤30): "Mandarin Therapist Ottawa", "普通话心理咨询", "Mandarin Speaking Therapist", "Online Therapy in Mandarin", "Book a Free 20-Min Call". Keep this separate so reporting isolates the differentiator.
 >
-> **Optional Campaign 5 — Arabic (high-ROI, near-zero competition).** Route directly to Meryem Ibrahim's profile or free-consultation booking page. Sample headlines (≤30): "Arabic Therapist Ottawa", "Arabic Speaking Therapist", "Online Therapy in Arabic", "Culturally Responsive Care", "Book a Free 20-Min Call".
+> **Optional Campaign 5 — Arabic (high-ROI, near-zero competition).** Route to `https://valisenmentalhealth.com/google-ads/arabic`, not directly to the sensitive consultation route. Sample headlines (≤30): "Arabic Therapist Ottawa", "Arabic Speaking Therapist", "Online Therapy in Arabic", "Culturally Responsive Care", "Book a Free 20-Min Call".
 
 ---
 
 ## 5. Pre-Launch Checklist (12 steps)
 
-1. **Conversion tracking — set up BEFORE any spend.** Create a Google Ads conversion action for the primary goal (Jane "booking confirmed" page or the consult-request thank-you URL) and a secondary one for phone clicks to 613-707-0333. Verify with Google Tag Assistant that the tag fires. Mark the booking/consult action as **Primary**; set phone/secondary to **Secondary** so they don't drive Smart Bidding prematurely.
+1. **Conversion tracking — set up BEFORE any spend.** Create one Google Ads conversion action for a confirmed consultation request. In GTM, fire it only when all conditions are true: Page Hostname exactly `valisenmentalhealth.com`, Page Path exactly `/thank-you`, Custom Event exactly `google_ads_consultation_conversion`, `analytics_context` exactly `google_ads_conversion_only`, and `vmh_conversion_only` is true. Use `vmh_conversion_id` as the Transaction ID. Add the conversion-only context as an exception to every ordinary GA4, Meta, remarketing, and All Pages tag. Never use a pageview, URL-only, or pathname-only conversion trigger; direct visits and refreshes must not count. Publish the actual Google Ads conversion ID/label, verify one real test request with Tag Assistant, and mark this action **Primary**. The site does not claim a Jane booking is confirmed because Jane provides no booking webhook here.
 
 2. **Location targeting — Presence only.** Settings → Locations → Advanced → choose **"Presence: People in or regularly in your targeted locations."** Do NOT use "Presence or interest." Target Ottawa + a 25–40 km radius (and optionally all of Ontario for online campaigns). Set "Excluded" to "Presence or interest" so out-of-province searchers are blocked.
 
@@ -455,7 +457,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 11. **Budget, geo-fit & landing-page readiness.** Set a realistic daily budget (≥ ~CA$30–50/day so Smart Bidding can learn). Confirm each campaign's Final URL loads fast on mobile, the Jane booking button works, and the free-consult CTA is above the fold. **Before enabling PSHCP keywords, add PSHCP/federal-coverage copy to /insurance** (currently absent — see Section 1 gaps).
 
-12. **Compliance, tracking params & final QA.** Confirm no guarantee/"cure" language in any asset; ensure ads reflect on-site claims only. Append tracking (auto-tagging on; optional UTM final-URL suffix for GA4). Verify GA4 ↔ Google Ads link, conversion import, and that the account is out of any review hold. Do a full pre-flight: ads "Eligible/Approved," budget set, negatives applied, location = Presence only, Search Partners/Display off — then enable.
+12. **Compliance, tracking params & final QA.** Confirm no guarantee/"cure" language in any asset; ensure ads reflect on-site claims only. Keep Google auto-tagging on. Use only the fixed apex-domain `/google-ads/*` final URLs. If a suffix is added, use only `utm_campaign={campaignid}&utm_content={creative}`; the server forces source/medium. Never append `{keyword}`, search terms, contact data, or `utm_term`. Verify the signed same-domain journey in the Valisen CRM and the hostname/path/context/custom-event conversion in Tag Assistant. Confirm ordinary and Meta visits create no Google Ads CRM journey, and complete the standard campaign pre-flight before enabling spend.
 
 ---
 

@@ -18,6 +18,7 @@ export default function TrackedLink({
   page,
   placement,
   finderUsed,
+  therapistId,
   newTab = false,
   janeClick = false,
   onClick,
@@ -31,6 +32,7 @@ export default function TrackedLink({
   page: FunnelPage;
   placement: FunnelCtaPlacement;
   finderUsed?: boolean;
+  therapistId?: string;
   newTab?: boolean;
   janeClick?: boolean;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
@@ -41,12 +43,14 @@ export default function TrackedLink({
       page,
       ctaPlacement: placement,
       finderUsed,
+      therapistId,
     });
     if (secondaryEvent && secondaryEvent !== event) {
       trackFunnelEvent(secondaryEvent, {
         page,
         ctaPlacement: placement,
         finderUsed,
+        therapistId,
       });
     }
     if (janeClick && event !== "jane_booking_clicked") {
@@ -54,6 +58,7 @@ export default function TrackedLink({
         page,
         ctaPlacement: placement,
         finderUsed,
+        therapistId,
       });
     }
     onClick?.(clickEvent);

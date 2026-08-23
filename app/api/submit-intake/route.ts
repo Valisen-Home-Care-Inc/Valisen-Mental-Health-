@@ -56,6 +56,9 @@ import {
   upsertConsultationLead,
   type ConsultationLeadRecordResult,
 } from "@/lib/server/growthRepository";
+import { googleAdsSessionIdIsValid } from "@/lib/googleAdsJourney";
+import { prepareGoogleAdsConsultationConversion } from "@/lib/server/googleAdsConsultationConversion";
+import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 
 export const runtime = "nodejs";
 export { recordCheckpointAttribution } from "@/lib/server/checkpointAttributionRepair";
@@ -128,6 +131,8 @@ const ALLOWED_KEYS = new Set([
   "source",
   "quizSubmissionToken",
   "funnelSessionId",
+  "googleAdsSessionId",
+  "googleAdsJourneyToken",
   "attribution",
   "checkpointAttribution",
   "website",
@@ -152,6 +157,8 @@ type IntakePayload = {
   source?: string;
   quizSubmissionToken?: string;
   funnelSessionId?: string;
+  googleAdsSessionId?: string;
+  googleAdsJourneyToken?: string;
   attribution?: CampaignAttribution;
   checkpointAttribution?: CheckpointConsultationAttribution;
   website?: string;
@@ -234,6 +241,23 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
     !/^fs-[A-Za-z0-9-]{16,90}$/.test(funnelSessionId)
   ) {
     return { error: "Invalid funnel session." };
+  }
+  const googleAdsSessionId = cleanSingleLine(input.googleAdsSessionId, 100);
+  if (
+    input.googleAdsSessionId !== undefined &&
+    !googleAdsSessionIdIsValid(googleAdsSessionId)
+  ) {
+    return { error: "Invalid Google Ads session." };
+  }
+  const googleAdsJourneyToken = input.googleAdsJourneyToken;
+  if (
+    googleAdsJourneyToken !== undefined &&
+    (typeof googleAdsJourneyToken !== "string" ||
+      googleAdsJourneyToken.length < 100 ||
+      googleAdsJourneyToken.length > 2_500 ||
+      !/^[A-Za-z0-9._-]+$/.test(googleAdsJourneyToken))
+  ) {
+    return { error: "Invalid Google Ads journey." };
   }
   let attribution: CampaignAttribution | undefined;
   if (input.attribution !== undefined) {
@@ -322,6 +346,11 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
           ? quizSubmissionToken
           : undefined,
       funnelSessionId: funnelSessionId || undefined,
+      googleAdsSessionId: googleAdsSessionId || undefined,
+      googleAdsJourneyToken:
+        typeof googleAdsJourneyToken === "string"
+          ? googleAdsJourneyToken
+          : undefined,
       attribution,
       checkpointAttribution: checkpointAttribution || undefined,
       website: cleanSingleLine(input.website, 200),
@@ -375,6 +404,7 @@ async function persistConsultationCrmLead(input: {
   quizLead?: StoredQuizLead;
   checkpointPlacementId?: string;
   notificationStatus: "pending" | "sent" | "failed";
+  googleAdsRequest?: boolean;
 }): Promise<ConsultationLeadRecordResult> {
   const checkpointPlacementId =
     input.checkpointPlacementId &&
@@ -400,6 +430,7 @@ async function persistConsultationCrmLead(input: {
       consentVersion: input.payload.consentVersion,
       consentedAt: input.submittedAt,
       sourceKind: sourceKindFromDetail(input.payload.source || "direct", {
+        googleAds: input.googleAdsRequest,
         quizVerified: Boolean(input.quizLead),
         checkpoint: Boolean(input.payload.checkpointAttribution),
       }),
@@ -412,13 +443,69 @@ async function persistConsultationCrmLead(input: {
       // in the growth store. Passing a browser session here would let a result
       // restored in a later tab replace that authoritative origin. A null RPC
       // value makes the database resolve the session from the quiz reference.
-      funnelSessionId: input.quizLead
+      funnelSessionId: input.googleAdsRequest
+        ? undefined
+        : input.quizLead
         ? undefined
         : input.payload.funnelSessionId,
       attribution: input.quizLead?.attribution ?? input.payload.attribution,
       notificationStatus: input.notificationStatus,
       submittedAt: input.submittedAt,
   });
+}
+
+async function consultationSuccessResponse(input: {
+  request: NextRequest;
+  payload: IntakePayload;
+  referenceId: string;
+  submittedAt?: string;
+  status?: number;
+  body: Record<string, unknown>;
+}): Promise<NextResponse> {
+  let conversionToken: string | null = null;
+  const journey = getVerifiedGoogleAdsJourney(
+    input.request,
+    input.payload.googleAdsJourneyToken,
+  );
+  if (
+    input.payload.googleAdsSessionId &&
+    journey?.sessionId === input.payload.googleAdsSessionId
+  ) {
+    try {
+      conversionToken = await prepareGoogleAdsConsultationConversion({
+        sessionId: input.payload.googleAdsSessionId,
+        referenceId: input.referenceId,
+        submittedAt: input.submittedAt,
+        journey,
+      });
+    } catch (error) {
+      console.warn(
+        `submit-intake: Google Ads journey link pending ${input.referenceId}`,
+        error instanceof Error ? error.name : "unknown",
+      );
+    }
+  }
+  const response = NextResponse.json(
+    {
+      ...input.body,
+      ...(input.payload.googleAdsSessionId
+        ? {
+            googleAdsThankYouReady: Boolean(conversionToken),
+            ...(conversionToken
+              ? { googleAdsConversionReceipt: conversionToken }
+              : {}),
+          }
+        : {}),
+    },
+    {
+      status: input.status ?? 200,
+      headers: {
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+      },
+    },
+  );
+  return response;
 }
 
 async function appendToSheet(values: string[]): Promise<boolean> {
@@ -531,6 +618,33 @@ export async function POST(request: NextRequest) {
   const parsed = parsePayload(body.value);
   if (!parsed.payload) return badRequest(parsed.error || "Invalid request.");
   const payload = parsed.payload;
+  const googleAdsJourney = getVerifiedGoogleAdsJourney(
+    request,
+    payload.googleAdsJourneyToken,
+  );
+  const googleAdsRequest = Boolean(googleAdsJourney);
+  if (
+    !googleAdsRequest &&
+    (payload.googleAdsSessionId ||
+      payload.googleAdsJourneyToken ||
+      payload.source === "google_ads")
+  ) {
+    // A malformed browser hint must never block a legitimate request. Strip
+    // every Ads-only claim and save it in the ordinary website stream; only a
+    // server-verified proof can enter the isolated Google Ads CRM.
+    payload.googleAdsSessionId = undefined;
+    payload.googleAdsJourneyToken = undefined;
+    if (payload.source === "google_ads") payload.source = "website";
+  }
+  if (googleAdsRequest) {
+    // The signed claim is authoritative. Browser query strings, source fields,
+    // and even a stale client session ID cannot choose or alter this channel.
+    payload.googleAdsSessionId = googleAdsJourney?.sessionId;
+    payload.source = "google_ads";
+    payload.attribution = googleAdsJourney?.attribution;
+    payload.funnelSessionId = undefined;
+    payload.checkpointAttribution = undefined;
+  }
 
   // A filled honeypot receives a believable success but produces no side effects.
   if (payload.website) {
@@ -566,8 +680,11 @@ export async function POST(request: NextRequest) {
       completedSubmission.referenceId,
       checkpoint.saved,
     );
-    return NextResponse.json(
-      {
+    return consultationSuccessResponse({
+      request,
+      payload,
+      referenceId: completedSubmission.referenceId,
+      body: {
         ok: true,
         referenceId: completedSubmission.referenceId,
         duplicate: true,
@@ -578,8 +695,7 @@ export async function POST(request: NextRequest) {
           ? { checkpointAttributionRepairToken }
           : {}),
       },
-      { headers: { "Cache-Control": "no-store" } },
-    );
+    });
   }
 
   const verification = await verifyTurnstile(
@@ -661,6 +777,7 @@ export async function POST(request: NextRequest) {
       quizLead: quizAttribution.lead,
       checkpointPlacementId: checkpoint.placementId,
       notificationStatus: "pending",
+      googleAdsRequest,
     });
   } catch (error) {
     console.error(
@@ -713,8 +830,12 @@ export async function POST(request: NextRequest) {
           }
         : undefined,
     );
-    return NextResponse.json(
-      {
+    return consultationSuccessResponse({
+      request,
+      payload,
+      referenceId,
+      submittedAt,
+      body: {
         ok: true,
         referenceId,
         duplicate: true,
@@ -728,11 +849,8 @@ export async function POST(request: NextRequest) {
           ? { checkpointAttributionRepairToken }
           : {}),
       },
-      {
-        status: notificationClaim.alreadySent ? 200 : 202,
-        headers: { "Cache-Control": "no-store" },
-      },
-    );
+      status: notificationClaim.alreadySent ? 200 : 202,
+    });
   }
   const notificationClaimToken = notificationClaim.claimToken;
   if (!notificationClaimToken) {
@@ -875,8 +993,12 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
         }
       : undefined,
   );
-  return NextResponse.json(
-    {
+  return consultationSuccessResponse({
+    request,
+    payload,
+    referenceId,
+    submittedAt,
+    body: {
       ok: true,
       referenceId,
       savedToSheet,
@@ -888,6 +1010,5 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
         ? { checkpointAttributionRepairToken }
         : {}),
     },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  });
 }
