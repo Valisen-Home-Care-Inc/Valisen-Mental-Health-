@@ -15,6 +15,7 @@ import {
   readBoundedJson,
 } from "@/lib/server/httpRequestSecurity";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   );
   if (!range) return jsonError("Invalid analytics date range.", 400);
   try {
-    const data = await fetchCheckpointDetail(code, range.from, range.to);
+    const reporting = await resolveCrmReportingRange("checkpoints", range);
+    const data = await fetchCheckpointDetail(
+      code,
+      reporting.range.from,
+      reporting.range.to,
+      reporting.state.activeSince,
+    );
     return NextResponse.json(
       { data },
       { headers: { "Cache-Control": "no-store, max-age=0" } },

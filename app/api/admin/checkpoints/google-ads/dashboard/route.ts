@@ -4,6 +4,7 @@ import { normalizeGoogleAdsDashboard } from "@/lib/googleAdsDashboard";
 import { requireCheckpointAdminApi } from "@/lib/server/checkpointAdminAuth";
 import { fetchGoogleAdsDashboard } from "@/lib/server/googleAdsRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetchGoogleAdsDashboard(range.from, range.to);
-    const data = normalizeGoogleAdsDashboard(response, range);
+    const reporting = await resolveCrmReportingRange("google_ads", range);
+    const response = await fetchGoogleAdsDashboard(
+      reporting.range.from,
+      reporting.range.to,
+    );
+    const data = normalizeGoogleAdsDashboard(response, reporting.range);
     return NextResponse.json(
       { data },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },

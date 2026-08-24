@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
 import {
   CONSULTATION_CONVERSION_STAGES,
@@ -190,6 +191,11 @@ export default function ConsultationManagerClient({
       {range === "custom" ? <div className="mt-4 flex flex-wrap items-end gap-3 rounded-[14px] border border-black/[0.07] bg-white p-4 shadow-sm"><label className="text-[11px] font-semibold text-[#586562]">From<input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} className="form-input mt-1.5 min-h-10 bg-white py-2 text-[12px]" /></label><label className="text-[11px] font-semibold text-[#586562]">Through<input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} className="form-input mt-1.5 min-h-10 bg-white py-2 text-[12px]" /></label><button type="button" disabled={!customFrom || !customTo || loading} onClick={() => void loadData({ nextRange: "custom", offset: 0 })} className="min-h-10 rounded-[10px] bg-[#1e5f5a] px-4 text-[12px] font-semibold text-white disabled:opacity-50">Apply range</button></div> : null}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-[#7a8582]"><span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} aria-hidden="true" />Private admin · consented contact information</span><span aria-live="polite">Updated {formatDate(lastUpdated, true)}</span></div>
+
+      <CrmReportingPeriodPanel
+        section="consultations"
+        onReset={() => loadData({ offset: 0 })}
+      />
 
       {error ? <div role="alert" className="mt-5 rounded-[16px] border border-[#eccabd] bg-[#fff5f0] px-5 py-4 text-[12px] text-[#8d452e]"><p className="font-semibold">Consultation manager could not be loaded</p><p className="mt-1 leading-5">{error}</p></div> : null}
 

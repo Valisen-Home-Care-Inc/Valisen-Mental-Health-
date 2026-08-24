@@ -168,7 +168,7 @@ export default function DetailClient({
   const cumulative = data.cumulativeKpis;
   const cumulativeList = cumulative
     ? [
-        ["Lifetime sessions", formatCount(cumulative.sessions ?? 0)],
+        ["Period sessions", formatCount(cumulative.sessions ?? 0)],
         ["Completed check-ins", formatCount(cumulative.checkinsCompleted ?? 0)],
         ["Completion rate", formatPercent(cumulative.completionRate ?? 0)],
         ["Consultation CTA sessions", formatCount(cumulative.therapistIntent ?? 0)],
@@ -218,8 +218,8 @@ export default function DetailClient({
       </section>
 
       {cumulativeList.length ? (
-        <section className="mt-5 rounded-[18px] border border-black/[0.06] bg-[#173f3d] p-5 text-white shadow-[0_10px_34px_rgba(24,66,62,.14)]" aria-labelledby="lifetime-performance-title">
-          <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-[9.5px] font-bold uppercase tracking-[1px] text-white/55">Cumulative performance</p><h2 id="lifetime-performance-title" className="mt-1 text-[18px] font-semibold">Lifetime across every placement</h2></div><p className="text-[10px] text-white/50">Not affected by the selected date range</p></div>
+        <section className="mt-5 rounded-[18px] border border-black/[0.06] bg-[#173f3d] p-5 text-white shadow-[0_10px_34px_rgba(24,66,62,.14)]" aria-labelledby="current-period-performance-title">
+          <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-[9.5px] font-bold uppercase tracking-[1px] text-white/55">Reporting-period performance</p><h2 id="current-period-performance-title" className="mt-1 text-[18px] font-semibold">Current period across every placement</h2></div><p className="text-[10px] text-white/50">Not affected by the selected date range</p></div>
           <dl className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">{cumulativeList.map(([label, value]) => <div key={label} className="rounded-[12px] bg-white/[0.07] px-3.5 py-3"><dt className="text-[9px] font-bold uppercase tracking-[0.65px] text-white/50">{label}</dt><dd className="mt-1.5 text-[20px] font-semibold tabular-nums">{value}</dd></div>)}</dl>
         </section>
       ) : null}

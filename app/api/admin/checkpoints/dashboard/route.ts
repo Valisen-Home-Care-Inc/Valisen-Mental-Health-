@@ -2,6 +2,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { resolveCheckpointDateRange } from "@/lib/checkpoints/dashboardMetrics";
 import { requireCheckpointAdminApi } from "@/lib/server/checkpointAdminAuth";
 import { fetchCheckpointDashboard } from "@/lib/server/checkpointRepository";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
 import { reconcilePendingCheckpointAttributions } from "@/lib/server/consultationSheetAttribution";
 
@@ -25,7 +26,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await fetchCheckpointDashboard(range.from, range.to);
+    const reporting = await resolveCrmReportingRange("checkpoints", range);
+    const data = await fetchCheckpointDashboard(
+      reporting.range.from,
+      reporting.range.to,
+    );
     after(async () => {
       await reconcilePendingCheckpointAttributions();
     });

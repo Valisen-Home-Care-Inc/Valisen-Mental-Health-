@@ -2,9 +2,11 @@
 
 ## What changed
 
-Google Ads no longer needs `ads.valisenmentalhealth.com`. Every ad uses a fixed
-entry route on the main site, such as `/google-ads/anxiety`. That route redirects
-to the real page and creates a signed, per-tab Google Ads journey.
+Google Ads no longer needs `ads.valisenmentalhealth.com` or separate campaign
+pages. Every ad group can use the normal homepage, `https://valisenmentalhealth.com`.
+When Google auto-tagging adds a valid `gclid`, `gbraid`, or `wbraid`, the homepage
+quietly passes through the same-domain signer and returns to the identical
+homepage with a signed, per-tab Google Ads journey.
 
 The visitor sees the same production pages and navigation as everyone else.
 Only a valid signed entry can write to the Google Ads CRM. Direct, organic,
@@ -22,17 +24,15 @@ URLs in journey events.
 
 ## URLs to view manually
 
-Untracked visual previews (these look exactly like the ad experience but do not
-create Ads CRM data):
+Untracked visual preview (this is the actual ad experience but does not create
+Ads CRM data without a Google click ID):
 
-- `http://localhost:3000/lp/anxiety-therapy`
-- `http://localhost:3000/lp/depression-therapy`
-- `http://localhost:3000/lp/couples-therapy`
+- `http://localhost:3000/`
 - `http://localhost:3000/admin/checkpoints/google-ads`
 
 Tracked local test, with `GOOGLE_ADS_CONVERSION_SECRET` configured locally:
 
-`http://localhost:3000/google-ads/anxiety?gclid=local-test-123&utm_campaign=manual_test&utm_content=creative_1`
+`http://localhost:3000/?gclid=local-test-123&utm_campaign=manual_test&utm_content=creative_1`
 
 Production CRM:
 
@@ -47,19 +47,23 @@ one-use signed conversion receipt.
 1. Leave the already-applied
    `supabase/migrations/20260823000000_google_ads_journey.sql` alone. “Success,
    no rows” was the expected result.
-2. In the Supabase SQL Editor, run only the new forward migration:
-   `supabase/migrations/20260823010000_google_ads_same_domain_hardening.sql`.
-   “Success, no rows” is again expected.
-3. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+2. Leave the already-applied same-domain hardening migration
+   `supabase/migrations/20260823010000_google_ads_same_domain_hardening.sql`
+   unchanged.
+3. In the Supabase SQL Editor, run the new reporting-period migration:
+   `supabase/migrations/20260823020000_crm_reporting_period_archives.sql`.
+   “Success, no rows” is expected. This adds non-destructive archive/reset
+   controls to every CRM dashboard.
+4. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
    must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
    not put it in Supabase.
-4. Keep the existing Supabase URL/service-role credentials in Netlify; this
+5. Keep the existing Supabase URL/service-role credentials in Netlify; this
    change adds no new browser/public API key.
-5. Deploy the main Netlify site.
-6. Test one signed entry, navigate to at least two pages, submit one real
+6. Deploy the main Netlify site.
+7. Test one signed entry, navigate to at least two pages, submit one real
    Turnstile-protected test consultation, and verify one journey/consultation in
    the CRM.
-7. After the main-domain test passes, remove the obsolete subdomain setup:
+8. After the main-domain test passes, remove the obsolete subdomain setup:
    remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
    GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
    allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host
@@ -74,23 +78,35 @@ records retain their summary under the clinic’s administrative retention rules
 
 ## Google Ads final URLs
 
-Use only these apex-domain entry URLs:
+Use this same final URL for every campaign and ad group:
 
-- General: `https://valisenmentalhealth.com/google-ads/general`
-- Anxiety: `https://valisenmentalhealth.com/google-ads/anxiety`
-- Depression: `https://valisenmentalhealth.com/google-ads/depression`
-- Couples: `https://valisenmentalhealth.com/google-ads/couples`
-- Mandarin: `https://valisenmentalhealth.com/google-ads/mandarin`
-- Arabic: `https://valisenmentalhealth.com/google-ads/arabic`
+`https://valisenmentalhealth.com`
+
+The older `/google-ads/*` aliases remain available for diagnostics, but they are
+not required for campaigns and should not be mixed into normal ad setup.
 
 Keep Google Ads auto-tagging on. An optional Final URL suffix may use:
 
-`utm_campaign={campaignid}&utm_content={creative}`
+`utm_campaign={campaignid}&utm_content={adgroupid}-{creative}`
 
-The server forces `utm_source=google` and `utm_medium=cpc`. Never append
+This keeps campaign, ad group, and individual ad IDs separate in the CRM even
+though they all use the same homepage.
+
+The signer forces `utm_source=google` and `utm_medium=cpc`. Never append
 `{keyword}`, `utm_term`, a search query, email, phone, or any contact/form value.
 Raw `gclid`, `gbraid`, and `wbraid` values are moved into a one-time fragment,
 kept only in that browser tab, and removed from the visible landing URL.
+
+## Starting a new reporting period
+
+Each CRM section now has **Archive & start fresh** near the top. Give the period
+a useful name, confirm, and the live cards begin again from zero. The operation
+does not delete source records: it stores a privacy-safe snapshot and advances
+only that section's reporting cutoff. Older snapshots remain under **Archives**
+and can be downloaded as JSON. Downloads retain the frozen reset-time snapshot
+and also reconcile delayed booked/paid updates back to the original period. In
+Consultations, unresolved older follow-ups remain visible as carryover so no
+client coordination is lost.
 
 ## GTM conversion setup
 

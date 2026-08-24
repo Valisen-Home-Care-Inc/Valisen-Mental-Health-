@@ -4,6 +4,7 @@ import { isCheckpointCode } from "@/lib/checkpoints/config";
 import { resolveCheckpointDateRange } from "@/lib/checkpoints/dashboardMetrics";
 import { requireCheckpointAdminPage } from "@/lib/server/checkpointAdminAuth";
 import { fetchCheckpointDetail } from "@/lib/server/checkpointRepository";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,13 @@ export default async function CheckpointDetailPage({ params }: { params: Promise
   let error: string | null = null;
   if (range) {
     try {
-      data = await fetchCheckpointDetail(code, range.from, range.to);
+      const reporting = await resolveCrmReportingRange("checkpoints", range);
+      data = await fetchCheckpointDetail(
+        code,
+        reporting.range.from,
+        reporting.range.to,
+        reporting.state.activeSince,
+      );
     } catch (caught) {
       error = caught instanceof Error ? caught.message : "Checkpoint detail is unavailable.";
     }

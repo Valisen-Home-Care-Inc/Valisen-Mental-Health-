@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import GoogleAdsJourneyBoundary from "@/components/GoogleAdsJourneyBoundary";
+import { GOOGLE_ADS_HOMEPAGE_ENTRY_BOOTSTRAP } from "@/lib/googleAdsHomepageEntry";
 import SiteAnalyticsBoundary from "@/components/SiteAnalyticsBoundary";
 import "./globals.css";
 
@@ -161,6 +162,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
       <head>
+        <script
+          id="google-ads-homepage-entry"
+          dangerouslySetInnerHTML={{
+            __html: GOOGLE_ADS_HOMEPAGE_ENTRY_BOOTSTRAP,
+          }}
+        />
         <script
           id="google-ads-entry-bootstrap"
           dangerouslySetInnerHTML={{

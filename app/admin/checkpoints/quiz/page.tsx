@@ -6,6 +6,7 @@ import {
   fetchQuizSubmissionRecoveryQueue,
   fetchQuizTestCandidates,
 } from "@/lib/server/growthRepository";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,9 @@ export default async function QuizAnalyticsPage() {
     error = "The default analytics range could not be created.";
   } else {
     try {
+      const reporting = await resolveCrmReportingRange("quiz", range);
       [data, recovery, testData] = await Promise.all([
-        fetchGrowthDashboard(range.from, range.to),
+        fetchGrowthDashboard(reporting.range.from, reporting.range.to),
         fetchQuizSubmissionRecoveryQueue(),
         fetchQuizTestCandidates(),
       ]);

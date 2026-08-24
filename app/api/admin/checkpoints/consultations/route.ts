@@ -12,6 +12,7 @@ import {
 import { hasJsonContentType, readBoundedJson } from "@/lib/server/httpRequestSecurity";
 import { fetchConsultationManager } from "@/lib/server/growthRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,9 +69,10 @@ async function managerResponse(filters: ManagerFilters) {
   }
 
   try {
+    const reporting = await resolveCrmReportingRange("consultations", range);
     const data = await fetchConsultationManager({
-      from: range.from,
-      to: range.to,
+      from: reporting.range.from,
+      to: reporting.range.to,
       workflowStatus: workflowStatus ?? undefined,
       conversionStage: conversionStage ?? undefined,
       source: source ?? undefined,

@@ -26,6 +26,7 @@ import {
   type CheckpointMetric,
 } from "@/lib/checkpoints/dashboardMetrics";
 import MoveCheckpointDialog from "@/components/checkpoints/admin/MoveCheckpointDialog";
+import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import {
   checkpointPermanentUrl,
   isCheckpointCode,
@@ -251,6 +252,11 @@ export default function DashboardClient({
         <span className="inline-flex items-center gap-1.5"><CalendarDays size={13} aria-hidden="true" />{data ? `${formatDate(data.range.from)} – ${formatDate(data.range.to)}` : "No range loaded"}</span>
         <span aria-live="polite">Updated {formatDate(lastUpdated, { hour: "numeric", minute: "2-digit" })}</span>
       </div>
+
+      <CrmReportingPeriodPanel
+        section="checkpoints"
+        onReset={() => loadData(range)}
+      />
 
       {error ? (
         <div role="alert" className="mt-5 rounded-[16px] border border-[#eccabd] bg-[#fff5f0] px-5 py-4 text-[12px] text-[#8d452e]">
