@@ -486,8 +486,12 @@ declare
   v_live_definition text;
   v_test_definition text;
   v_name_anchor text := 'FUNCTION public.get_consultation_manager(';
-  v_request_activity_anchor text := $anchor$    from public.consultation_requests as request
-    group by request.lead_id$anchor$;
+  v_request_activity_start integer;
+  v_request_activity_end integer;
+  v_request_activity_definition text;
+  v_test_request_activity_definition text;
+  v_request_activity_from text :=
+    'from public.consultation_requests as request';
   v_match_count integer;
 begin
   select pg_get_functiondef(
@@ -521,17 +525,72 @@ begin
   ) / length('where not lead.is_test') <> 1 then
     raise exception 'Deployed consultation queue test exclusion has drifted.';
   end if;
-  if (
-    length(v_live_definition) -
-    length(replace(v_live_definition, v_request_activity_anchor, ''))
-  ) / length(v_request_activity_anchor) <> 1 then
+  -- Bound the request_activity edit to that single CTE. pg_get_functiondef
+  -- can preserve environment-specific whitespace, so matching its entire
+  -- FROM/GROUP BY layout is too brittle for an otherwise compatible function.
+  v_request_activity_start := strpos(
+    v_live_definition,
+    'request_activity as ('
+  );
+  v_request_activity_end := strpos(
+    v_live_definition,
+    'legacy_period_leads as ('
+  );
+  if v_request_activity_start = 0 or
+     v_request_activity_end <= v_request_activity_start then
     raise exception 'Deployed consultation request-activity cohort has drifted.';
+  end if;
+
+  v_request_activity_definition := substring(
+    v_live_definition
+    from v_request_activity_start
+    for v_request_activity_end - v_request_activity_start
+  );
+  v_match_count := (
+    length(v_request_activity_definition) -
+    length(replace(
+      v_request_activity_definition,
+      v_request_activity_from,
+      ''
+    ))
+  ) / length(v_request_activity_from);
+  if v_match_count <> 1 then
+    raise exception
+      'Expected one consultation request source in request_activity; found %.',
+      v_match_count;
+  end if;
+
+  if v_request_activity_definition like '%where not request.is_test%' then
+    v_test_request_activity_definition := replace(
+      v_request_activity_definition,
+      'where not request.is_test',
+      'where request.is_test'
+    );
+  elsif v_request_activity_definition not like '%where request.is_test%' then
+    v_test_request_activity_definition := replace(
+      v_request_activity_definition,
+      v_request_activity_from,
+      v_request_activity_from || E'\n    where request.is_test'
+    );
+  else
+    v_test_request_activity_definition := v_request_activity_definition;
+  end if;
+
+  if v_test_request_activity_definition = v_request_activity_definition or
+     v_test_request_activity_definition not like '%where request.is_test%' or
+     v_test_request_activity_definition like '%where not request.is_test%' then
+    raise exception 'Could not safely isolate consultation request activity.';
   end if;
 
   v_test_definition := replace(
     v_live_definition,
     v_name_anchor,
     'FUNCTION public.get_consultation_test_manager('
+  );
+  v_test_definition := replace(
+    v_test_definition,
+    v_request_activity_definition,
+    v_test_request_activity_definition
   );
   v_test_definition := replace(
     v_test_definition,
@@ -548,14 +607,6 @@ begin
     'where not lead.is_test',
     'where lead.is_test'
   );
-  v_test_definition := replace(
-    v_test_definition,
-    v_request_activity_anchor,
-    $replacement$    from public.consultation_requests as request
-    where request.is_test
-    group by request.lead_id$replacement$
-  );
-
   if v_test_definition = v_live_definition or
      v_test_definition not like '%and request.is_test%' or
      v_test_definition not like '%where request.is_test%' or

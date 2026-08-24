@@ -159,6 +159,12 @@ describe("Google Ads durable repository boundaries", () => {
     expect(sql).toContain("lead.is_test or request.is_test");
     expect(sql).toContain("and not ads_session.is_test");
     expect(sql).toContain("and ads_session.is_test");
+    expect(sql).toContain("v_request_activity_start := strpos(");
+    expect(sql).toContain("v_request_activity_end := strpos(");
+    expect(sql).toContain(
+      "v_request_activity_from || E'\\n    where request.is_test'",
+    );
+    expect(sql).not.toContain("v_request_activity_anchor");
     expect(sql).toContain("get_google_ads_test_dashboard");
     expect(sql).toContain("get_consultation_test_manager");
     expect(sql).toContain("to service_role");
