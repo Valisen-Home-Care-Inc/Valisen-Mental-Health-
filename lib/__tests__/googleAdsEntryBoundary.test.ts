@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/google-ads/[[...path]]/route";
@@ -13,17 +14,62 @@ import {
   GOOGLE_ADS_CLEAR_FRAGMENT_KEY,
   GOOGLE_ADS_ENTRY_FRAGMENT_KEY,
   GOOGLE_ADS_CLICK_FRAGMENT_PREFIX,
+  GOOGLE_ADS_INTERNAL_NAVIGATION_MAX_AGE_MS,
+  GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY,
   GOOGLE_ADS_JOURNEY_STORAGE_KEY,
   GOOGLE_ADS_SESSION_STORAGE_KEY,
   captureGoogleAdsJourneyFromUrl,
   canonicalizeGoogleAdsPath,
+  consumeGoogleAdsInternalNavigation,
   isGoogleAdsJourneyActive,
   isCrisisPhoneHref,
+  stageGoogleAdsInternalNavigation,
 } from "@/lib/googleAdsJourney";
 import { verifyGoogleAdsJourneyToken } from "@/lib/server/googleAdsJourneySession";
 
 const SECRET = "entry-boundary-test-secret-with-at-least-thirty-two-bytes";
 const originalWindow = globalThis.window;
+
+function entryBootstrapSource(): string {
+  const layout = readFileSync(resolve(process.cwd(), "app/layout.tsx"), "utf8");
+  const template = layout.match(
+    /const GOOGLE_ADS_ENTRY_BOOTSTRAP = (`[\s\S]*?`);/,
+  )?.[1];
+  if (!template) throw new Error("Google Ads entry bootstrap was not found.");
+  const evaluated: { bootstrap?: string } = {};
+  runInNewContext(`bootstrap = ${template}`, evaluated);
+  if (!evaluated.bootstrap) throw new Error("Google Ads entry bootstrap was empty.");
+  return evaluated.bootstrap;
+}
+
+function runEntryBootstrap(input: {
+  href: string;
+  referrer?: string;
+  storage: Map<string, string>;
+}) {
+  const historyCalls: string[] = [];
+  const sessionStorage = {
+    getItem: (key: string) => input.storage.get(key) ?? null,
+    removeItem: (key: string) => input.storage.delete(key),
+    setItem: (key: string, value: string) => input.storage.set(key, value),
+  };
+  const window = { location: { href: input.href }, dataLayer: [] as unknown[] };
+  runInNewContext(entryBootstrapSource(), {
+    URL,
+    URLSearchParams,
+    Date,
+    document: { referrer: input.referrer ?? "" },
+    history: {
+      state: null,
+      replaceState: (_state: unknown, _title: string, path: string) =>
+        historyCalls.push(path),
+    },
+    performance: { getEntriesByType: () => [{ type: "navigate" }] },
+    sessionStorage,
+    window,
+  });
+  return { historyCalls, window };
+}
 
 function context(path?: string[]) {
   return { params: Promise.resolve({ path }) };
@@ -221,6 +267,73 @@ describe("same-domain Google Ads entry boundary", () => {
     expect(storage.has(GOOGLE_ADS_JOURNEY_STORAGE_KEY)).toBe(false);
   });
 
+  it("uses a short-lived one-shot marker for a referrerless internal hard navigation", () => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        sessionStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          removeItem: (key: string) => storage.delete(key),
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      },
+    });
+    const now = Date.UTC(2026, 7, 23, 16);
+
+    expect(stageGoogleAdsInternalNavigation("/consultation", now)).toBe(true);
+    expect(storage.has(GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY)).toBe(true);
+    expect(
+      consumeGoogleAdsInternalNavigation("/consultation", now + 1_000),
+    ).toBe(true);
+    expect(storage.has(GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY)).toBe(false);
+    expect(
+      consumeGoogleAdsInternalNavigation("/consultation", now + 1_001),
+    ).toBe(false);
+
+    expect(stageGoogleAdsInternalNavigation("/consultation", now)).toBe(true);
+    expect(consumeGoogleAdsInternalNavigation("/quiz", now + 1_000)).toBe(
+      false,
+    );
+    expect(storage.has(GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY)).toBe(false);
+
+    expect(stageGoogleAdsInternalNavigation("/consultation", now)).toBe(true);
+    expect(
+      consumeGoogleAdsInternalNavigation(
+        "/consultation",
+        now + GOOGLE_ADS_INTERNAL_NAVIGATION_MAX_AGE_MS + 1,
+      ),
+    ).toBe(false);
+  });
+
+  it("executes the pre-hydration bootstrap without erasing a referrerless thank-you handoff", () => {
+    const proof = `v1.${"a".repeat(100)}.${"b".repeat(43)}`;
+    const storage = new Map<string, string>([
+      [GOOGLE_ADS_JOURNEY_STORAGE_KEY, proof],
+      [
+        GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          path: "/thank-you",
+          createdAt: Date.now(),
+        }),
+      ],
+    ]);
+
+    runEntryBootstrap({
+      href: "https://valisenmentalhealth.com/thank-you",
+      storage,
+    });
+    expect(storage.get(GOOGLE_ADS_JOURNEY_STORAGE_KEY)).toBe(proof);
+    expect(storage.has(GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY)).toBe(false);
+
+    runEntryBootstrap({
+      href: "https://valisenmentalhealth.com/thank-you",
+      storage,
+    });
+    expect(storage.has(GOOGLE_ADS_JOURNEY_STORAGE_KEY)).toBe(false);
+  });
+
   it("suppresses ordinary analytics whenever the per-tab proof is active", async () => {
     const entry = await GET(
       new NextRequest(
@@ -269,8 +382,17 @@ describe("same-domain Google Ads entry boundary", () => {
 
   it("bootstraps the fragment before child analytics effects", () => {
     const layout = readFileSync(resolve(process.cwd(), "app/layout.tsx"), "utf8");
+    const boundary = readFileSync(
+      resolve(process.cwd(), "components/GoogleAdsJourneyBoundary.tsx"),
+      "utf8",
+    );
     expect(layout).toContain("google-ads-entry-bootstrap");
     expect(layout).toContain(GOOGLE_ADS_JOURNEY_STORAGE_KEY);
     expect(layout).toContain(GOOGLE_ADS_ENTRY_FRAGMENT_KEY);
+    expect(layout).toContain(GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY);
+    expect(layout).toContain("!document.referrer&&!internal");
+    expect(boundary).toContain(
+      "stageGoogleAdsInternalNavigation(destination.pathname)",
+    );
   });
 });

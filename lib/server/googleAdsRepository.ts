@@ -115,6 +115,22 @@ export async function fetchGoogleAdsDashboard(
   );
 }
 
+/**
+ * Protected QA mirror of the live dashboard contract. The database RPC is
+ * service-role-only and returns only sessions already classified as test.
+ */
+export async function fetchGoogleAdsTestDashboard(
+  from: string,
+  to: string,
+): Promise<unknown> {
+  await maybePruneGoogleAdsAnalytics();
+  return callSupabaseRpc<unknown>(
+    "get_google_ads_test_dashboard",
+    { p_from: from, p_to: to },
+    15_000,
+  );
+}
+
 let lastPruneAt = 0;
 let pruneInFlight: Promise<void> | null = null;
 

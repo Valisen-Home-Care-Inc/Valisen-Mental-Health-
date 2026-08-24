@@ -17,6 +17,9 @@ export const GOOGLE_ADS_SESSION_STORAGE_KEY = "valisen:google-ads-session:v2";
 export const GOOGLE_ADS_PENDING_STORAGE_KEY = "valisen:google-ads-pending:v2";
 export const GOOGLE_ADS_THANK_YOU_STORAGE_KEY =
   "valisen:google-ads-thank-you:v2";
+export const GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY =
+  "valisen:google-ads-internal-navigation:v1";
+export const GOOGLE_ADS_INTERNAL_NAVIGATION_MAX_AGE_MS = 15_000;
 export const GOOGLE_ADS_IDLE_TIMEOUT_MS = 30 * 60 * 1_000;
 export const GOOGLE_ADS_JOURNEY_MAX_AGE_MS = 12 * 60 * 60 * 1_000;
 
@@ -245,6 +248,7 @@ export function clearGoogleAdsBrowserState(): void {
       GOOGLE_ADS_SESSION_STORAGE_KEY,
       GOOGLE_ADS_PENDING_STORAGE_KEY,
       GOOGLE_ADS_THANK_YOU_STORAGE_KEY,
+      GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY,
     ]) {
       window.sessionStorage.removeItem(key);
     }
@@ -252,6 +256,82 @@ export function clearGoogleAdsBrowserState(): void {
     // A storage-disabled browser already has no durable journey state.
   }
   clearStoredGoogleAdsClickAttribution();
+}
+
+function internalNavigationPath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    let pathname = new URL(value, "https://placeholder.invalid").pathname;
+    if (pathname.length > 1 && pathname.endsWith("/")) {
+      pathname = pathname.slice(0, -1);
+    }
+    return GOOGLE_ADS_TRACKED_PATH_SET.has(pathname) ? pathname : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Marks an imminent same-tab hard navigation. Some private-browser modes
+ * suppress `document.referrer` even for same-origin transitions, so the next
+ * document needs a short-lived, destination-bound signal to distinguish the
+ * click from a fresh address-bar visit.
+ */
+export function stageGoogleAdsInternalNavigation(
+  destinationPath: unknown,
+  now = Date.now(),
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.sessionStorage.removeItem(
+      GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY,
+    );
+  } catch {
+    return false;
+  }
+  const path = internalNavigationPath(destinationPath);
+  if (!path || !Number.isFinite(now)) return false;
+  try {
+    window.sessionStorage.setItem(
+      GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY,
+      JSON.stringify({ version: 1, path, createdAt: now }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Consumes the one-shot marker before deciding whether a referrerless load is direct. */
+export function consumeGoogleAdsInternalNavigation(
+  destinationPath: unknown,
+  now = Date.now(),
+): boolean {
+  if (typeof window === "undefined") return false;
+  const path = internalNavigationPath(destinationPath);
+  try {
+    const raw = window.sessionStorage.getItem(
+      GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY,
+    );
+    window.sessionStorage.removeItem(
+      GOOGLE_ADS_INTERNAL_NAVIGATION_STORAGE_KEY,
+    );
+    if (!raw || !path || !Number.isFinite(now)) return false;
+    const marker = JSON.parse(raw) as {
+      version?: unknown;
+      path?: unknown;
+      createdAt?: unknown;
+    };
+    return (
+      marker.version === 1 &&
+      marker.path === path &&
+      typeof marker.createdAt === "number" &&
+      marker.createdAt <= now + 1_000 &&
+      marker.createdAt >= now - GOOGLE_ADS_INTERNAL_NAVIGATION_MAX_AGE_MS
+    );
+  } catch {
+    return false;
+  }
 }
 
 function signedReceiptLooksValid(value: unknown, maximumLength: number): value is string {

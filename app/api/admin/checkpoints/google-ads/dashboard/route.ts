@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveCheckpointDateRange } from "@/lib/checkpoints/dashboardMetrics";
 import { normalizeGoogleAdsDashboard } from "@/lib/googleAdsDashboard";
 import { requireCheckpointAdminApi } from "@/lib/server/checkpointAdminAuth";
-import { fetchGoogleAdsDashboard } from "@/lib/server/googleAdsRepository";
+import {
+  fetchGoogleAdsDashboard,
+  fetchGoogleAdsTestDashboard,
+} from "@/lib/server/googleAdsRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
 import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
@@ -13,19 +16,30 @@ export async function GET(request: NextRequest) {
   const unauthorized = requireCheckpointAdminApi(request);
   if (unauthorized) return unauthorized;
 
+  const requestedScope = request.nextUrl.searchParams.get("scope");
+  const scope = requestedScope ?? "live";
   const range = resolveCheckpointDateRange(
     request.nextUrl.searchParams.get("range"),
     request.nextUrl.searchParams.get("from"),
     request.nextUrl.searchParams.get("to"),
   );
-  if (!range) {
+  if (!range || (scope !== "live" && scope !== "test")) {
     return NextResponse.json(
-      { error: "Invalid analytics date range." },
+      { error: "Invalid analytics date range or scope." },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
 
   try {
+    if (scope === "test") {
+      const response = await fetchGoogleAdsTestDashboard(range.from, range.to);
+      const data = normalizeGoogleAdsDashboard(response, range);
+      return NextResponse.json(
+        { data },
+        { headers: { "Cache-Control": "private, no-store, max-age=0" } },
+      );
+    }
+
     const reporting = await resolveCrmReportingRange("google_ads", range);
     const response = await fetchGoogleAdsDashboard(
       reporting.range.from,

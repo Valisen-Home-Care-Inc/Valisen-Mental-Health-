@@ -34,6 +34,11 @@ Tracked local test, with `GOOGLE_ADS_CONVERSION_SECRET` configured locally:
 
 `http://localhost:3000/?gclid=local-test-123&utm_campaign=manual_test&utm_content=creative_1`
 
+Tracked production QA (each new Incognito window creates a fresh signed
+session):
+
+`https://valisenmentalhealth.com/?gclid=manual-test-20260823&utm_campaign=manual_test&utm_content=qa`
+
 Production CRM:
 
 `https://valisenmentalhealth.com/admin/checkpoints/google-ads`
@@ -54,16 +59,22 @@ one-use signed conversion receipt.
    `supabase/migrations/20260823020000_crm_reporting_period_archives.sql`.
    “Success, no rows” is expected. This adds non-destructive archive/reset
    controls to every CRM dashboard.
-4. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+4. In the Supabase SQL Editor, run the protected QA visibility migration:
+   `supabase/migrations/20260823030000_google_ads_test_qa_visibility.sql`.
+   “Success, no rows” is expected. This restores test journeys and test
+   consultations under the CRM's **Test QA** scope while keeping **Live
+   campaign** metrics clean.
+5. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
    must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
    not put it in Supabase.
-5. Keep the existing Supabase URL/service-role credentials in Netlify; this
+6. Keep the existing Supabase URL/service-role credentials in Netlify; this
    change adds no new browser/public API key.
-6. Deploy the main Netlify site.
-7. Test one signed entry, navigate to at least two pages, submit one real
-   Turnstile-protected test consultation, and verify one journey/consultation in
-   the CRM.
-8. After the main-domain test passes, remove the obsolete subdomain setup:
+7. Deploy the main Netlify site.
+8. Open the production QA URL in a fresh Incognito window, navigate to at least
+   two pages, and submit one real Turnstile-protected test consultation. In both
+   the Google Ads and Consultations CRM sections, switch from **Live campaign**
+   to **Test QA** and verify the journey and `VC-...` consultation there.
+9. After the main-domain test passes, remove the obsolete subdomain setup:
    remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
    GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
    allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host

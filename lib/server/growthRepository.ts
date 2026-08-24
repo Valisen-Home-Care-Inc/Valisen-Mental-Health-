@@ -454,7 +454,7 @@ export async function repairConsultationRequestAttribution(
   );
 }
 
-export async function fetchConsultationManager(input: {
+export type ConsultationManagerQuery = {
   from: string;
   to: string;
   workflowStatus?: ConsultationWorkflowStatus;
@@ -463,19 +463,38 @@ export async function fetchConsultationManager(input: {
   search?: string;
   limit?: number;
   offset?: number;
-}): Promise<ConsultationManagerData> {
+};
+
+function consultationManagerRpcInput(input: ConsultationManagerQuery) {
+  return {
+    p_from: input.from,
+    p_to: input.to,
+    p_workflow_status: input.workflowStatus ?? null,
+    p_conversion_stage: input.conversionStage ?? null,
+    p_source_kind: input.source ?? null,
+    p_search: input.search ?? null,
+    p_limit: input.limit ?? 50,
+    p_offset: input.offset ?? 0,
+  };
+}
+
+export async function fetchConsultationManager(
+  input: ConsultationManagerQuery,
+): Promise<ConsultationManagerData> {
   return callSupabaseRpc<ConsultationManagerData>(
     "get_consultation_manager",
-    {
-      p_from: input.from,
-      p_to: input.to,
-      p_workflow_status: input.workflowStatus ?? null,
-      p_conversion_stage: input.conversionStage ?? null,
-      p_source_kind: input.source ?? null,
-      p_search: input.search ?? null,
-      p_limit: input.limit ?? 50,
-      p_offset: input.offset ?? 0,
-    },
+    consultationManagerRpcInput(input),
+    15_000,
+  );
+}
+
+/** Service-role-only test-data mirror of the consultation manager contract. */
+export async function fetchConsultationTestManager(
+  input: ConsultationManagerQuery,
+): Promise<ConsultationManagerData> {
+  return callSupabaseRpc<ConsultationManagerData>(
+    "get_consultation_test_manager",
+    consultationManagerRpcInput(input),
     15_000,
   );
 }

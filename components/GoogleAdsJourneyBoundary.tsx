@@ -9,6 +9,7 @@ import {
   isCrisisPhoneHref,
   isGoogleAdsFormFieldId,
   isGoogleAdsJourneyActive,
+  stageGoogleAdsInternalNavigation,
   type GoogleAdsEventName,
   type GoogleAdsCtaPlacement,
   type GoogleAdsFormFieldId,
@@ -312,6 +313,7 @@ export default function GoogleAdsJourneyBoundary() {
           ) {
             event.preventDefault();
             event.stopPropagation();
+            stageGoogleAdsInternalNavigation(destination.pathname);
             void flushGoogleAdsEvents(true);
             window.location.assign(destination.href);
           }

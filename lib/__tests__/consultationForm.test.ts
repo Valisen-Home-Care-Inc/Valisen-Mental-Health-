@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CONSULTATION_AVAILABILITY_WINDOWS,
   CONSULTATION_DAYS,
   CONSULTATION_DAYS_LABEL,
+  confirmedConsultationReferenceFromResponse,
   consumeConsultationPrefill,
   isConfirmedConsultationReference,
   isValidConsultationPhone,
@@ -64,6 +67,54 @@ describe("consultation form contract", () => {
     expect(isConfirmedConsultationReference("VC-")).toBe(false);
     expect(isConfirmedConsultationReference(undefined)).toBe(false);
     expect(isConfirmedConsultationReference("private@example.com")).toBe(false);
+  });
+
+  it("requires a durable VC reference before accepting a successful response", () => {
+    expect(
+      confirmedConsultationReferenceFromResponse({
+        ok: true,
+        referenceId: "VC-ABC123456789",
+      }),
+    ).toBe("VC-ABC123456789");
+    expect(confirmedConsultationReferenceFromResponse({ ok: true })).toBeNull();
+    expect(
+      confirmedConsultationReferenceFromResponse({
+        ok: true,
+        referenceId: "honeypot-success",
+      }),
+    ).toBeNull();
+    expect(
+      confirmedConsultationReferenceFromResponse({
+        ok: false,
+        referenceId: "VC-ABC123456789",
+      }),
+    ).toBeNull();
+  });
+
+  it("gates the human success UI and asks autofill tools to ignore the honeypot", () => {
+    const page = readFileSync(
+      resolve(process.cwd(), "app/consultation/page.tsx"),
+      "utf8",
+    );
+    const durableGate = page.indexOf(
+      "confirmedConsultationReferenceFromResponse(body)",
+    );
+    const nextSuccess = page.indexOf("setSubmitted(true)", durableGate);
+    expect(durableGate).toBeGreaterThan(-1);
+    expect(nextSuccess).toBeGreaterThan(durableGate);
+    expect(page.slice(durableGate, nextSuccess)).toContain(
+      "if (!durableReference)",
+    );
+    expect(page.slice(durableGate, nextSuccess)).toContain(
+      'current.website ? { ...current, website: "" } : current',
+    );
+    expect(page).toContain('autoComplete="new-password"');
+    expect(page).toContain('data-1p-ignore="true"');
+    expect(page).toContain('data-bwignore="true"');
+    expect(page).toContain('data-lpignore="true"');
+    expect(
+      page.match(/stageGoogleAdsInternalNavigation\(thankYouUrl\)/g),
+    ).toHaveLength(2);
   });
 
   it("emits a confirmed submission conversion at most once per reference", () => {

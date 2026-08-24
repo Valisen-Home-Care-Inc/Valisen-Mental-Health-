@@ -54,6 +54,7 @@ import {
   CONSULTATION_AVAILABILITY_WINDOWS,
   CONSULTATION_DAYS,
   CONSULTATION_DAYS_LABEL,
+  confirmedConsultationReferenceFromResponse,
   consumeConsultationPrefill,
   isValidConsultationPhone,
   shouldTrackConsultationSubmission,
@@ -71,6 +72,7 @@ import {
   getGoogleAdsJourneyToken,
   googleAdsThankYouUrl,
   isGoogleAdsJourneyActive,
+  stageGoogleAdsInternalNavigation,
   type GoogleAdsFormFieldId,
 } from "@/lib/googleAdsJourney";
 import {
@@ -698,16 +700,31 @@ export default function ConsultationPage() {
       if (!response.ok || !body?.ok) {
         throw new Error(body?.error || "Something went wrong. Please try again.");
       }
+
+      const durableReference =
+        confirmedConsultationReferenceFromResponse(body);
+      if (!durableReference) {
+        // Password managers occasionally populate visually hidden fields even
+        // when asked not to. Clear that value so a real person can complete a
+        // fresh Turnstile-protected retry instead of being trapped in fake bot
+        // success responses.
+        setData((current) =>
+          current.website ? { ...current, website: "" } : current,
+        );
+        throw new Error(
+          "We could not confirm that your request was saved. Please try again.",
+        );
+      }
       const confirmedReference = shouldTrackConsultationSubmission(
-        body.referenceId,
+        durableReference,
         submittedConversionReferenceRef.current,
       );
-      if (confirmedReference && body.referenceId) {
-        submittedConversionReferenceRef.current = body.referenceId;
+      if (confirmedReference) {
+        submittedConversionReferenceRef.current = durableReference;
         if (googleAdsJourneyRef.current) {
           recordGoogleAdsEvent("consultation_submitted", {
             formStep: 2,
-            submissionReference: body.referenceId,
+            submissionReference: durableReference,
           });
         } else {
           trackFunnelEvent("consultation_request_submitted", {
@@ -715,20 +732,21 @@ export default function ConsultationPage() {
             ctaPlacement: "consultation_primary",
             funnelStep: 2,
             funnelCompleted: true,
-            submissionReference: body.referenceId,
+            submissionReference: durableReference,
           });
         }
       }
       if (
         googleAdsJourneyRef.current &&
         confirmedReference &&
-        confirmedConsultationReferenceIsValid(body.referenceId) &&
+        confirmedConsultationReferenceIsValid(durableReference) &&
         body.googleAdsThankYouReady === true
       ) {
         const thankYouUrl = googleAdsThankYouUrl(
           body.googleAdsConversionReceipt,
         );
         if (thankYouUrl) {
+          stageGoogleAdsInternalNavigation(thankYouUrl);
           void flushGoogleAdsEvents(true);
           window.location.replace(thankYouUrl);
           return;
@@ -739,16 +757,17 @@ export default function ConsultationPage() {
         confirmedReference &&
         googleAdsSessionIdRef.current &&
         googleAdsJourneyTokenRef.current &&
-        confirmedConsultationReferenceIsValid(body.referenceId)
+        confirmedConsultationReferenceIsValid(durableReference)
       ) {
         setSubmitted(true);
         void retryGoogleAdsThankYouReceipt(
           googleAdsSessionIdRef.current,
-          body.referenceId,
+          durableReference,
           googleAdsJourneyTokenRef.current || "",
         ).then((receipt) => {
           const thankYouUrl = googleAdsThankYouUrl(receipt);
           if (!thankYouUrl) return;
+          stageGoogleAdsInternalNavigation(thankYouUrl);
           void flushGoogleAdsEvents(true);
           window.location.replace(thankYouUrl);
         });
@@ -945,7 +964,11 @@ export default function ConsultationPage() {
                         id="consultation-website"
                         name="website"
                         tabIndex={-1}
-                        autoComplete="off"
+                        autoComplete="new-password"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
+                        data-lpignore="true"
                         value={data.website}
                         onChange={(event) => set("website", event.target.value)}
                       />

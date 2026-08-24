@@ -10,7 +10,10 @@ import {
   requireCheckpointAdminApi,
 } from "@/lib/server/checkpointAdminAuth";
 import { hasJsonContentType, readBoundedJson } from "@/lib/server/httpRequestSecurity";
-import { fetchConsultationManager } from "@/lib/server/growthRepository";
+import {
+  fetchConsultationManager,
+  fetchConsultationTestManager,
+} from "@/lib/server/growthRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
 import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
@@ -25,11 +28,12 @@ function positiveInteger(value: string | null, fallback: number): number | null 
 }
 
 const FILTER_KEYS = new Set([
-  "range", "from", "to", "workflowStatus", "conversionStage",
+  "scope", "range", "from", "to", "workflowStatus", "conversionStage",
   "source", "search", "limit", "offset",
 ]);
 
 type ManagerFilters = {
+  scope?: string;
   range?: string;
   from?: string;
   to?: string;
@@ -42,6 +46,7 @@ type ManagerFilters = {
 };
 
 async function managerResponse(filters: ManagerFilters) {
+  const scope = filters.scope ?? "live";
   const range = resolveCheckpointDateRange(
     filters.range ?? null,
     filters.from ?? null,
@@ -56,6 +61,7 @@ async function managerResponse(filters: ManagerFilters) {
 
   if (
     !range ||
+    (scope !== "live" && scope !== "test") ||
     (workflowStatus !== null && !isConsultationWorkflowStatus(workflowStatus)) ||
     (conversionStage !== null && !isConsultationConversionStage(conversionStage)) ||
     (source !== null && !isConsultationSourceKind(source)) ||
@@ -69,10 +75,15 @@ async function managerResponse(filters: ManagerFilters) {
   }
 
   try {
-    const reporting = await resolveCrmReportingRange("consultations", range);
-    const data = await fetchConsultationManager({
-      from: reporting.range.from,
-      to: reporting.range.to,
+    const reportingRange =
+      scope === "live"
+        ? (await resolveCrmReportingRange("consultations", range)).range
+        : range;
+    const fetchManager =
+      scope === "test" ? fetchConsultationTestManager : fetchConsultationManager;
+    const data = await fetchManager({
+      from: reportingRange.from,
+      to: reportingRange.to,
       workflowStatus: workflowStatus ?? undefined,
       conversionStage: conversionStage ?? undefined,
       source: source ?? undefined,
@@ -111,6 +122,7 @@ export async function GET(request: NextRequest) {
     );
   }
   return managerResponse({
+    scope: params.get("scope") ?? undefined,
     range: params.get("range") ?? undefined,
     from: params.get("from") ?? undefined,
     to: params.get("to") ?? undefined,

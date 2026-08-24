@@ -16,7 +16,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
 import {
@@ -42,6 +42,8 @@ const RANGE_OPTIONS: Array<{ value: Exclude<CheckpointDatePreset, "custom">; lab
   { value: "90d", label: "90 days" },
   { value: "all", label: "All time" },
 ];
+
+type DashboardScope = "live" | "test";
 
 function formatDate(value?: string | null, withTime = false) {
   if (!value) return "—";
@@ -108,6 +110,7 @@ export default function ConsultationManagerClient({
 }) {
   const [data, setData] = useState(initialData);
   const [error, setError] = useState(initialError);
+  const [scope, setScope] = useState<DashboardScope>("live");
   const [range, setRange] = useState<CheckpointDatePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -118,14 +121,22 @@ export default function ConsultationManagerClient({
   const [loading, setLoading] = useState(false);
   const [selectedLead, setSelectedLead] = useState<ConsultationLead | null>(null);
   const [lastUpdated, setLastUpdated] = useState(initialData?.generatedAt || new Date().toISOString());
+  const requestSequence = useRef(0);
 
-  async function loadData(options: { nextRange?: CheckpointDatePreset; offset?: number; clearFilters?: boolean } = {}) {
-    if (loading) return;
+  async function loadData(options: {
+    nextRange?: CheckpointDatePreset;
+    nextScope?: DashboardScope;
+    offset?: number;
+    clearFilters?: boolean;
+  } = {}) {
+    const requestId = ++requestSequence.current;
     const requestedRange = options.nextRange ?? range;
+    const requestedScope = options.nextScope ?? scope;
     setLoading(true);
     setError(null);
     try {
       const filters: Record<string, string> = {
+        scope: requestedScope,
         range: requestedRange,
         limit: String(PAGE_SIZE),
         offset: String(options.offset ?? 0),
@@ -154,13 +165,33 @@ export default function ConsultationManagerClient({
       if (!response.ok || !body?.data) {
         throw new Error(body?.error || "Consultation records could not be loaded.");
       }
+      if (requestId !== requestSequence.current) return;
       setData(body.data);
       setLastUpdated(body.data.generatedAt);
     } catch (caught) {
+      if (requestId !== requestSequence.current) return;
       setError(caught instanceof Error ? caught.message : "Consultation records could not be loaded.");
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
+  }
+
+  function changeScope(nextScope: DashboardScope) {
+    if (nextScope === scope) return;
+    setScope(nextScope);
+    setWorkflowStatus("");
+    setConversionStage("");
+    setSource("");
+    setSearch("");
+    setSelectedLead(null);
+    setData(null);
+    setError(null);
+    void loadData({
+      nextRange: range,
+      nextScope,
+      offset: 0,
+      clearFilters: true,
+    });
   }
 
   function changeRange(nextRange: CheckpointDatePreset) {
@@ -180,6 +211,29 @@ export default function ConsultationManagerClient({
           <p className="mt-2 max-w-[750px] text-[13px] leading-5 text-[#667471]">One operational view for submitted consultations from Mental Battery checkpoints, the therapist quiz, and the wider website—from request through booked consultation and paid therapy.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex rounded-[12px] border border-[#b8d2cc] bg-[#edf5f2] p-1 shadow-[0_4px_18px_rgba(28,46,43,0.05)]"
+            role="group"
+            aria-label="Consultation data scope"
+          >
+            {(["live", "test"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => changeScope(option)}
+                aria-pressed={scope === option}
+                className={`min-h-9 rounded-[9px] px-3 text-[11px] font-semibold transition ${
+                  scope === option
+                    ? option === "live"
+                      ? "bg-[#1e5f5a] text-white shadow-sm"
+                      : "bg-[#865b22] text-white shadow-sm"
+                    : "text-[#5f716d] hover:bg-white/70"
+                }`}
+              >
+                {option === "live" ? "Live campaign" : "Test QA"}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap rounded-[12px] border border-black/[0.07] bg-white p-1 shadow-[0_4px_18px_rgba(28,46,43,0.05)]">
             {RANGE_OPTIONS.map((option) => <button key={option.value} type="button" onClick={() => changeRange(option.value)} className={`min-h-9 rounded-[9px] px-3 text-[11px] font-semibold transition ${range === option.value ? "bg-[#1e5f5a] text-white shadow-sm" : "text-[#687572] hover:bg-[#f3f5f3]"}`}>{option.label}</button>)}
             <button type="button" onClick={() => changeRange("custom")} className={`min-h-9 rounded-[9px] px-3 text-[11px] font-semibold transition ${range === "custom" ? "bg-[#1e5f5a] text-white shadow-sm" : "text-[#687572] hover:bg-[#f3f5f3]"}`}>Custom</button>
@@ -192,21 +246,38 @@ export default function ConsultationManagerClient({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-[#7a8582]"><span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} aria-hidden="true" />Private admin · consented contact information</span><span aria-live="polite">Updated {formatDate(lastUpdated, true)}</span></div>
 
-      <CrmReportingPeriodPanel
-        section="consultations"
-        onReset={() => loadData({ offset: 0 })}
-      />
+      {scope === "test" ? (
+        <section
+          role="status"
+          className="mt-5 rounded-[16px] border border-[#d7b678] bg-[#fff8e8] px-5 py-4 text-[#704b17] shadow-sm"
+        >
+          <p className="text-[12px] font-semibold">Test QA consultations only</p>
+          <p className="mt-1 text-[11px] leading-5">
+            These protected submissions stay out of Live campaign and consultation metrics while
+            classified as test. This QA view is read-only, and reporting archives are hidden.
+          </p>
+        </section>
+      ) : (
+        <CrmReportingPeriodPanel
+          section="consultations"
+          onReset={() => loadData({ nextScope: "live", offset: 0 })}
+        />
+      )}
 
       {error ? <div role="alert" className="mt-5 rounded-[16px] border border-[#eccabd] bg-[#fff5f0] px-5 py-4 text-[12px] text-[#8d452e]"><p className="font-semibold">Consultation manager could not be loaded</p><p className="mt-1 leading-5">{error}</p></div> : null}
 
       {data ? (
         <>
-          <p className="mt-7 text-[10.5px] leading-4 text-[#7a8582]">The cards below describe the selected date range. The work queue also keeps older open opportunities visible so no follow-up is lost.</p>
+          <p className="mt-7 text-[10.5px] leading-4 text-[#7a8582]">
+            {scope === "test"
+              ? "The cards below describe protected test records in the selected date range. Use them to verify tracking only."
+              : "The cards below describe the selected date range. The work queue also keeps older open opportunities visible so no follow-up is lost."}
+          </p>
           <section aria-label="Consultation key performance indicators" className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-9">
             <Kpi label="Submissions" value={data.kpis.submissions} note="Every form request" icon={ClipboardList} />
             <Kpi label="Opportunities" value={data.kpis.opportunities} note="Unique, excluding duplicates" icon={UserRoundCheck} />
-            <Kpi label="New" value={data.kpis.newOpportunities} note="Needs first action" icon={Mail} tone="new" />
-            <Kpi label="In follow-up" value={data.kpis.activeOpportunities} note="Active or waiting" icon={Phone} />
+            <Kpi label="New" value={data.kpis.newOpportunities} note={scope === "test" ? "Recorded as new" : "Needs first action"} icon={Mail} tone="new" />
+            <Kpi label="In follow-up" value={data.kpis.activeOpportunities} note={scope === "test" ? "Recorded active or waiting" : "Active or waiting"} icon={Phone} />
             <Kpi label="Booked" value={data.kpis.booked} note={formatPercent(data.kpis.opportunityToBookingRate)} icon={CalendarDays} tone="booked" />
             <Kpi label="Paid therapy" value={data.kpis.paidTherapy} note={formatPercent(data.kpis.bookingToPaidTherapyRate)} icon={CircleDollarSign} tone="paid" />
             <Kpi label="Closed lost" value={data.kpis.lost} note="Not converted" icon={X} />
@@ -216,7 +287,7 @@ export default function ConsultationManagerClient({
 
           <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
             <article className="rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6">
-              <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Pipeline controls</p><h2 className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">Find the next consultation to act on</h2></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">{scope === "test" ? "QA filters" : "Pipeline controls"}</p><h2 className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">{scope === "test" ? "Inspect a tracked test consultation" : "Find the next consultation to act on"}</h2></div>
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <label className="xl:col-span-2"><span className="sr-only">Search consultations</span><span className="relative block"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#7b8986]" aria-hidden="true" /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void loadData({ offset: 0 }); }} placeholder="Name, email, phone or reference" className="min-h-11 w-full rounded-[11px] border border-black/10 bg-[#fafbf9] py-2 pl-9 pr-3 text-[12px] text-[#34413f] outline-none focus:border-[#4e8c83] focus:ring-2 focus:ring-[#4e8c83]/10" /></span></label>
                 <FilterSelect label="Workflow" value={workflowStatus} onChange={(value) => setWorkflowStatus(value as ConsultationWorkflowStatus | "")} options={CONSULTATION_WORKFLOW_STATUSES.map((value) => ({ value, label: WORKFLOW_STATUS_LABELS[value] }))} />
@@ -227,17 +298,17 @@ export default function ConsultationManagerClient({
             </article>
 
             <article className="rounded-[20px] bg-gradient-to-br from-[#173f3d] via-[#1c514d] to-[#327169] p-6 text-white shadow-[0_14px_44px_rgba(24,73,68,.18)]">
-              <p className="text-[10px] font-bold uppercase tracking-[1.3px] text-white/60">Source conversion</p><h2 className="mt-2 text-[20px] font-semibold tracking-[-0.5px]">Where paying clients begin</h2>
+              <p className="text-[10px] font-bold uppercase tracking-[1.3px] text-white/60">Source conversion</p><h2 className="mt-2 text-[20px] font-semibold tracking-[-0.5px]">{scope === "test" ? "Test source outcomes" : "Where paying clients begin"}</h2>
               <div className="mt-5 space-y-2.5">{data.sources.length ? data.sources.slice(0, 5).map((metric) => <div key={metric.source} className="flex items-center justify-between gap-4 rounded-[12px] border border-white/10 bg-white/[0.07] px-3.5 py-3"><div><p className="text-[11px] font-semibold text-white/90">{SOURCE_KIND_LABELS[metric.source]}</p><p className="mt-0.5 text-[9.5px] text-white/50">{formatCount(metric.submissions)} submissions · {formatCount(metric.opportunities)} opportunities · {formatCount(metric.booked)} booked</p></div><div className="text-right"><p className="text-[14px] font-semibold tabular-nums">{formatPercent(metric.bookingRate)}</p><p className="text-[9px] text-white/45">opportunity → booked</p></div></div>) : <p className="text-[12px] leading-5 text-white/65">Source performance will appear after consultation requests arrive.</p>}</div>
             </article>
           </section>
 
           <section className="mt-5 overflow-hidden rounded-[20px] border border-black/[0.065] bg-white shadow-[0_8px_35px_rgba(25,47,43,0.05)]" aria-labelledby="consultation-list-title">
-            <div className="flex flex-wrap items-end justify-between gap-4 px-5 py-5 sm:px-6"><div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Open queue + selected-range activity</p><h2 id="consultation-list-title" className="mt-1 text-[21px] font-semibold tracking-[-0.5px]">Consultation opportunities</h2><p className="mt-1 text-[10.5px] text-[#7d8986]">{formatCount(data.openCarryoverCount)} older open {data.openCarryoverCount === 1 ? "record is" : "records are"} carried into this queue.</p></div><p className="text-[10.5px] text-[#7d8986]">Showing {formatCount(firstResult)}–{formatCount(lastResult)} of {formatCount(data.totalCount)}</p></div>
+            <div className="flex flex-wrap items-end justify-between gap-4 px-5 py-5 sm:px-6"><div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">{scope === "test" ? "Selected-range QA activity" : "Open queue + selected-range activity"}</p><h2 id="consultation-list-title" className="mt-1 text-[21px] font-semibold tracking-[-0.5px]">{scope === "test" ? "Test consultation records" : "Consultation opportunities"}</h2><p className="mt-1 text-[10.5px] text-[#7d8986]">{scope === "test" ? `${formatCount(data.openCarryoverCount)} older test ${data.openCarryoverCount === 1 ? "record is" : "records are"} included for verification.` : `${formatCount(data.openCarryoverCount)} older open ${data.openCarryoverCount === 1 ? "record is" : "records are"} carried into this queue.`}</p></div><p className="text-[10.5px] text-[#7d8986]">Showing {formatCount(firstResult)}–{formatCount(lastResult)} of {formatCount(data.totalCount)}</p></div>
             {data.leads.length ? (
               <>
-                <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[1180px] border-collapse text-left"><thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]"><tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Contact</th><th className="px-4 py-3">Source</th><th className="px-4 py-3">Request</th><th className="px-4 py-3">Workflow</th><th className="px-4 py-3">Conversion</th><th className="px-4 py-3">Latest request</th><th className="w-12 px-4 py-3"><span className="sr-only">Manage</span></th></tr></thead><tbody className="divide-y divide-black/[0.055]">{data.leads.map((lead) => <tr key={lead.id} className="group text-[11.5px] text-[#53615e] transition hover:bg-[#f9fbf9]"><td className="px-4 py-3.5"><button type="button" onClick={() => setSelectedLead(lead)} className="text-left"><span className="block font-semibold text-[#263a36] group-hover:text-[#1d625c]">{leadName(lead)}</span><span className="block font-mono text-[9.5px] text-[#8a9491]">{lead.referenceId || "Reference pending"}</span>{lead.inSelectedRange === false ? <span className="mt-1 inline-flex rounded-full bg-[#f5efe6] px-2 py-0.5 text-[8.5px] font-semibold text-[#85633d]">Older open</span> : null}</button></td><td className="px-4 py-3.5"><span className="block">{lead.email || "Details in legacy sheet"}</span><span className="block text-[10px] text-[#89938f]">{lead.phone || "—"}</span></td><td className="px-4 py-3.5"><SourcePill source={lead.source} /><span className="mt-1 block max-w-[190px] truncate text-[9.5px] text-[#89938f]" title={sourceContext(lead)}>{sourceContext(lead)}</span>{lead.source === "mental_battery_checkpoint" ? <span className={`mt-1 block text-[9px] ${lead.attributionVerified ? "text-[#4f786c]" : "font-semibold text-[#a15b3d]"}`}>{lead.attributionVerified ? "Attribution verified" : "Verification pending"}</span> : null}</td><td className="max-w-[220px] px-4 py-3.5"><span className="block truncate font-medium text-[#3b4946]">{lead.therapyType || "Consultation"}</span><span className="block truncate text-[10px] text-[#89938f]">{lead.preferredTherapist || lead.preferredTime || "Flexible"}</span></td><td className="px-4 py-3.5"><WorkflowPill status={lead.workflowStatus} /></td><td className="px-4 py-3.5"><StagePill stage={lead.conversionStage} /></td><td className="px-4 py-3.5"><span className="block">{formatDate(lead.latestRequestAt || lead.submittedAt, true)}</span><span className="mt-0.5 block text-[9px] text-[#89938f]">{formatCount(lead.requestCount || 0)} {lead.requestCount === 1 ? "submission" : "submissions"}</span></td><td className="px-4 py-3.5"><button type="button" onClick={() => setSelectedLead(lead)} className="grid h-9 w-9 place-items-center rounded-[9px] border border-black/[0.07] bg-white text-[#5f716d] transition hover:border-[#6a9991] hover:text-[#1d625c]" aria-label={`Manage ${leadName(lead)}`}><ChevronRight size={15} aria-hidden="true" /></button></td></tr>)}</tbody></table></div>
-                <div className="divide-y divide-black/[0.055] md:hidden">{data.leads.map((lead) => <button key={lead.id} type="button" onClick={() => setSelectedLead(lead)} className="block w-full px-4 py-4 text-left"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-[#263a36]">{leadName(lead)}</p><p className="mt-0.5 text-[10.5px] text-[#74817e]">{lead.email || lead.referenceId}</p></div><StagePill stage={lead.conversionStage} /></div><div className="mt-3 flex flex-wrap items-center gap-2"><SourcePill source={lead.source} /><WorkflowPill status={lead.workflowStatus} />{lead.inSelectedRange === false ? <span className="rounded-full bg-[#f5efe6] px-2 py-1 text-[9px] font-semibold text-[#85633d]">Older open</span> : null}<span className="text-[10px] text-[#89938f]">{formatDate(lead.latestRequestAt || lead.submittedAt)}</span></div></button>)}</div>
+                <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[1180px] border-collapse text-left"><thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]"><tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Contact</th><th className="px-4 py-3">Source</th><th className="px-4 py-3">Request</th><th className="px-4 py-3">Workflow</th><th className="px-4 py-3">Conversion</th><th className="px-4 py-3">Latest request</th><th className="w-12 px-4 py-3"><span className="sr-only">{scope === "test" ? "Inspect" : "Manage"}</span></th></tr></thead><tbody className="divide-y divide-black/[0.055]">{data.leads.map((lead) => <tr key={lead.id} className="group text-[11.5px] text-[#53615e] transition hover:bg-[#f9fbf9]"><td className="px-4 py-3.5"><button type="button" onClick={() => setSelectedLead(lead)} className="text-left"><span className="block font-semibold text-[#263a36] group-hover:text-[#1d625c]">{leadName(lead)}</span><span className="block font-mono text-[9.5px] text-[#8a9491]">{lead.referenceId || "Reference pending"}</span>{lead.inSelectedRange === false ? <span className="mt-1 inline-flex rounded-full bg-[#f5efe6] px-2 py-0.5 text-[8.5px] font-semibold text-[#85633d]">{scope === "test" ? "Older test" : "Older open"}</span> : null}</button></td><td className="px-4 py-3.5"><span className="block">{lead.email || "Details in legacy sheet"}</span><span className="block text-[10px] text-[#89938f]">{lead.phone || "—"}</span></td><td className="px-4 py-3.5"><SourcePill source={lead.source} /><span className="mt-1 block max-w-[190px] truncate text-[9.5px] text-[#89938f]" title={sourceContext(lead)}>{sourceContext(lead)}</span>{lead.source === "mental_battery_checkpoint" ? <span className={`mt-1 block text-[9px] ${lead.attributionVerified ? "text-[#4f786c]" : "font-semibold text-[#a15b3d]"}`}>{lead.attributionVerified ? "Attribution verified" : "Verification pending"}</span> : null}</td><td className="max-w-[220px] px-4 py-3.5"><span className="block truncate font-medium text-[#3b4946]">{lead.therapyType || "Consultation"}</span><span className="block truncate text-[10px] text-[#89938f]">{lead.preferredTherapist || lead.preferredTime || "Flexible"}</span></td><td className="px-4 py-3.5"><WorkflowPill status={lead.workflowStatus} /></td><td className="px-4 py-3.5"><StagePill stage={lead.conversionStage} /></td><td className="px-4 py-3.5"><span className="block">{formatDate(lead.latestRequestAt || lead.submittedAt, true)}</span><span className="mt-0.5 block text-[9px] text-[#89938f]">{formatCount(lead.requestCount || 0)} {lead.requestCount === 1 ? "submission" : "submissions"}</span></td><td className="px-4 py-3.5"><button type="button" onClick={() => setSelectedLead(lead)} className="grid h-9 w-9 place-items-center rounded-[9px] border border-black/[0.07] bg-white text-[#5f716d] transition hover:border-[#6a9991] hover:text-[#1d625c]" aria-label={`${scope === "test" ? "Inspect" : "Manage"} ${leadName(lead)}`}><ChevronRight size={15} aria-hidden="true" /></button></td></tr>)}</tbody></table></div>
+                <div className="divide-y divide-black/[0.055] md:hidden">{data.leads.map((lead) => <button key={lead.id} type="button" onClick={() => setSelectedLead(lead)} aria-label={`${scope === "test" ? "Inspect" : "Manage"} ${leadName(lead)}`} className="block w-full px-4 py-4 text-left"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-[#263a36]">{leadName(lead)}</p><p className="mt-0.5 text-[10.5px] text-[#74817e]">{lead.email || lead.referenceId}</p></div><StagePill stage={lead.conversionStage} /></div><div className="mt-3 flex flex-wrap items-center gap-2"><SourcePill source={lead.source} /><WorkflowPill status={lead.workflowStatus} />{lead.inSelectedRange === false ? <span className="rounded-full bg-[#f5efe6] px-2 py-1 text-[9px] font-semibold text-[#85633d]">{scope === "test" ? "Older test" : "Older open"}</span> : null}<span className="text-[10px] text-[#89938f]">{formatDate(lead.latestRequestAt || lead.submittedAt)}</span></div></button>)}</div>
               </>
             ) : <div className="grid min-h-[190px] place-items-center border-t border-black/[0.06] bg-[#fbfcfa] px-6 text-center"><div><ClipboardList size={25} className="mx-auto text-[#8ba39e]" aria-hidden="true" /><p className="mt-3 text-[14px] font-semibold text-[#44514f]">No consultations match these filters</p><p className="mt-1 text-[11px] text-[#858f8c]">Try a broader date range or clear one of the pipeline filters.</p></div></div>}
             <div className="flex items-center justify-between gap-4 border-t border-black/[0.06] bg-[#fafbfa] px-5 py-4"><button type="button" disabled={loading || !data.offset} onClick={() => void loadData({ offset: Math.max(0, data.offset - data.limit) })} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-black/10 bg-white px-3.5 text-[11px] font-semibold text-[#596763] disabled:opacity-40"><ArrowLeft size={13} aria-hidden="true" />Previous</button><span className="text-[10.5px] text-[#7b8783]">Page {Math.floor(data.offset / data.limit) + 1} of {Math.max(1, Math.ceil(data.totalCount / data.limit))}</span><button type="button" disabled={loading || data.offset + data.limit >= data.totalCount} onClick={() => void loadData({ offset: data.offset + data.limit })} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-black/10 bg-white px-3.5 text-[11px] font-semibold text-[#596763] disabled:opacity-40">Next<ArrowRight size={13} aria-hidden="true" /></button></div>
@@ -245,7 +316,7 @@ export default function ConsultationManagerClient({
         </>
       ) : !error ? <div className="mt-8 grid min-h-[300px] place-items-center"><RefreshCw size={24} className="animate-spin text-[#4e7d76]" aria-label="Loading consultation manager" /></div> : null}
 
-      {selectedLead ? <LeadEditor lead={selectedLead} onClose={() => setSelectedLead(null)} onSaved={async () => { setSelectedLead(null); await loadData({ offset: data?.offset ?? 0 }); }} /> : null}
+      {selectedLead ? <LeadEditor lead={selectedLead} readOnly={scope === "test"} onClose={() => setSelectedLead(null)} onSaved={async () => { setSelectedLead(null); await loadData({ offset: data?.offset ?? 0 }); }} /> : null}
     </main>
   );
 }
@@ -333,10 +404,12 @@ function LegacyLeadEditor({ lead, onClose, onSaved }: { lead: ConsultationLead; 
 
 function LeadEditor({
   lead,
+  readOnly,
   onClose,
   onSaved,
 }: {
   lead: ConsultationLead;
+  readOnly: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -366,7 +439,7 @@ function LeadEditor({
   }
 
   async function save() {
-    if (saving) return;
+    if (readOnly || saving) return;
     if (terminalChange && !note.trim()) {
       setError("Add a note explaining this terminal outcome or conversion reversal.");
       return;
@@ -408,13 +481,14 @@ function LeadEditor({
 
   // Older snapshots did not include audit history. Keep the deployed fallback
   // usable while a new migration rolls through every environment.
-  if (lead.history === undefined) {
+  if (lead.history === undefined && !readOnly) {
     return (
       <LegacyLeadEditor lead={lead} onClose={onClose} onSaved={onSaved} />
     );
   }
 
   const requestCount = Math.max(lead.requestCount ?? 0, 0);
+  const history = lead.history ?? [];
 
   return (
     <div
@@ -433,7 +507,7 @@ function LeadEditor({
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-black/[0.07] bg-white/95 px-5 py-5 backdrop-blur sm:px-7">
           <div>
             <p className="text-[9.5px] font-bold uppercase tracking-[1.2px] text-[#64827d]">
-              Consultation opportunity
+              {readOnly ? "Test QA record · read only" : "Consultation opportunity"}
             </p>
             <h2
               id="lead-editor-title"
@@ -456,6 +530,12 @@ function LeadEditor({
         </header>
 
         <div className="space-y-5 px-5 py-6 sm:px-7">
+          {readOnly ? (
+            <div className="rounded-[14px] border border-[#d7b678] bg-[#fff8e8] px-4 py-3 text-[11px] leading-5 text-[#704b17]">
+              This protected test record is for verification only. It cannot update the live
+              consultation pipeline.
+            </div>
+          ) : null}
           <section className="rounded-[17px] border border-black/[0.065] bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center gap-2">
               <SourcePill source={lead.source} />
@@ -463,7 +543,7 @@ function LeadEditor({
               <StagePill stage={lead.conversionStage} />
               {lead.inSelectedRange === false ? (
                 <span className="inline-flex rounded-full bg-[#f5efe6] px-2.5 py-1 text-[9.5px] font-semibold text-[#85633d]">
-                  Older open opportunity
+                  {readOnly ? "Older test record" : "Older open opportunity"}
                 </span>
               ) : null}
             </div>
@@ -581,14 +661,14 @@ function LeadEditor({
                 </h3>
               </div>
               <span className="text-[9.5px] text-[#87918e]">
-                Latest {Math.min(lead.history.length, 25)}
+                Latest {Math.min(history.length, 25)}
               </span>
             </div>
-            {lead.history.length ? (
+            {history.length ? (
               <ol className="mt-4 space-y-0">
-                {lead.history.map((entry, index) => (
+                {history.map((entry, index) => (
                   <li key={entry.id} className="relative flex gap-3 pb-4 last:pb-0">
-                    {index < lead.history!.length - 1 ? (
+                    {index < history.length - 1 ? (
                       <span className="absolute bottom-0 left-[5px] top-3 w-px bg-[#dbe5e1]" />
                     ) : null}
                     <span className="relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-[#5c9188] bg-white" />
@@ -619,12 +699,13 @@ function LeadEditor({
 
           <section className="rounded-[17px] border border-black/[0.065] bg-white p-5 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-[1px] text-[#64827d]">
-              Update pipeline
+              {readOnly ? "Pipeline snapshot" : "Update pipeline"}
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-[11px] font-semibold text-[#52615e]">
                 Workflow status
                 <select
+                  disabled={readOnly}
                   value={workflowStatus}
                   onChange={(event) =>
                     changeWorkflowStatus(
@@ -643,6 +724,7 @@ function LeadEditor({
               <label className="text-[11px] font-semibold text-[#52615e]">
                 Conversion stage
                 <select
+                  disabled={readOnly}
                   value={conversionStage}
                   onChange={(event) =>
                     changeConversionStage(
@@ -699,6 +781,7 @@ function LeadEditor({
                 {terminalChange ? "(required for this change)" : "(optional)"}
               </span>
               <textarea
+                disabled={readOnly}
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 maxLength={500}
@@ -730,6 +813,7 @@ function LeadEditor({
                 type="button"
                 onClick={() => void save()}
                 disabled={
+                  readOnly ||
                   saving ||
                   (workflowStatus === lead.workflowStatus &&
                     conversionStage === lead.conversionStage &&
@@ -752,9 +836,9 @@ function LeadEditor({
           </section>
 
           <p className="px-1 text-[10px] leading-4 text-[#87918e]">
-            Every saved workflow or conversion change is appended to the
-            protected audit history. A consultation is only “booked” after staff
-            confirmation.
+            {readOnly
+              ? "Test QA records are isolated from the live consultation pipeline."
+              : "Every saved workflow or conversion change is appended to the protected audit history. A consultation is only booked after staff confirmation."}
           </p>
         </div>
       </section>

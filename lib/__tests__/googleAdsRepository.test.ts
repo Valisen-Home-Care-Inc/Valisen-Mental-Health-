@@ -8,14 +8,16 @@ vi.mock("@/lib/server/supabaseServer", () => ({ callSupabaseRpc }));
 
 import {
   consumeGoogleAdsConversion,
+  fetchGoogleAdsTestDashboard,
   linkGoogleAdsConsultation,
 } from "@/lib/server/googleAdsRepository";
+import { fetchConsultationTestManager } from "@/lib/server/growthRepository";
 
 const SESSION_ID = "gas-12345678-1234-4234-9234-123456789abc";
 const REFERENCE_ID = "VC-ABCDEF123456";
 
 beforeEach(() => {
-  callSupabaseRpc.mockReset().mockImplementation((name: string) => {
+  callSupabaseRpc.mockReset().mockImplementation(async (name: string) => {
     if (name === "ensure_google_ads_session") return { accepted: true };
     if (name === "link_google_ads_consultation") {
       return {
@@ -85,6 +87,39 @@ describe("Google Ads durable repository boundaries", () => {
     );
   });
 
+  it("uses protected service-role RPCs for Google Ads QA views", async () => {
+    const from = "2026-08-23T00:00:00.000Z";
+    const to = "2026-08-24T00:00:00.000Z";
+
+    await fetchGoogleAdsTestDashboard(from, to);
+    await fetchConsultationTestManager({
+      from,
+      to,
+      source: "google_ads",
+      limit: 25,
+    });
+
+    expect(callSupabaseRpc).toHaveBeenCalledWith(
+      "get_google_ads_test_dashboard",
+      { p_from: from, p_to: to },
+      15_000,
+    );
+    expect(callSupabaseRpc).toHaveBeenCalledWith(
+      "get_consultation_test_manager",
+      {
+        p_from: from,
+        p_to: to,
+        p_workflow_status: null,
+        p_conversion_stage: null,
+        p_source_kind: "google_ads",
+        p_search: null,
+        p_limit: 25,
+        p_offset: 0,
+      },
+      15_000,
+    );
+  });
+
   it("ships the forward-only session, nonce, tab, and retention hardening", () => {
     const sql = readFileSync(
       resolve(
@@ -97,5 +132,35 @@ describe("Google Ads durable repository boundaries", () => {
     expect(sql).toContain("conversion_claim_nonce_hash");
     expect(sql).toContain("drop constraint google_ads_events_session_sequence_unique");
     expect(sql).toContain("prune_google_ads_analytics");
+  });
+
+  it("ships fail-closed Google Ads QA classification and protected mirrors", () => {
+    const sql = readFileSync(
+      resolve(
+        process.cwd(),
+        "supabase/migrations/20260823030000_google_ads_test_qa_visibility.sql",
+      ),
+      "utf8",
+    );
+    expect(sql).toContain("utmCampaign'), '') = 'manual_test'");
+    expect(sql).toContain("classify_manual_google_ads_consultation");
+    expect(sql).toContain(
+      "new.source_kind = 'google_ads' and new.utm_campaign = 'manual_test'",
+    );
+    expect(sql).toContain("new.lead_id is not null");
+    expect(sql).toContain("where lead.id = new.lead_id");
+    expect(sql).toContain("request.lead_id = lead.id");
+    expect(sql).toContain("before insert or update on public.consultation_leads");
+    expect(sql).toContain("before insert or update on public.consultation_requests");
+    expect(sql).toContain(
+      "revoke all on function public.classify_manual_google_ads_consultation()",
+    );
+    expect(sql).toContain("session.is_test is distinct from v_is_test");
+    expect(sql).toContain("lead.is_test or request.is_test");
+    expect(sql).toContain("and not ads_session.is_test");
+    expect(sql).toContain("and ads_session.is_test");
+    expect(sql).toContain("get_google_ads_test_dashboard");
+    expect(sql).toContain("get_consultation_test_manager");
+    expect(sql).toContain("to service_role");
   });
 });

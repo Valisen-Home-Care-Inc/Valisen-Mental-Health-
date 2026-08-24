@@ -64,6 +64,23 @@ export function isConfirmedConsultationReference(
   );
 }
 
+/**
+ * A successful HTTP-shaped response is not enough to show a person the
+ * confirmation UI. The honeypot intentionally receives `{ ok: true }` without
+ * a durable reference, and a malformed upstream response must remain
+ * retryable rather than looking like a saved consultation.
+ */
+export function confirmedConsultationReferenceFromResponse(
+  value: unknown,
+): string | null {
+  if (!value || typeof value !== "object") return null;
+  const response = value as { ok?: unknown; referenceId?: unknown };
+  return response.ok === true &&
+    isConfirmedConsultationReference(response.referenceId)
+    ? response.referenceId
+    : null;
+}
+
 export function shouldTrackConsultationSubmission(
   value: unknown,
   trackedReference: string | null,

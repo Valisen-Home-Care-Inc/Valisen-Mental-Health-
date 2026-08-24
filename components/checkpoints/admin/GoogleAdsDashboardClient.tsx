@@ -20,7 +20,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
@@ -47,6 +47,8 @@ const RANGE_OPTIONS: Array<{
   { value: "90d", label: "90 days" },
   { value: "all", label: "All time" },
 ];
+
+type DashboardScope = "live" | "test";
 
 function formatDate(value?: string, withTime = false): string {
   if (!value) return "—";
@@ -182,6 +184,7 @@ export default function GoogleAdsDashboardClient({
 }) {
   const [data, setData] = useState(initialData);
   const [error, setError] = useState(initialError);
+  const [scope, setScope] = useState<DashboardScope>("live");
   const [range, setRange] = useState<CheckpointDatePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -189,13 +192,14 @@ export default function GoogleAdsDashboardClient({
   const [lastUpdated, setLastUpdated] = useState(
     initialData?.generatedAt || new Date().toISOString(),
   );
+  const requestSequence = useRef(0);
 
-  async function loadData(nextRange = range) {
-    if (loading) return;
+  async function loadData(nextRange = range, nextScope = scope) {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ range: nextRange });
+      const params = new URLSearchParams({ range: nextRange, scope: nextScope });
       if (nextRange === "custom") {
         params.set("from", customFrom);
         params.set("to", customTo);
@@ -210,6 +214,7 @@ export default function GoogleAdsDashboardClient({
       if (!response.ok || body?.data === undefined) {
         throw new Error(body?.error || "Google Ads analytics could not be loaded.");
       }
+      if (requestId !== requestSequence.current) return;
       const fallbackRange = data?.range || {
         from: new Date(0).toISOString(),
         to: new Date().toISOString(),
@@ -218,14 +223,23 @@ export default function GoogleAdsDashboardClient({
       setData(normalized);
       setLastUpdated(normalized.generatedAt);
     } catch (caught) {
+      if (requestId !== requestSequence.current) return;
       setError(
         caught instanceof Error
           ? caught.message
           : "Google Ads analytics could not be loaded.",
       );
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
+  }
+
+  function changeScope(nextScope: DashboardScope) {
+    if (nextScope === scope) return;
+    setScope(nextScope);
+    setData(null);
+    setError(null);
+    void loadData(range, nextScope);
   }
 
   const bestCampaign = data?.campaigns
@@ -264,6 +278,29 @@ export default function GoogleAdsDashboardClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex rounded-[12px] border border-[#b8d2cc] bg-[#edf5f2] p-1 shadow-[0_4px_18px_rgba(28,46,43,0.05)]"
+            role="group"
+            aria-label="Google Ads data scope"
+          >
+            {(["live", "test"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => changeScope(option)}
+                aria-pressed={scope === option}
+                className={`min-h-9 rounded-[9px] px-3 text-[11px] font-semibold transition ${
+                  scope === option
+                    ? option === "live"
+                      ? "bg-[#1e5f5a] text-white shadow-sm"
+                      : "bg-[#865b22] text-white shadow-sm"
+                    : "text-[#5f716d] hover:bg-white/70"
+                }`}
+              >
+                {option === "live" ? "Live campaign" : "Test QA"}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap rounded-[12px] border border-black/[0.07] bg-white p-1 shadow-[0_4px_18px_rgba(28,46,43,0.05)]">
             {RANGE_OPTIONS.map((option) => (
               <button
@@ -360,10 +397,23 @@ export default function GoogleAdsDashboardClient({
         <span aria-live="polite">Updated {formatDate(lastUpdated, true)}</span>
       </div>
 
-      <CrmReportingPeriodPanel
-        section="google_ads"
-        onReset={() => loadData(range)}
-      />
+      {scope === "test" ? (
+        <section
+          role="status"
+          className="mt-5 rounded-[16px] border border-[#d7b678] bg-[#fff8e8] px-5 py-4 text-[#704b17] shadow-sm"
+        >
+          <p className="text-[12px] font-semibold">Test QA data only</p>
+          <p className="mt-1 text-[11px] leading-5">
+            These protected journeys stay out of Live campaign metrics while classified as test.
+            Reporting archives and resets are unavailable in this QA view.
+          </p>
+        </section>
+      ) : (
+        <CrmReportingPeriodPanel
+          section="google_ads"
+          onReset={() => loadData(range, "live")}
+        />
+      )}
 
       {error ? (
         <div
