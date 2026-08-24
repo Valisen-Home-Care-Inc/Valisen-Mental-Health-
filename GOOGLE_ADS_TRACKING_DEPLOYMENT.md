@@ -64,17 +64,21 @@ one-use signed conversion receipt.
    “Success, no rows” is expected. This restores test journeys and test
    consultations under the CRM's **Test QA** scope while keeping **Live
    campaign** metrics clean.
-5. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+5. Run the consultation-trigger hotfix:
+   `supabase/migrations/20260823040000_google_ads_consultation_trigger_hotfix.sql`.
+   "Success, no rows" is expected. Its transactional self-test verifies a
+   complete manual Google Ads consultation save and rolls the test record back.
+6. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
    must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
    not put it in Supabase.
-6. Keep the existing Supabase URL/service-role credentials in Netlify; this
+7. Keep the existing Supabase URL/service-role credentials in Netlify; this
    change adds no new browser/public API key.
-7. Deploy the main Netlify site.
-8. Open the production QA URL in a fresh Incognito window, navigate to at least
+8. Deploy the main Netlify site.
+9. Open the production QA URL in a fresh Incognito window, navigate to at least
    two pages, and submit one real Turnstile-protected test consultation. In both
    the Google Ads and Consultations CRM sections, switch from **Live campaign**
    to **Test QA** and verify the journey and `VC-...` consultation there.
-9. After the main-domain test passes, remove the obsolete subdomain setup:
+10. After the main-domain test passes, remove the obsolete subdomain setup:
    remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
    GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
    allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host

@@ -169,4 +169,22 @@ describe("Google Ads durable repository boundaries", () => {
     expect(sql).toContain("get_consultation_test_manager");
     expect(sql).toContain("to service_role");
   });
+
+  it("ships the polymorphic consultation-trigger hotfix with a rollback self-test", () => {
+    const sql = readFileSync(
+      resolve(
+        process.cwd(),
+        "supabase/migrations/20260823040000_google_ads_consultation_trigger_hotfix.sql",
+      ),
+      "utf8",
+    );
+    expect(sql).toContain("if tg_table_name = 'consultation_requests' then");
+    expect(sql).toContain("if new.lead_id is not null then");
+    expect(sql).not.toContain(
+      "tg_table_name = 'consultation_requests' and new.lead_id is not null",
+    );
+    expect(sql).toContain("select public.upsert_consultation_lead(");
+    expect(sql).toContain("p_utm_campaign => 'manual_test'");
+    expect(sql).toContain("when sqlstate 'ZX001' then");
+  });
 });
