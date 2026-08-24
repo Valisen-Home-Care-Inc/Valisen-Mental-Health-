@@ -2,6 +2,7 @@ import DashboardClient from "@/components/checkpoints/admin/DashboardClient";
 import { resolveCheckpointDateRange } from "@/lib/checkpoints/dashboardMetrics";
 import { requireCheckpointAdminPage } from "@/lib/server/checkpointAdminAuth";
 import { fetchCheckpointDashboard } from "@/lib/server/checkpointRepository";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,11 @@ export default async function CheckpointDashboardPage() {
     error = "The default analytics range could not be created.";
   } else {
     try {
-      data = await fetchCheckpointDashboard(range.from, range.to);
+      const reporting = await resolveCrmReportingRange("checkpoints", range);
+      data = await fetchCheckpointDashboard(
+        reporting.range.from,
+        reporting.range.to,
+      );
     } catch (caught) {
       error =
         caught instanceof Error

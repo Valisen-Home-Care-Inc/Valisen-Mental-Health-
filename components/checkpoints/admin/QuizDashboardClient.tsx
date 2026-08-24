@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
 import {
   buildQuizAnalyticsExport,
@@ -265,6 +266,11 @@ export default function QuizDashboardClient({
         </span>
       </div>
 
+      <CrmReportingPeriodPanel
+        section="quiz"
+        onReset={() => loadData(range)}
+      />
+
       {error ? (
         <div role="alert" className="mt-5 rounded-[16px] border border-[#eccabd] bg-[#fff5f0] px-5 py-4 text-[12px] text-[#8d452e]">
           <p className="font-semibold">Quiz analytics could not be loaded</p>
@@ -286,11 +292,6 @@ export default function QuizDashboardClient({
               );
             })}
           </section>
-
-          <QuizTestDataManager
-            data={testData}
-            onChanged={() => loadData()}
-          />
 
           <QuizSubmissionRecoveryQueue data={recovery} />
 
@@ -495,6 +496,11 @@ export default function QuizDashboardClient({
               </div>
             ) : <EmptyState title="No recent journeys" detail="New anonymous quiz sessions will appear after the tracking migration is deployed." />}
           </section>
+
+          <QuizTestDataManager
+            data={testData}
+            onChanged={() => loadData()}
+          />
         </>
       ) : !error ? <div className="mt-8 grid min-h-[300px] place-items-center"><RefreshCw size={24} className="animate-spin text-[#4e7d76]" aria-label="Loading quiz analytics" /></div> : null}
     </main>
@@ -521,16 +527,22 @@ function QuizTestDataManager({
 
   if (!data) return null;
   const normalizedQuery = query.trim().toLowerCase();
-  const records = data.records.filter((record) => {
-    if (showOnlyTests && !record.isTest) return false;
-    if (!normalizedQuery) return true;
-    return [
-      record.referenceId,
-      record.sessionId,
-      record.firstName,
-      record.email,
-    ].some((value) => value?.toLowerCase().includes(normalizedQuery));
-  });
+  const records = data.records
+    .filter((record) => {
+      if (showOnlyTests && !record.isTest) return false;
+      if (!normalizedQuery) return true;
+      return [
+        record.referenceId,
+        record.sessionId,
+        record.firstName,
+        record.email,
+      ].some((value) => value?.toLowerCase().includes(normalizedQuery));
+    })
+    .sort(
+      (left, right) =>
+        Number(left.isTest) - Number(right.isTest) ||
+        Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt),
+    );
 
   async function changeFlag(record: QuizTestCandidate) {
     if (changingKey) return;
@@ -567,11 +579,11 @@ function QuizTestDataManager({
   }
 
   return (
-    <section
+    <details
       className="mt-5 overflow-hidden rounded-[20px] border border-[#b9d2cc] bg-white shadow-[0_8px_35px_rgba(25,47,43,0.05)]"
       aria-labelledby="quiz-test-data-title"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
+      <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
         <div>
           <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[1.2px] text-[#3c746b]">
             <ShieldCheck size={14} aria-hidden="true" /> Data quality
@@ -591,7 +603,7 @@ function QuizTestDataManager({
             {data.testerIdentityCount} known testers
           </span>
         </div>
-      </div>
+      </summary>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-black/[0.06] bg-[#f8faf8] px-5 py-3 sm:px-6">
         <label className="relative min-w-[250px] flex-1 sm:max-w-[420px]">
@@ -645,7 +657,7 @@ function QuizTestDataManager({
       ) : (
         <div className="grid min-h-[120px] place-items-center border-t border-black/[0.06] px-6 text-center"><p className="text-[11px] text-[#7e8986]">No quiz records match this filter.</p></div>
       )}
-    </section>
+    </details>
   );
 }
 

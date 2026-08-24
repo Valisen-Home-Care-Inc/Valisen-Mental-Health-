@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
 import {
@@ -117,7 +118,7 @@ function kpiCards(data: GoogleAdsDashboardData) {
     {
       label: "Ad sessions",
       value: formatCount(kpis.sessions),
-      note: "Only signed /google-ads/* entries",
+      note: "Only verified Google ad clicks",
       icon: Users,
     },
     {
@@ -256,7 +257,7 @@ export default function GoogleAdsDashboardClient({
             Google Ads journeys
           </h1>
           <p className="mt-2 max-w-[760px] text-[13px] leading-5 text-[#667471]">
-            Follow anonymous visits on the dedicated Google Ads site from arrival through
+            Follow verified Google ad clicks on the main website from arrival through
             consultation, booking, and paid therapy. Contact details and intake responses are
             never shown in this analytics view.
           </p>
@@ -294,12 +295,12 @@ export default function GoogleAdsDashboardClient({
             </button>
           </div>
           <a
-            href="/lp/anxiety-therapy"
+            href="/"
             target="_blank"
             rel="noreferrer"
             className="inline-flex min-h-11 items-center gap-2 rounded-[12px] border border-[#b8d2cc] bg-white px-3.5 text-[11px] font-semibold text-[#286f68] no-underline shadow-[0_4px_18px_rgba(28,46,43,0.05)] transition hover:border-[#79a89d] hover:bg-[#f5faf8]"
           >
-            Preview landing page (not tracked in Ads CRM)
+            Preview shared homepage
             <ExternalLink size={14} aria-hidden="true" />
           </a>
           <button
@@ -358,6 +359,11 @@ export default function GoogleAdsDashboardClient({
         </span>
         <span aria-live="polite">Updated {formatDate(lastUpdated, true)}</span>
       </div>
+
+      <CrmReportingPeriodPanel
+        section="google_ads"
+        onReset={() => loadData(range)}
+      />
 
       {error ? (
         <div

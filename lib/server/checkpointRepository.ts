@@ -138,9 +138,10 @@ export async function fetchCheckpointDetail(
   checkpointCode: string,
   from: string,
   to: string,
+  cumulativeFrom?: string,
 ): Promise<CheckpointDetailData> {
   const cumulativeTo = new Date().toISOString();
-  const [data, actions, cumulativeActions] = await Promise.all([
+  const [data, actions, cumulativeActions, reportingPeriodData] = await Promise.all([
     callSupabaseRpc<CheckpointDetailData>("get_checkpoint_detail", {
       p_checkpoint_code: checkpointCode,
       p_from: from,
@@ -148,10 +149,17 @@ export async function fetchCheckpointDetail(
     }, 15_000),
     fetchCheckpointActions(from, to, checkpointCode),
     fetchCheckpointActions(
-      "2020-01-01T00:00:00.000Z",
+      cumulativeFrom ?? "2020-01-01T00:00:00.000Z",
       cumulativeTo,
       checkpointCode,
     ),
+    cumulativeFrom
+      ? callSupabaseRpc<CheckpointDetailData>("get_checkpoint_detail", {
+          p_checkpoint_code: checkpointCode,
+          p_from: cumulativeFrom,
+          p_to: cumulativeTo,
+        }, 15_000)
+      : Promise.resolve(null),
   ]);
   const byPlacement = new Map(actions.placements.map((item) => [item.id, item.count]));
   const byDate = new Map(actions.daily.map((item) => [item.date, item.count]));
@@ -167,7 +175,7 @@ export async function fetchCheckpointDetail(
       ),
     },
     cumulativeKpis: {
-      ...data.cumulativeKpis,
+      ...(reportingPeriodData?.kpis ?? data.cumulativeKpis),
       therapistIntent: cumulativeActions.total,
       consultationCtaRate: safeConversionRate(
         cumulativeActions.total,

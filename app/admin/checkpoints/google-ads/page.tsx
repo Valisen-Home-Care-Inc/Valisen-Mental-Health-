@@ -3,6 +3,7 @@ import { resolveCheckpointDateRange } from "@/lib/checkpoints/dashboardMetrics";
 import { normalizeGoogleAdsDashboard } from "@/lib/googleAdsDashboard";
 import { requireCheckpointAdminPage } from "@/lib/server/checkpointAdminAuth";
 import { fetchGoogleAdsDashboard } from "@/lib/server/googleAdsRepository";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,12 @@ export default async function GoogleAdsAnalyticsPage() {
     error = "The default analytics range could not be created.";
   } else {
     try {
-      const response = await fetchGoogleAdsDashboard(range.from, range.to);
-      data = normalizeGoogleAdsDashboard(response, range);
+      const reporting = await resolveCrmReportingRange("google_ads", range);
+      const response = await fetchGoogleAdsDashboard(
+        reporting.range.from,
+        reporting.range.to,
+      );
+      data = normalizeGoogleAdsDashboard(response, reporting.range);
     } catch (caught) {
       console.error(
         "google-ads-admin: initial dashboard query failed",

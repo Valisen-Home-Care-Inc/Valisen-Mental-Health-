@@ -12,6 +12,7 @@ import {
   setQuizTestFlag,
 } from "@/lib/server/growthRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
+import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,8 +34,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const reporting = await resolveCrmReportingRange("quiz", range);
     const [data, recovery, testData] = await Promise.all([
-      fetchGrowthDashboard(range.from, range.to),
+      fetchGrowthDashboard(reporting.range.from, reporting.range.to),
       fetchQuizSubmissionRecoveryQueue(),
       fetchQuizTestCandidates(),
     ]);

@@ -156,7 +156,7 @@ try {
   const tracked = await preparePage(browser, [503, 503, 503, 200, 409]);
   await goto(
     tracked.page,
-    `${origin}/google-ads/anxiety?gclid=${clickId}&utm_campaign=qa_anxiety&utm_content=creative_7&utm_term=must_not_survive`,
+    `${origin}/?gclid=${clickId}&utm_campaign=qa_campaign&utm_content=adgroup_3-creative_7&utm_term=must_not_survive`,
   );
   const landing = await tracked.page.evaluate(() => ({
     hash: window.location.hash,
@@ -171,7 +171,7 @@ try {
     ),
   }));
   assert(
-    landing.pathname === "/lp/anxiety-therapy",
+    landing.pathname === "/",
     `The entry route resolved to ${landing.pathname}`,
   );
   assert(landing.hash === "", "The signed entry fragment remained visible");
@@ -180,8 +180,8 @@ try {
     "The raw click ID remained in the visible landing URL",
   );
   assert(
-    landing.search.includes("utm_campaign=qa_anxiety") &&
-      landing.search.includes("utm_content=creative_7"),
+    landing.search.includes("utm_campaign=qa_campaign") &&
+      landing.search.includes("utm_content=adgroup_3-creative_7"),
     "Safe campaign dimensions were not preserved",
   );
   assert(
@@ -200,6 +200,7 @@ try {
     tracked.entryResponses.some(
       (response) =>
         response.status === 302 &&
+        response.path === "/google-ads/general" &&
         response.headers["x-robots-tag"]?.includes("noindex"),
     ),
     "The entry redirect was not a noindex 302",
