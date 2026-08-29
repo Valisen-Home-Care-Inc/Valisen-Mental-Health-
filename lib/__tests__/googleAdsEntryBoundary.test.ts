@@ -25,6 +25,7 @@ import {
   isCrisisPhoneHref,
   stageGoogleAdsInternalNavigation,
 } from "@/lib/googleAdsJourney";
+import { decodeGoogleAdsValueTrackAttribution } from "@/lib/googleAdsEntry";
 import { verifyGoogleAdsJourneyToken } from "@/lib/server/googleAdsJourneySession";
 
 const SECRET = "entry-boundary-test-secret-with-at-least-thirty-two-bytes";
@@ -90,7 +91,7 @@ describe("same-domain Google Ads entry boundary", () => {
   it("issues a signed journey and redirects only to the allowlisted landing", async () => {
     const response = await GET(
       new NextRequest(
-        "https://valisenmentalhealth.com/google-ads/anxiety?gclid=Abcdef_123&utm_campaign=anxiety_42&utm_content=creative_7&utm_term=private&email=private%40example.com",
+        "https://valisenmentalhealth.com/google-ads/anxiety?gclid=Abcdef_123&utm_campaign=anxiety_42&utm_content=creative_7&vmh_adgroupid=7639334819&vmh_adgroup=Therapy-Ontario&vmh_keyword=online%20therapy%20ontario&email=private%40example.com",
       ),
       context(["anxiety"]),
     );
@@ -113,9 +114,15 @@ describe("same-domain Google Ads entry boundary", () => {
         `${GOOGLE_ADS_CLICK_FRAGMENT_PREFIX}gclid`,
       ),
     ).toBe("Abcdef_123");
-    expect(verifyGoogleAdsJourneyToken(token)?.landingPath).toBe(
-      "/lp/anxiety-therapy",
-    );
+    const claims = verifyGoogleAdsJourneyToken(token);
+    expect(claims?.landingPath).toBe("/lp/anxiety-therapy");
+    expect(
+      decodeGoogleAdsValueTrackAttribution(claims?.attribution.content),
+    ).toEqual({
+      adGroupId: "7639334819",
+      adGroupName: "Therapy-Ontario",
+      keyword: "online therapy ontario",
+    });
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(response.headers.get("x-robots-tag")).toContain("noindex");
   });

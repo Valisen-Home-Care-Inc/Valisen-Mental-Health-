@@ -35,16 +35,23 @@ describe("Google Ads homepage entry", () => {
     ).toBeNull();
   });
 
-  it("drops unknown and sensitive query values", () => {
+  it("allowlists sanitized ValueTrack context and drops unknown query values", () => {
     const path = googleAdsHomepageEntryPath({
       wbraid: "Abcdef_123",
       utm_campaign: "safe campaign",
-      utm_term: "private concern",
+      vmh_campaignid: "18124413697",
+      vmh_adgroupid: "7639334819",
+      vmh_adgroup: "Therapy-Ontario",
+      vmh_keyword: "online therapy ontario",
       email: "private@example.com",
       next: "/admin",
     });
     expect(path).toContain("wbraid=Abcdef_123");
     expect(path).toContain("utm_campaign=safe+campaign");
+    expect(path).toContain("vmh_campaignid=18124413697");
+    expect(path).toContain("vmh_adgroupid=7639334819");
+    expect(path).toContain("vmh_adgroup=Therapy-Ontario");
+    expect(path).toContain("vmh_keyword=online+therapy+ontario");
     expect(path).not.toContain("utm_term");
     expect(path).not.toContain("email");
     expect(path).not.toContain("next");

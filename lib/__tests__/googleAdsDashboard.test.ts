@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeGoogleAdsDashboard } from "@/lib/googleAdsDashboard";
+import {
+  googleAdsSectionReference,
+  normalizeGoogleAdsDashboard,
+} from "@/lib/googleAdsDashboard";
+import { encodeGoogleAdsValueTrackAttribution } from "@/lib/googleAdsEntry";
 
 const RANGE = {
   from: "2026-08-01T04:00:00.000Z",
@@ -8,6 +12,11 @@ const RANGE = {
 
 describe("Google Ads dashboard normalization", () => {
   it("normalizes the database dashboard contract and ordered journey timeline", () => {
+    const valueTrackContent = encodeGoogleAdsValueTrackAttribution({
+      adGroupId: "7639334819",
+      adGroupName: "Therapy-Ontario",
+      keyword: "online therapy ontario",
+    });
     const data = normalizeGoogleAdsDashboard(
       {
         generatedAt: "2026-08-23T16:00:00.000Z",
@@ -52,7 +61,7 @@ describe("Google Ads dashboard normalization", () => {
             source: "google",
             medium: "cpc",
             campaign: "ottawa-anxiety",
-            content: "responsive-01",
+            content: valueTrackContent,
             sessions: 120,
             engagedSessions: 75,
             consultationCtaSessions: 24,
@@ -76,6 +85,7 @@ describe("Google Ads dashboard normalization", () => {
             source: "google",
             medium: "cpc",
             campaign: "ottawa-anxiety",
+            content: valueTrackContent,
             googleClickIdPresent: true,
             engagedMs: 70_000,
             eventCount: 2,
@@ -121,17 +131,38 @@ describe("Google Ads dashboard normalization", () => {
     expect(data.funnel[1].sessionRate).toBe(6.7);
     expect(data.pages[0]).toMatchObject({ exits: 20, path: "/lp/anxiety-therapy" });
     expect(data.sections[0]).toMatchObject({ sectionId: "section-02", sessions: 80 });
-    expect(data.campaigns[0]).toMatchObject({ formStarts: 16, bookedConsultations: 4 });
+    expect(data.campaigns[0]).toMatchObject({
+      formStarts: 16,
+      bookedConsultations: 4,
+      adGroupId: "7639334819",
+      adGroupName: "Therapy-Ontario",
+      keyword: "online therapy ontario",
+    });
     expect(data.recentSessions[0]).toMatchObject({
       device: "mobile",
       consultationSubmitted: true,
       consultationReferenceId: "VC-ABCDEF12",
-      attribution: { source: "google", campaign: "ottawa-anxiety" },
+      attribution: {
+        source: "google",
+        campaign: "ottawa-anxiety",
+        adGroupId: "7639334819",
+        adGroupName: "Therapy-Ontario",
+        keyword: "online therapy ontario",
+      },
     });
     expect(data.recentSessions[0].events.map((event) => event.name)).toEqual([
       "consultation_cta_clicked",
       "consultation_submitted",
     ]);
+  });
+
+  it("adds a stable, readable label beside every known section number", () => {
+    expect(googleAdsSectionReference("/", "section-04")).toBe(
+      "Section 04 — A focused team, with the essentials visible",
+    );
+    expect(googleAdsSectionReference("/unknown", "section-03")).toBe(
+      "Section 03 — Other tracked page content area",
+    );
   });
 
   it("drops unexpected contact, intake, and free-text event fields", () => {

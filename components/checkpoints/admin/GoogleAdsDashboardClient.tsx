@@ -27,6 +27,7 @@ import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
 import {
   googleAdsEventLabel,
   googleAdsPageLabel,
+  googleAdsSectionReference,
   normalizeGoogleAdsDashboard,
   type GoogleAdsActionMetric,
   type GoogleAdsCampaignMetric,
@@ -95,6 +96,18 @@ function rate(numerator: number, denominator: number): number {
 
 function shortSessionId(value: string): string {
   return value.length > 20 ? `${value.slice(0, 12)}…${value.slice(-5)}` : value;
+}
+
+function readableAdGroupName(value?: string): string | undefined {
+  return value?.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim() || undefined;
+}
+
+function adGroupValue(attribution: {
+  adGroupId?: string;
+  adGroupName?: string;
+}): string {
+  return readableAdGroupName(attribution.adGroupName) ||
+    (attribution.adGroupId ? `Ad group ${attribution.adGroupId}` : "Not captured");
 }
 
 function fieldLabel(value: string): string {
@@ -611,15 +624,17 @@ function CampaignTable({ campaigns }: { campaigns: GoogleAdsCampaignMetric[] }) 
       <SectionHeading
         eyebrow="Acquisition breakdown"
         title="Campaign performance"
-        detail="First-touch UTM grouping; click IDs are represented only as present or absent."
+        detail="First-touch campaign, ad group, and matched Google Ads account keyword. The visitor's private search phrase is not collected."
         icon={Megaphone}
       />
       {campaigns.length ? (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px] border-collapse text-left">
+          <table className="w-full min-w-[1120px] border-collapse text-left">
             <thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]">
               <tr>
                 <th className="px-5 py-3">Campaign</th>
+                <th className="px-4 py-3">Ad group</th>
+                <th className="px-4 py-3">Matched keyword</th>
                 <th className="px-4 py-3">Sessions</th>
                 <th className="px-4 py-3">Engaged</th>
                 <th className="px-4 py-3">Consult CTA</th>
@@ -641,13 +656,32 @@ function CampaignTable({ campaigns }: { campaigns: GoogleAdsCampaignMetric[] }) 
                     </span>
                     <span className="mt-0.5 block truncate text-[10px] text-[#84908d]">
                       {campaign.source} / {campaign.medium}
-                      {campaign.content ? ` · ${campaign.content}` : ""}
                     </span>
                     {campaign.googleClickIdPresent ? (
                       <span className="mt-1.5 inline-flex rounded-full bg-[#e8f1ee] px-2 py-0.5 text-[9px] font-semibold text-[#477067]">
                         Google click ID present
                       </span>
                     ) : null}
+                  </td>
+                  <td className="max-w-[230px] px-4 py-3.5">
+                    <span className="block truncate font-semibold text-[#344441]">
+                      {adGroupValue(campaign)}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[9.5px] text-[#8a9491]">
+                      {campaign.adGroupId
+                        ? `Google Ads ID ${campaign.adGroupId}`
+                        : campaign.legacyContent
+                          ? `Legacy content: ${campaign.legacyContent}`
+                          : "Add the ValueTrack suffix to capture this"}
+                    </span>
+                  </td>
+                  <td className="max-w-[220px] px-4 py-3.5">
+                    <span className="block truncate font-semibold text-[#344441]" title={campaign.keyword}>
+                      {campaign.keyword ? `“${campaign.keyword}”` : "Not captured"}
+                    </span>
+                    <span className="mt-0.5 block text-[9.5px] text-[#8a9491]">
+                      {campaign.keyword ? "Matched account keyword" : "Unavailable for this visit"}
+                    </span>
                   </td>
                   <MetricCell value={campaign.sessions} strong />
                   <MetricCell
@@ -675,7 +709,7 @@ function CampaignTable({ campaigns }: { campaigns: GoogleAdsCampaignMetric[] }) 
         <EmptyState
           icon={Megaphone}
           title="No campaign groups yet"
-          detail="Campaign, source, medium, and content will appear when tagged ads traffic arrives."
+          detail="Campaign, ad group, and matched-keyword groups will appear when tagged ads traffic arrives."
         />
       )}
     </article>
@@ -750,7 +784,7 @@ function SectionTable({ sections }: { sections: GoogleAdsSectionMetric[] }) {
       <SectionHeading
         eyebrow="On-page depth"
         title="Sections visitors reached"
-        detail="Privacy-safe section numbers show how far visitors move through each page."
+        detail="Stable section numbers now include human-readable page-area names for at-a-glance analysis."
         icon={BarChart3}
       />
       {sections.length ? (
@@ -773,10 +807,10 @@ function SectionTable({ sections }: { sections: GoogleAdsSectionMetric[] }) {
                 >
                   <td className="px-5 py-3.5">
                     <span className="block font-semibold text-[#344441]">
-                      {googleAdsPageLabel(section.path)}
+                      {googleAdsSectionReference(section.path, section.sectionId)}
                     </span>
                     <span className="mt-0.5 block font-mono text-[9.5px] text-[#8a9491]">
-                      {section.path} · {section.sectionId.replace("section-", "section ")}
+                      {googleAdsPageLabel(section.path)} · {section.path}
                     </span>
                   </td>
                   <MetricCell value={section.sessions} strong />
@@ -896,9 +930,11 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
             ? { label: "CTA clicked", style: "bg-[#f4eee7] text-[#775f45]" }
             : { label: "Browsing", style: "bg-[#eff2f0] text-[#61706c]" };
   const campaign = session.attribution.campaign || "Campaign not set";
+  const adGroup = adGroupValue(session.attribution);
+  const keyword = session.attribution.keyword;
   return (
     <details className="group bg-white open:bg-[#fbfcfb]">
-      <summary className="grid cursor-pointer list-none gap-3 px-5 py-4 marker:content-none hover:bg-[#f8faf8] sm:grid-cols-[minmax(190px,1.2fr)_minmax(160px,1fr)_110px_110px_auto] sm:items-center sm:px-6">
+      <summary className="grid cursor-pointer list-none gap-3 px-5 py-4 marker:content-none hover:bg-[#f8faf8] sm:grid-cols-[minmax(190px,1.1fr)_minmax(250px,1.45fr)_100px_90px_auto] sm:items-center sm:px-6">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-[12px] font-semibold text-[#344441]">
@@ -921,6 +957,9 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
             {campaign}
           </span>
           <span className="mt-0.5 block truncate text-[9.5px] text-[#8a9491]">
+            {adGroup} · {keyword ? `“${keyword}”` : "keyword not captured"}
+          </span>
+          <span className="mt-0.5 block truncate text-[9px] text-[#98a19f]">
             {session.attribution.source || "Not set"} / {session.attribution.medium || "Not set"}
             {session.device ? ` · ${session.device}` : ""}
           </span>
@@ -956,6 +995,21 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <JourneyFact label="Landing page" value={googleAdsPageLabel(session.landingPath)} detail={session.landingPath} />
           <JourneyFact label="Latest page" value={googleAdsPageLabel(session.lastPath)} detail={session.lastPath} />
+          <JourneyFact label="Campaign" value={campaign} />
+          <JourneyFact
+            label="Ad group"
+            value={adGroup}
+            detail={session.attribution.adGroupId
+              ? `Google Ads ID ${session.attribution.adGroupId}`
+              : session.attribution.legacyContent
+                ? `Legacy content: ${session.attribution.legacyContent}`
+                : undefined}
+          />
+          <JourneyFact
+            label="Matched keyword"
+            value={keyword ? `“${keyword}”` : "Not captured"}
+            detail={keyword ? "Google Ads account keyword" : "Unavailable for this visit"}
+          />
           <JourneyFact label="First seen" value={formatDate(session.startedAt, true)} />
           <JourneyFact label="Last seen" value={formatDate(session.lastSeenAt, true)} />
         </div>
@@ -989,7 +1043,7 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
 
 function TimelineEvent({ event }: { event: GoogleAdsJourneyEvent }) {
   const details = [
-    event.section ? event.section.replace("section-", "section ") : null,
+    event.section ? googleAdsSectionReference(event.path, event.section) : null,
     event.targetType ? event.targetType.replaceAll("_", " ") : null,
     event.targetId ? fieldLabel(event.targetId) : null,
     event.targetPath ? `to ${event.targetPath}` : null,

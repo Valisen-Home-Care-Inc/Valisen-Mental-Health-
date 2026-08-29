@@ -17,10 +17,11 @@ the marker.
 
 The tracker records only closed structural data: allow-listed page/section
 visits, active time, scroll milestones, safe click categories, consultation CTA
-clicks, form progression, a durable consultation link, and staff-updated booked
-or paid stages. It does not store names, contact values, form text, quiz answers,
-search terms, raw click IDs, crisis-resource calls, DOM content, or arbitrary
-URLs in journey events.
+clicks, form progression, a durable consultation link, the matched keyword from
+the advertiser's Google Ads account, and staff-updated booked or paid stages. It
+does not store the person's actual Google search phrase, names, contact values,
+form text, quiz answers, raw click IDs, crisis-resource calls, DOM content, or
+arbitrary URLs in journey events.
 
 ## URLs to view manually
 
@@ -100,17 +101,35 @@ Use this same final URL for every campaign and ad group:
 The older `/google-ads/*` aliases remain available for diagnostics, but they are
 not required for campaigns and should not be mixed into normal ad setup.
 
-Keep Google Ads auto-tagging on. An optional Final URL suffix may use:
+Keep Google Ads auto-tagging on. To label CRM sessions with the exact Google Ads
+ad-group ID and the matched keyword, set this **Final URL suffix** at the account
+or campaign level (do not include a leading `?`):
 
-`utm_campaign={campaignid}&utm_content={adgroupid}-{creative}`
+`vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_keyword={keyword}`
 
-This keeps campaign, ad group, and individual ad IDs separate in the CRM even
-though they all use the same homepage.
+Google ValueTrack exposes the numeric ad-group ID, but not its human-readable
+name. For both the readable name and ID, set the complete suffix separately on
+each ad group. Current examples are:
 
-The signer forces `utm_source=google` and `utm_medium=cpc`. Never append
-`{keyword}`, `utm_term`, a search query, email, phone, or any contact/form value.
-Raw `gclid`, `gbraid`, and `wbraid` values are moved into a one-time fragment,
-kept only in that browser tab, and removed from the visible landing URL.
+- Therapy Ontario:
+  `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=Therapy-Ontario&vmh_keyword={keyword}`
+- High Intent Book Now:
+  `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=High-Intent-Book-Now&vmh_keyword={keyword}`
+- General Online Therapy:
+  `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=General-Online-Therapy&vmh_keyword={keyword}`
+
+Use the same pattern for future ad groups, changing only the `vmh_adgroup`
+label. Every ad may keep `https://valisenmentalhealth.com` as its Final URL.
+Older visits cannot be retroactively assigned a keyword and will say **Not
+captured** in the CRM. `{keyword}` is the account keyword that matched the ad;
+Google can leave it empty for campaign types that do not use keywords.
+
+The signer forces `utm_source=google` and `utm_medium=cpc`. Never append an
+actual search query, email, phone, or any contact/form value. The allow-listed
+ValueTrack fields above are sanitized, sealed into the signed journey, and
+removed from the visible landing URL. Raw `gclid`, `gbraid`, and `wbraid` values
+are moved into a one-time fragment, kept only in that browser tab, and also
+removed from the visible landing URL.
 
 ## Starting a new reporting period
 

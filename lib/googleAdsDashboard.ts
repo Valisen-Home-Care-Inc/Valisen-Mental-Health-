@@ -10,6 +10,7 @@ import {
   type GoogleAdsEventName,
   type GoogleAdsTargetType,
 } from "@/lib/googleAdsJourney";
+import { decodeGoogleAdsValueTrackAttribution } from "@/lib/googleAdsEntry";
 
 export type GoogleAdsDashboardKpis = {
   sessions: number;
@@ -56,6 +57,10 @@ export type GoogleAdsCampaignMetric = {
   medium: string;
   campaign: string;
   content?: string;
+  adGroupId?: string;
+  adGroupName?: string;
+  keyword?: string;
+  legacyContent?: string;
   googleClickIdPresent: boolean;
   sessions: number;
   engagedSessions: number;
@@ -111,6 +116,10 @@ export type GoogleAdsJourneySummary = {
     medium?: string;
     campaign?: string;
     content?: string;
+    adGroupId?: string;
+    adGroupName?: string;
+    keyword?: string;
+    legacyContent?: string;
     googleClickIdPresent: boolean;
   };
   events: GoogleAdsJourneyEvent[];
@@ -172,6 +181,115 @@ const PAGE_LABELS: Record<string, string> = {
   "/lp/couples-therapy": "Couples therapy landing page",
   "/sitewide": "Other tracked page",
 };
+
+const SECTION_LABELS: Record<string, readonly string[]> = {
+  "/": [
+    "Find the right therapist",
+    "Practice facts at a glance",
+    "Private therapist finder",
+    "A focused team, with the essentials visible",
+    "A clearer path to a consultation",
+    "Fees and consultation pricing",
+    "Insurance reimbursement",
+    "Practical therapy questions",
+    "Final therapist finder prompt",
+  ],
+  "/about": [
+    "Making therapy accessible",
+    "How Valisen works",
+    "Values and care standards",
+    "Book with Valisen",
+  ],
+  "/services": [
+    "Therapy services introduction",
+    "Individual and couples services",
+    "Specialized therapy support",
+    "Insurance coverage",
+    "Find a therapist who fits",
+  ],
+  "/insurance": [
+    "Insurance coverage introduction",
+    "Plans that may cover sessions",
+    "How to use insurance benefits",
+    "What plans may include",
+    "Common insurance questions",
+    "Ready to get started",
+  ],
+  "/resources": [
+    "Mental health resources",
+    "Featured guides and articles",
+    "Need immediate support",
+  ],
+  "/faq": [
+    "Therapy questions introduction",
+    "Browse questions and answers",
+    "Still deciding what you need",
+    "Free consultation prompt",
+  ],
+  "/therapists": [
+    "Therapist directory introduction",
+    "Private therapist finder",
+    "Reorder the team around your needs",
+    "Therapist directory, availability, and fees",
+    "Compare therapists and book",
+    "Still deciding what you need",
+  ],
+  "/consultation": [
+    "Free consultation introduction",
+    "Consultation request form",
+  ],
+  "/quiz": ["Private therapist finder quiz"],
+  "/thank-you": ["Consultation request received"],
+  "/privacy-policy": ["Privacy policy"],
+  "/terms": ["Terms of use"],
+  "/resources/five-signs-of-perfectionism": [
+    "Understanding perfectionism",
+    "Five signs of perfectionism",
+    "Sign 1: self-worth tied to achievement",
+    "Sign 2: fear of mistakes",
+    "Sign 3: all-or-nothing thinking",
+    "Sign 4: difficulty resting",
+    "Sign 5: harsh self-criticism",
+    "High standards versus perfectionism",
+    "What can help",
+    "Getting support",
+    "Sources and references",
+  ],
+};
+
+const SPECIALTY_SECTION_LABELS = [
+  "Therapy concern introduction",
+  "Understanding the concern",
+  "Browse therapists and book directly",
+  "What to expect from therapy",
+  "Compare next-step options",
+  "Common questions",
+] as const;
+
+const PAID_LANDING_SECTION_LABELS = [
+  "Campaign landing introduction",
+  "Signs and concerns",
+  "Why choose Valisen",
+  "Therapists accepting clients",
+  "How the consultation works",
+  "Insurance and reimbursement",
+  "Questions and common objections",
+  "Frequently asked questions",
+  "Final consultation prompt",
+] as const;
+
+const THERAPIST_PROFILE_SECTION_LABELS = [
+  "Therapist overview and availability",
+  "A grounded place to begin",
+  "Language or areas of support",
+  "Areas of support or therapy style",
+  "Therapy style or session details",
+  "Credentials and session logistics",
+  "Professional background",
+  "Session details",
+] as const;
+
+const SPECIALTY_PAGE_PATTERN = /^\/(?:anxiety-therapy|depression-therapy|grief-counselling|life-transitions-therapy|relationship-counselling|self-esteem-therapy|stress-therapy|trauma-therapy)-ottawa$/;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -396,11 +514,20 @@ function normalizeCampaigns(value: unknown): GoogleAdsCampaignMetric[] {
     .slice(0, 100)
     .map((item) => {
       const source = record(item);
+      const content = safeText(
+        pick(source, "content", "utmContent", "utm_content"),
+        120,
+      ) || undefined;
+      const valueTrack = decodeGoogleAdsValueTrackAttribution(content);
       return {
         source: safeText(pick(source, "source", "utmSource", "utm_source"), 80) || "Not set",
         medium: safeText(pick(source, "medium", "utmMedium", "utm_medium"), 80) || "Not set",
         campaign: safeText(pick(source, "campaign", "utmCampaign", "utm_campaign"), 120) || "Not set",
-        content: safeText(pick(source, "content", "utmContent", "utm_content"), 120) || undefined,
+        content,
+        adGroupId: valueTrack?.adGroupId,
+        adGroupName: valueTrack?.adGroupName,
+        keyword: valueTrack?.keyword,
+        legacyContent: content && !valueTrack ? content : undefined,
         googleClickIdPresent: bool(
           pick(source, "googleClickIdPresent", "google_click_id_present", "hasGoogleClickId", "has_google_click_id"),
         ),
@@ -506,6 +633,12 @@ function normalizeRecentSessions(value: unknown, fallbackDate: string): GoogleAd
       if (!googleAdsSessionIdIsValid(sessionId)) return null;
       const startedAt = date(pick(source, "startedAt", "started_at"), fallbackDate);
       const attribution = record(source.attribution);
+      const attributionContent = safeText(
+        pick(attribution, "content", "utmContent", "utm_content") ??
+          pick(source, "content", "utmContent", "utm_content"),
+        120,
+      ) || undefined;
+      const valueTrack = decodeGoogleAdsValueTrackAttribution(attributionContent);
       const reference = safeText(
         pick(source, "consultationReferenceId", "consultation_reference_id", "submissionReference", "submission_reference"),
         48,
@@ -551,11 +684,13 @@ function normalizeRecentSessions(value: unknown, fallbackDate: string): GoogleAd
               pick(source, "campaign", "utmCampaign", "utm_campaign"),
             120,
           ) || undefined,
-          content: safeText(
-            pick(attribution, "content", "utmContent", "utm_content") ??
-              pick(source, "content", "utmContent", "utm_content"),
-            120,
-          ) || undefined,
+          content: attributionContent,
+          adGroupId: valueTrack?.adGroupId,
+          adGroupName: valueTrack?.adGroupName,
+          keyword: valueTrack?.keyword,
+          legacyContent: attributionContent && !valueTrack
+            ? attributionContent
+            : undefined,
           googleClickIdPresent: bool(
             pick(attribution, "googleClickIdPresent", "google_click_id_present") ??
               pick(source, "googleClickIdPresent", "google_click_id_present"),
@@ -641,4 +776,36 @@ export function googleAdsEventLabel(event: GoogleAdsEventName): string {
 
 export function googleAdsPageLabel(pagePath: string): string {
   return pageLabel(path(pagePath));
+}
+
+/**
+ * Converts the stable, privacy-safe DOM section number into a compact label for
+ * the CRM. Numbers stay visible so existing reports and screenshots continue
+ * to reference the same section.
+ */
+export function googleAdsSectionLabel(
+  pagePath: string,
+  sectionId: string,
+): string {
+  const normalizedPath = path(pagePath);
+  const match = /^section-(\d{2})$/.exec(sectionId);
+  if (!match) return "Page content area";
+  const sectionIndex = Number.parseInt(match[1], 10) - 1;
+  let labels = SECTION_LABELS[normalizedPath];
+  if (!labels && normalizedPath.startsWith("/therapists/")) {
+    labels = THERAPIST_PROFILE_SECTION_LABELS;
+  } else if (!labels && normalizedPath.startsWith("/lp/")) {
+    labels = PAID_LANDING_SECTION_LABELS;
+  } else if (!labels && SPECIALTY_PAGE_PATTERN.test(normalizedPath)) {
+    labels = SPECIALTY_SECTION_LABELS;
+  }
+  return labels?.[sectionIndex] || `${googleAdsPageLabel(normalizedPath)} content area`;
+}
+
+export function googleAdsSectionReference(
+  pagePath: string,
+  sectionId: string,
+): string {
+  const number = /^section-(\d{2})$/.exec(sectionId)?.[1] || sectionId;
+  return `Section ${number} — ${googleAdsSectionLabel(pagePath, sectionId)}`;
 }
