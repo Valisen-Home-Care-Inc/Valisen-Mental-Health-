@@ -344,7 +344,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 ### Campaign 1 — Anxiety (PRIMARY)
 **Primary keyword:** anxiety therapist Ottawa
-**Final URL:** https://valisenmentalhealth.com
+**Final URL:** https://valisenmentalhealth.com/google-ads
 
 **Headlines (15):**
 1. Anxiety Therapist Ottawa
@@ -373,7 +373,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 ### Campaign 2 — General Therapy / Registered Psychotherapist
 **Primary keyword:** registered psychotherapist Ottawa
-**Final URL:** https://valisenmentalhealth.com
+**Final URL:** https://valisenmentalhealth.com/google-ads
 
 **Headlines (15):**
 1. Registered Psychotherapist
@@ -402,7 +402,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 ### Campaign 3 — Online Therapy / Telehealth
 **Primary keyword:** online therapy Ottawa
-**Final URL:** https://valisenmentalhealth.com
+**Final URL:** https://valisenmentalhealth.com/google-ads
 
 **Headlines (15):**
 1. Online Therapy in Ottawa
@@ -457,7 +457,7 @@ All headlines verified at **≤30 characters**. All descriptions **≤90 charact
 
 11. **Budget, geo-fit & landing-page readiness.** Set a realistic daily budget (≥ ~CA$30–50/day so Smart Bidding can learn). Confirm each campaign's Final URL loads fast on mobile, the Jane booking button works, and the free-consult CTA is above the fold. **Before enabling PSHCP keywords, add PSHCP/federal-coverage copy to /insurance** (currently absent — see Section 1 gaps).
 
-12. **Compliance, tracking params & final QA.** Confirm no guarantee/"cure" language in any asset; ensure ads reflect on-site claims only. Keep Google auto-tagging on. Use `https://valisenmentalhealth.com` as the final URL for every campaign and ad group. Add the privacy-safe Final URL suffix `utm_campaign={campaignid}&utm_content={adgroupid}-{creative}` so the CRM distinguishes campaign, ad group, and ad IDs; the signer forces source/medium. Never append `{keyword}`, search terms, contact data, or `utm_term`. Verify the signed same-domain journey in the Valisen CRM and the hostname/path/context/custom-event conversion in Tag Assistant. Confirm ordinary and Meta visits create no Google Ads CRM journey, and complete the standard campaign pre-flight before enabling spend.
+12. **Compliance, tracking params & final QA.** Confirm no guarantee/"cure" language in any asset; ensure ads reflect on-site claims only. Keep Google auto-tagging on. Use `https://valisenmentalhealth.com/google-ads` as the one final URL for every campaign and ad group. Add the privacy-safe Final URL suffix `utm_campaign={campaignid}&utm_content={adgroupid}-{creative}` so the CRM distinguishes campaign, ad group, and ad IDs; the signer forces source/medium. Never append `{keyword}`, search terms, contact data, or `utm_term`. Verify the signed same-domain journey in the Valisen CRM and the hostname/path/context/custom-event conversion in Tag Assistant. Confirm ordinary and Meta visits create no Google Ads CRM journey, and complete the standard campaign pre-flight before enabling spend.
 
 ---
 

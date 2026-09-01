@@ -91,17 +91,17 @@ describe("same-domain Google Ads entry boundary", () => {
   it("issues a signed journey and redirects only to the allowlisted landing", async () => {
     const response = await GET(
       new NextRequest(
-        "https://valisenmentalhealth.com/google-ads/anxiety?gclid=Abcdef_123&utm_campaign=anxiety_42&utm_content=creative_7&vmh_adgroupid=7639334819&vmh_adgroup=Therapy-Ontario&vmh_keyword=online%20therapy%20ontario&email=private%40example.com",
+        "https://valisenmentalhealth.com/google-ads?gclid=Abcdef_123&utm_campaign=universal_42&utm_content=creative_7&vmh_adgroupid=7639334819&vmh_adgroup=Therapy-Ontario&vmh_keyword=online%20therapy%20ontario&email=private%40example.com",
       ),
-      context(["anxiety"]),
+      context(),
     );
     expect(response.status).toBe(302);
     const destination = new URL(response.headers.get("location") || "");
     expect(destination.origin).toBe("https://valisenmentalhealth.com");
-    expect(destination.pathname).toBe("/lp/anxiety-therapy");
+    expect(destination.pathname).toBe("/welcome");
     expect(destination.searchParams.get("utm_source")).toBe("google");
     expect(destination.searchParams.get("utm_medium")).toBe("cpc");
-    expect(destination.searchParams.get("utm_campaign")).toBe("anxiety_42");
+    expect(destination.searchParams.get("utm_campaign")).toBe("universal_42");
     expect(destination.searchParams.get("utm_content")).toBe("creative_7");
     expect(destination.searchParams.has("gclid")).toBe(false);
     expect(destination.searchParams.has("utm_term")).toBe(false);
@@ -115,7 +115,7 @@ describe("same-domain Google Ads entry boundary", () => {
       ),
     ).toBe("Abcdef_123");
     const claims = verifyGoogleAdsJourneyToken(token);
-    expect(claims?.landingPath).toBe("/lp/anxiety-therapy");
+    expect(claims?.landingPath).toBe("/welcome");
     expect(
       decodeGoogleAdsValueTrackAttribution(claims?.attribution.content),
     ).toEqual({
@@ -133,7 +133,7 @@ describe("same-domain Google Ads entry boundary", () => {
       context(["couples"]),
     );
     const destination = new URL(preview.headers.get("location") || "");
-    expect(destination.pathname).toBe("/lp/couples-therapy");
+    expect(destination.pathname).toBe("/welcome");
     expect(destination.search).toBe("");
     expect(
       new URLSearchParams(destination.hash.slice(1)).get(
@@ -143,13 +143,13 @@ describe("same-domain Google Ads entry boundary", () => {
 
     const adsBot = await GET(
       new NextRequest(
-        "https://valisenmentalhealth.com/google-ads/anxiety?gclid=Abcdef_123&utm_source=google&utm_medium=cpc",
+        "https://valisenmentalhealth.com/google-ads?gclid=Abcdef_123&utm_source=google&utm_medium=cpc",
         { headers: { "User-Agent": "AdsBot-Google (+http://www.google.com/adsbot.html)" } },
       ),
-      context(["anxiety"]),
+      context(),
     );
     const botDestination = new URL(adsBot.headers.get("location") || "");
-    expect(botDestination.pathname).toBe("/lp/anxiety-therapy");
+    expect(botDestination.pathname).toBe("/welcome");
     expect(botDestination.search).toBe("");
     expect(botDestination.hash).toBe("");
 
@@ -164,13 +164,13 @@ describe("same-domain Google Ads entry boundary", () => {
     vi.stubEnv("NODE_ENV", "production");
     const response = await GET(
       new NextRequest(
-        "https://valisen-mental-health.netlify.app/google-ads/anxiety?gclid=Abcdef_123",
+        "https://valisen-mental-health.netlify.app/google-ads?gclid=Abcdef_123",
       ),
-      context(["anxiety"]),
+      context(),
     );
     const destination = new URL(response.headers.get("location") || "");
     expect(destination.origin).toBe("https://valisenmentalhealth.com");
-    expect(destination.pathname).toBe("/lp/anxiety-therapy");
+    expect(destination.pathname).toBe("/welcome");
     expect(destination.search).toBe("");
     expect(
       new URLSearchParams(destination.hash.slice(1)).has(
@@ -183,15 +183,15 @@ describe("same-domain Google Ads entry boundary", () => {
     vi.stubEnv("NODE_ENV", "production");
     const response = await GET(
       new NextRequest(
-        "https://internal-next-runtime.invalid/google-ads/anxiety?gclid=Abcdef_123",
+        "https://internal-next-runtime.invalid/google-ads?gclid=Abcdef_123",
         { headers: { host: "valisenmentalhealth.com" } },
       ),
-      context(["anxiety"]),
+      context(),
     );
     const destination = new URL(response.headers.get("location") || "");
     const fragment = new URLSearchParams(destination.hash.slice(1));
     expect(destination.origin).toBe("https://valisenmentalhealth.com");
-    expect(destination.pathname).toBe("/lp/anxiety-therapy");
+    expect(destination.pathname).toBe("/welcome");
     expect(fragment.has(GOOGLE_ADS_ENTRY_FRAGMENT_KEY)).toBe(true);
     expect(fragment.get(`${GOOGLE_ADS_CLICK_FRAGMENT_PREFIX}gclid`)).toBe(
       "Abcdef_123",
@@ -235,15 +235,15 @@ describe("same-domain Google Ads entry boundary", () => {
     expect(storage.has(GOOGLE_ADS_JOURNEY_STORAGE_KEY)).toBe(false);
     expect(storage.has(GOOGLE_ADS_SESSION_STORAGE_KEY)).toBe(false);
     expect(storage.has("valisen:first-touch-google-click:v1")).toBe(false);
-    expect(historyCalls).toEqual(["/lp/couples-therapy"]);
+    expect(historyCalls).toEqual(["/welcome"]);
   });
 
   it("expires the marker after thirty minutes without journey activity", async () => {
     const entry = await GET(
       new NextRequest(
-        "https://valisenmentalhealth.com/google-ads/general?utm_source=google&utm_medium=cpc",
+        "https://valisenmentalhealth.com/google-ads?utm_source=google&utm_medium=cpc",
       ),
-      context(["general"]),
+      context(),
     );
     const destination = new URL(entry.headers.get("location") || "");
     const token = new URLSearchParams(destination.hash.slice(1)).get(
@@ -344,9 +344,9 @@ describe("same-domain Google Ads entry boundary", () => {
   it("suppresses ordinary analytics whenever the per-tab proof is active", async () => {
     const entry = await GET(
       new NextRequest(
-        "https://valisenmentalhealth.com/google-ads/general?utm_source=google&utm_medium=cpc&utm_campaign=general",
+        "https://valisenmentalhealth.com/google-ads?utm_source=google&utm_medium=cpc&utm_campaign=general",
       ),
-      context(["general"]),
+      context(),
     );
     const destination = new URL(entry.headers.get("location") || "");
     const token = new URLSearchParams(destination.hash.slice(1)).get(

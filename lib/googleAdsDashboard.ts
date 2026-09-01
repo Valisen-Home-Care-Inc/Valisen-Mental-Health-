@@ -176,9 +176,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/quiz": "Therapist quiz",
   "/consultation": "Free consultation",
   "/thank-you": "Consultation thank-you",
-  "/lp/anxiety-therapy": "Anxiety therapy landing page",
-  "/lp/depression-therapy": "Depression therapy landing page",
-  "/lp/couples-therapy": "Couples therapy landing page",
+  "/welcome": "Dedicated landing page (/welcome)",
   "/sitewide": "Other tracked page",
 };
 
@@ -267,13 +265,11 @@ const SPECIALTY_SECTION_LABELS = [
 ] as const;
 
 const PAID_LANDING_SECTION_LABELS = [
-  "Campaign landing introduction",
-  "Signs and concerns",
-  "Why choose Valisen",
+  "Campaign landing and consultation request",
   "Therapists accepting clients",
+  "About Valisen",
+  "Services, pricing, and insurance",
   "How the consultation works",
-  "Insurance and reimbursement",
-  "Questions and common objections",
   "Frequently asked questions",
   "Final consultation prompt",
 ] as const;
@@ -794,7 +790,7 @@ export function googleAdsSectionLabel(
   let labels = SECTION_LABELS[normalizedPath];
   if (!labels && normalizedPath.startsWith("/therapists/")) {
     labels = THERAPIST_PROFILE_SECTION_LABELS;
-  } else if (!labels && normalizedPath.startsWith("/lp/")) {
+  } else if (!labels && (normalizedPath.startsWith("/lp/") || normalizedPath === "/welcome")) {
     labels = PAID_LANDING_SECTION_LABELS;
   } else if (!labels && SPECIALTY_PAGE_PATTERN.test(normalizedPath)) {
     labels = SPECIALTY_SECTION_LABELS;

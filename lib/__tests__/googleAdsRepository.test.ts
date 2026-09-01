@@ -46,7 +46,7 @@ describe("Google Ads durable repository boundaries", () => {
             content: "creative_2",
           },
           googleClickIdPresent: true,
-          landingPath: "/lp/anxiety-therapy",
+          landingPath: "/lp/google-ads",
           startedAt: "2026-08-23T12:00:00.000Z",
         },
       }),
@@ -61,7 +61,7 @@ describe("Google Ads durable repository boundaries", () => {
       "ensure_google_ads_session",
       expect.objectContaining({
         p_session_key: SESSION_ID,
-        p_landing_path: "/lp/anxiety-therapy",
+        p_landing_path: "/lp/google-ads",
         p_utm_source: "google",
         p_google_click_id_present: true,
       }),

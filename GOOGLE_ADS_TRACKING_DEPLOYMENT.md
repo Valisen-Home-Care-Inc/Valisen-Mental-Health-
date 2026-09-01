@@ -69,17 +69,24 @@ one-use signed conversion receipt.
    `supabase/migrations/20260823040000_google_ads_consultation_trigger_hotfix.sql`.
    "Success, no rows" is expected. Its transactional self-test verifies a
    complete manual Google Ads consultation save and rolls the test record back.
-6. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+6. Run the universal landing page migration:
+   `supabase/migrations/20260830000000_universal_google_ads_landing.sql`.
+   "Success, no rows" is expected. This adds `/welcome` to the closed
+   allowlist of trackable Google Ads paths. Without this step, journeys and
+   events on `/welcome` are rejected at the database level even though the
+   app code is deployed correctly — run it before testing tracking on the
+   new landing page.
+8. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
    must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
    not put it in Supabase.
-7. Keep the existing Supabase URL/service-role credentials in Netlify; this
+9. Keep the existing Supabase URL/service-role credentials in Netlify; this
    change adds no new browser/public API key.
-8. Deploy the main Netlify site.
-9. Open the production QA URL in a fresh Incognito window, navigate to at least
+10. Deploy the main Netlify site.
+11. Open the production QA URL in a fresh Incognito window, navigate to at least
    two pages, and submit one real Turnstile-protected test consultation. In both
    the Google Ads and Consultations CRM sections, switch from **Live campaign**
    to **Test QA** and verify the journey and `VC-...` consultation there.
-10. After the main-domain test passes, remove the obsolete subdomain setup:
+12. After the main-domain test passes, remove the obsolete subdomain setup:
    remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
    GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
    allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host
@@ -96,10 +103,11 @@ records retain their summary under the clinic’s administrative retention rules
 
 Use this same final URL for every campaign and ad group:
 
-`https://valisenmentalhealth.com`
+`https://valisenmentalhealth.com/google-ads`
 
-The older `/google-ads/*` aliases remain available for diagnostics, but they are
-not required for campaigns and should not be mixed into normal ad setup.
+This is the only campaign landing URL. Older `/google-ads/anxiety`,
+`/google-ads/depression`, and `/google-ads/couples` aliases all resolve to the
+same universal landing page for legacy safety and must not be assigned to new ads.
 
 Keep Google Ads auto-tagging on. To label CRM sessions with the exact Google Ads
 ad-group ID and the matched keyword, set this **Final URL suffix** at the account
@@ -119,7 +127,7 @@ each ad group. Current examples are:
   `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=General-Online-Therapy&vmh_keyword={keyword}`
 
 Use the same pattern for future ad groups, changing only the `vmh_adgroup`
-label. Every ad may keep `https://valisenmentalhealth.com` as its Final URL.
+label. Every ad must use `https://valisenmentalhealth.com/google-ads` as its Final URL.
 Older visits cannot be retroactively assigned a keyword and will say **Not
 captured** in the CRM. `{keyword}` is the account keyword that matched the ad;
 Google can leave it empty for campaign types that do not use keywords.

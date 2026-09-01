@@ -39,7 +39,7 @@ describe("Google Ads dashboard normalization", () => {
         ],
         pages: [
           {
-            path: "/lp/anxiety-therapy",
+            path: "/welcome",
             views: 150,
             sessions: 110,
             engagedMs: 600_000,
@@ -49,7 +49,7 @@ describe("Google Ads dashboard normalization", () => {
         ],
         sections: [
           {
-            path: "/lp/anxiety-therapy",
+            path: "/welcome",
             sectionId: "section-02",
             views: 100,
             sessions: 80,
@@ -79,7 +79,7 @@ describe("Google Ads dashboard normalization", () => {
             sessionId: "gas-12345678-1234-1234-1234-123456789012",
             startedAt: "2026-08-23T15:00:00.000Z",
             lastSeenAt: "2026-08-23T15:04:00.000Z",
-            landingPath: "/lp/anxiety-therapy",
+            landingPath: "/welcome",
             lastPath: "/thank-you",
             device: "mobile",
             source: "google",
@@ -109,7 +109,7 @@ describe("Google Ads dashboard normalization", () => {
                 sequence: 1,
                 occurredAt: "2026-08-23T15:01:00.000Z",
                 event: "consultation_cta_clicked",
-                path: "/lp/anxiety-therapy",
+                path: "/welcome",
                 sectionId: "section-02",
                 targetType: "consultation",
                 targetPath: "/consultation",
@@ -129,7 +129,7 @@ describe("Google Ads dashboard normalization", () => {
       paidTherapyConversions: 2,
     });
     expect(data.funnel[1].sessionRate).toBe(6.7);
-    expect(data.pages[0]).toMatchObject({ exits: 20, path: "/lp/anxiety-therapy" });
+    expect(data.pages[0]).toMatchObject({ exits: 20, path: "/welcome" });
     expect(data.sections[0]).toMatchObject({ sectionId: "section-02", sessions: 80 });
     expect(data.campaigns[0]).toMatchObject({
       formStarts: 16,

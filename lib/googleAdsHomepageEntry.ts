@@ -33,7 +33,7 @@ export const GOOGLE_ADS_HOMEPAGE_ENTRY_BOOTSTRAP = `(function(){try{
   var adGroup=clean(u.searchParams.get("vmh_adgroup"));
   var keyword=clean(u.searchParams.get("vmh_keyword")||u.searchParams.get("keyword")||u.searchParams.get("utm_term"));
   if(campaignId){out.set("vmh_campaignid",campaignId)}if(adGroupId){out.set("vmh_adgroupid",adGroupId)}if(adGroup){out.set("vmh_adgroup",adGroup)}if(keyword){out.set("vmh_keyword",keyword)}
-  window.location.replace("/google-ads/general?"+out.toString());
+  window.location.replace("/google-ads?"+out.toString());
 }catch(_){}})();`;
 
 function first(value: string | string[] | undefined): string | undefined {
@@ -77,5 +77,5 @@ export function googleAdsHomepageEntryPath(
   if (valueTrack.adGroupId) output.set("vmh_adgroupid", valueTrack.adGroupId);
   if (valueTrack.adGroupName) output.set("vmh_adgroup", valueTrack.adGroupName);
   if (valueTrack.keyword) output.set("vmh_keyword", valueTrack.keyword);
-  return `/google-ads/general?${output.toString()}`;
+  return `/google-ads?${output.toString()}`;
 }

@@ -88,9 +88,7 @@ export type GoogleAdsFormFieldId =
   (typeof GOOGLE_ADS_FORM_FIELD_IDS)[number];
 
 const EXTRA_GOOGLE_ADS_PATHS = [
-  "/lp/anxiety-therapy",
-  "/lp/depression-therapy",
-  "/lp/couples-therapy",
+  "/welcome",
   "/thank-you",
 ] as const;
 
@@ -115,10 +113,10 @@ const GOOGLE_ADS_ENTRY_TARGET_SET = new Set<string>(
   ),
 );
 const GOOGLE_ADS_ENTRY_ALIASES: Readonly<Record<string, string>> = {
-  general: "/",
-  anxiety: "/lp/anxiety-therapy",
-  depression: "/lp/depression-therapy",
-  couples: "/lp/couples-therapy",
+  general: "/welcome",
+  anxiety: "/welcome",
+  depression: "/welcome",
+  couples: "/welcome",
   mandarin: "/therapists/dayong-quan",
   arabic: "/therapists/meryem-ibrahim",
 };
@@ -131,11 +129,12 @@ const CRISIS_PHONE_NUMBERS = new Set(["988", "6137226914"]);
 export function googleAdsEntryTarget(
   segments: readonly string[] | undefined,
 ): string | null {
+  if (!segments?.length) return "/welcome";
   if (segments?.length === 1) {
     const alias = GOOGLE_ADS_ENTRY_ALIASES[segments[0].toLowerCase()];
     if (alias) return alias;
   }
-  const target = segments?.length ? `/${segments.join("/")}` : "/";
+  const target = `/${segments.join("/")}`;
   return GOOGLE_ADS_ENTRY_TARGET_SET.has(target) ? target : null;
 }
 

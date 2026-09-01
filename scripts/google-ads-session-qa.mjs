@@ -3,7 +3,10 @@ import path from "node:path";
 import puppeteer from "puppeteer";
 
 const port = process.env.PORT || "3000";
-const origin = process.env.BASE_ORIGIN || `http://localhost:${port}`;
+const origin =
+  process.env.BASE_ORIGIN ||
+  process.env.SITE_URL ||
+  `http://localhost:${port}`;
 const outputDir = path.resolve("artifacts/google-ads");
 const clickId = "qa-google-click-123";
 
@@ -36,7 +39,10 @@ async function preparePage(browser, confirmationStatuses = []) {
   });
   page.on("response", (response) => {
     const url = new URL(response.url());
-    if (url.pathname.startsWith("/google-ads/")) {
+    if (
+      url.pathname === "/google-ads" ||
+      url.pathname.startsWith("/google-ads/")
+    ) {
       entryResponses.push({
         path: url.pathname,
         status: response.status(),
@@ -129,7 +135,7 @@ try {
   const direct = await preparePage(browser);
   await goto(
     direct.page,
-    `${origin}/lp/anxiety-therapy?utm_source=google&utm_medium=cpc&gclid=direct-google-click`,
+    `${origin}/welcome?utm_source=google&utm_medium=cpc&gclid=direct-google-click`,
   );
   assert(
     direct.googleEventRequests.length === 0,
@@ -143,7 +149,7 @@ try {
   const meta = await preparePage(browser);
   await goto(
     meta.page,
-    `${origin}/lp/anxiety-therapy?utm_source=meta&utm_medium=paid-social&utm_campaign=qa-meta`,
+    `${origin}/welcome?utm_source=meta&utm_medium=paid-social&utm_campaign=qa-meta`,
   );
   assert(
     meta.googleEventRequests.length === 0,
@@ -156,7 +162,7 @@ try {
   const tracked = await preparePage(browser, [503, 503, 503, 200, 409]);
   await goto(
     tracked.page,
-    `${origin}/?gclid=${clickId}&utm_campaign=qa_campaign&utm_content=adgroup_3-creative_7&utm_term=must_not_survive`,
+    `${origin}/google-ads?gclid=${clickId}&utm_campaign=qa_campaign&utm_content=adgroup_3-creative_7&utm_term=must_not_survive`,
   );
   const landing = await tracked.page.evaluate(() => ({
     hash: window.location.hash,
@@ -171,7 +177,7 @@ try {
     ),
   }));
   assert(
-    landing.pathname === "/",
+    landing.pathname === "/welcome",
     `The entry route resolved to ${landing.pathname}`,
   );
   assert(landing.hash === "", "The signed entry fragment remained visible");
@@ -200,7 +206,7 @@ try {
     tracked.entryResponses.some(
       (response) =>
         response.status === 302 &&
-        response.path === "/google-ads/general" &&
+        response.path === "/google-ads" &&
         response.headers["x-robots-tag"]?.includes("noindex"),
     ),
     "The entry redirect was not a noindex 302",
@@ -209,20 +215,28 @@ try {
     tracked.googleEventRequests.length > 0,
     "The signed journey did not flush an isolated event batch",
   );
+  const eventRequestSafety = {
+    missingJourneyToken: tracked.googleEventRequests.filter(
+      (request) => !request.body.includes("journeyToken"),
+    ).length,
+    rawClickLeaks: tracked.googleEventRequests.filter((request) =>
+      request.body.includes(clickId),
+    ).length,
+    searchTermLeaks: tracked.googleEventRequests.filter((request) =>
+      request.body.includes("must_not_survive"),
+    ).length,
+  };
   assert(
-    tracked.googleEventRequests.every(
-      (request) =>
-        request.body.includes("journeyToken") &&
-        !request.body.includes(clickId) &&
-        !request.body.includes("must_not_survive"),
-    ),
-    "A Google Ads event request was unsigned or leaked a raw click/search value",
+    Object.values(eventRequestSafety).every((count) => count === 0),
+    `A Google Ads event request was unsigned or leaked a raw click/search value: ${JSON.stringify(eventRequestSafety)}`,
   );
   const landingImage = await tracked.page.screenshot({ fullPage: true });
   await writeFile(path.join(outputDir, "same-domain-ads-landing.png"), landingImage);
 
   const requestsBeforeNavigation = tracked.googleEventRequests.length;
-  await tracked.page.click('a[href="/privacy-policy"]');
+  await tracked.page.evaluate((target) => {
+    window.location.href = target;
+  }, "/privacy-policy");
   await tracked.page.waitForFunction(
     () => window.location.pathname === "/privacy-policy",
   );

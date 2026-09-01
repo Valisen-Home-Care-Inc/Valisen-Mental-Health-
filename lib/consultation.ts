@@ -14,6 +14,11 @@ export const CONSULTATION_AVAILABILITY_WINDOWS = {
     label: "Evening",
     submissionLabel: "4PM – 8PM (Evening)",
   },
+  flexible: {
+    time: "Anytime",
+    label: "Flexible",
+    submissionLabel: "Anytime (Flexible)",
+  },
 } as const;
 
 export const CONSULTATION_DAYS = [

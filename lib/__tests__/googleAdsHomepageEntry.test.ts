@@ -15,7 +15,7 @@ describe("Google Ads homepage entry", () => {
         utm_content: "creative_7",
       }),
     ).toBe(
-      "/google-ads/general?gclid=Abcdef_123&utm_campaign=campaign_42&utm_content=creative_7",
+      "/google-ads?gclid=Abcdef_123&utm_campaign=campaign_42&utm_content=creative_7",
     );
   });
 
@@ -64,7 +64,7 @@ describe("Google Ads homepage entry", () => {
       layout.indexOf("google-ads-entry-bootstrap"),
     );
     expect(GOOGLE_ADS_HOMEPAGE_ENTRY_BOOTSTRAP).toContain(
-      'window.location.replace("/google-ads/general?"',
+      'window.location.replace("/google-ads?"',
     );
   });
 });

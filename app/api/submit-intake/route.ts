@@ -398,7 +398,7 @@ async function resolveQuizLead(
 async function persistConsultationCrmLead(input: {
   payload: IntakePayload;
   referenceId: string;
-  preferredTherapistLabel: string;
+  preferredTherapistLabel?: string;
   availabilityLabel: string;
   submittedAt: string;
   quizLead?: StoredQuizLead;
@@ -738,8 +738,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const preferredTherapist = normalizePreferredTherapist(payload.preferredTherapist);
-  const preferredTherapistLabel = getPreferredTherapistLabel(preferredTherapist);
+  const preferredTherapist = payload.preferredTherapist
+    ? normalizePreferredTherapist(payload.preferredTherapist)
+    : null;
+  const preferredTherapistLabel = preferredTherapist
+    ? getPreferredTherapistLabel(preferredTherapist)
+    : undefined;
   const submittedAt = new Date().toISOString();
   const timestamp = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Toronto",
@@ -872,7 +876,7 @@ Name:                    ${payload.firstName} ${payload.lastName}
 Email:                   ${payload.email}
 Phone:                   ${payload.phone}
 Therapy type:            ${payload.reason}
-Preferred therapist:     ${preferredTherapistLabel}
+Preferred therapist:     ${preferredTherapistLabel || "Not provided"}
 Preferred days:          ${CONSULTATION_DAYS_LABEL}
 Preferred time:          ${availabilityLabel} (Toronto time)
 CTA source:              ${payload.source || "direct"}
@@ -910,7 +914,7 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     return badRequest("We couldn't send your request. Please try again or call us.", 503);
   }
 
-  if (isSpecificTherapistSlug(preferredTherapist)) {
+  if (preferredTherapist && isSpecificTherapistSlug(preferredTherapist)) {
     const therapistEmail = THERAPIST_EMAILS[preferredTherapist];
     if (therapistEmail) {
       try {
@@ -961,7 +965,7 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     payload.phone,
     "",
     payload.reason,
-    preferredTherapistLabel,
+    preferredTherapistLabel || "",
     "Consented",
     CONSULTATION_DAYS.join(", "),
     availabilityLabel,

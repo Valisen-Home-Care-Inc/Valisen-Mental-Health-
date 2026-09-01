@@ -202,7 +202,7 @@ describe("Google Ads click attribution handoff", () => {
       value: {
         location: {
           href:
-            "https://valisenmentalhealth.com/lp/anxiety-therapy?utm_campaign=anxiety&gclid=click-123&wbraid=web-456#therapists",
+            "https://valisenmentalhealth.com/lp/google-ads?utm_campaign=universal&gclid=click-123&wbraid=web-456#therapists",
         },
         history: {
           state: { navigation: "state" },
@@ -214,7 +214,7 @@ describe("Google Ads click attribution handoff", () => {
 
     stripGoogleAdsClickAttributionFromUrl();
     expect(historyCalls).toEqual([
-      "/lp/anxiety-therapy?utm_campaign=anxiety#therapists",
+      "/lp/google-ads?utm_campaign=universal#therapists",
     ]);
   });
 });
@@ -228,7 +228,7 @@ describe("sensitive campaign-term cleanup", () => {
       value: {
         location: {
           href:
-            "https://valisenmentalhealth.com/lp/anxiety-therapy?utm_source=google&utm_term=private+search&gclid=click-123#therapists",
+            "https://valisenmentalhealth.com/lp/google-ads?utm_source=google&utm_term=private+search&gclid=click-123#therapists",
         },
         history: {
           state: { navigation: "state" },
@@ -247,7 +247,7 @@ describe("sensitive campaign-term cleanup", () => {
       "private search",
     );
     expect(historyCalls).toEqual([
-      "/lp/anxiety-therapy?utm_source=google&gclid=click-123#therapists",
+      "/lp/google-ads?utm_source=google&gclid=click-123#therapists",
     ]);
   });
 });

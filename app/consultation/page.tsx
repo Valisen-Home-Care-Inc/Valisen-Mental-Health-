@@ -91,8 +91,7 @@ type CheckpointAttributionStatus =
   | "saved";
 
 type ConsultationFormData = {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
   phone: string;
   therapyType: string;
@@ -106,8 +105,7 @@ type ConsultationFormData = {
 type FormErrors = Partial<Record<keyof ConsultationFormData | "turnstile", string>>;
 
 const INITIAL: ConsultationFormData = {
-  firstName: "",
-  lastName: "",
+  fullName: "",
   email: "",
   phone: "",
   therapyType: "",
@@ -148,8 +146,7 @@ const CONSENT_VERSION = "consultation-coordination-v1";
 const GOOGLE_ADS_ERROR_FIELDS: Partial<
   Record<keyof ConsultationFormData, GoogleAdsFormFieldId>
 > = {
-  firstName: "first-name",
-  lastName: "last-name",
+  fullName: "first-name",
   email: "email",
   phone: "phone",
   therapyType: "therapy-type",
@@ -158,6 +155,17 @@ const GOOGLE_ADS_ERROR_FIELDS: Partial<
   availability: "availability",
   consent: "consent",
 };
+
+function splitFullName(
+  value: string,
+): { firstName: string; lastName: string } | null {
+  const parts = value.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
+  if (parts.length < 2) return null;
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
 
 function makeSubmissionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -426,7 +434,7 @@ export default function ConsultationPage() {
     setData((current) => ({
       ...current,
       preferredTherapist: preferredTherapist || current.preferredTherapist,
-      firstName: prefill?.firstName || current.firstName,
+      fullName: prefill?.firstName || current.fullName,
       email: prefill?.email || current.email,
       phone: prefill?.phone || current.phone,
     }));
@@ -553,8 +561,9 @@ export default function ConsultationPage() {
 
   function validateStepOne(): FormErrors {
     const next: FormErrors = {};
-    if (!data.firstName.trim()) next.firstName = "First name is required.";
-    if (!data.lastName.trim()) next.lastName = "Last name is required.";
+    if (!splitFullName(data.fullName)) {
+      next.fullName = "Please enter your first and last name.";
+    }
     if (!data.email.trim()) {
       next.email = "Email address is required.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
@@ -643,6 +652,13 @@ export default function ConsultationPage() {
 
     setSubmitting(true);
     setSubmitError(null);
+    const name = splitFullName(data.fullName);
+    if (!name) {
+      showErrors({ fullName: "Please enter your first and last name." }, 1);
+      setStep(1);
+      setSubmitting(false);
+      return;
+    }
     try {
       if (
         googleAdsJourneyRef.current &&
@@ -658,8 +674,8 @@ export default function ConsultationPage() {
         body: JSON.stringify({
           clientSubmissionId: submissionIdRef.current,
           formStartedAt: formStartedAtRef.current,
-          firstName: data.firstName.trim(),
-          lastName: data.lastName.trim(),
+          firstName: name.firstName,
+          lastName: name.lastName,
           email: data.email.trim(),
           phone: data.phone.trim(),
           reason: data.therapyType,
@@ -996,14 +1012,9 @@ export default function ConsultationPage() {
                             We&apos;ll only use this information to respond to your consultation request.
                           </p>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <Field id="first-name" label="First Name" required error={errors.firstName}>
-                            <input id="first-name" type="text" autoComplete="given-name" maxLength={80} value={data.firstName} onChange={(event) => set("firstName", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.firstName)} />
-                          </Field>
-                          <Field id="last-name" label="Last Name" required error={errors.lastName}>
-                            <input id="last-name" type="text" autoComplete="family-name" maxLength={80} value={data.lastName} onChange={(event) => set("lastName", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.lastName)} />
-                          </Field>
-                        </div>
+                        <Field id="full-name" label="Full Name" required error={errors.fullName}>
+                          <input id="full-name" type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => set("fullName", event.target.value)} className={inputClass} placeholder="First and last name" aria-invalid={Boolean(errors.fullName)} />
+                        </Field>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <Field id="email" label="Email Address" required error={errors.email}>
                             <input id="email" type="email" inputMode="email" autoComplete="email" maxLength={254} value={data.email} onChange={(event) => set("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)} />
@@ -1020,16 +1031,6 @@ export default function ConsultationPage() {
                             <option value="Family Therapy">Family Therapy</option>
                             <option value="Child and Youth Therapy">Child and Youth Therapy</option>
                             <option value="Not Sure">Not Sure</option>
-                          </select>
-                        </Field>
-                        <Field id="preferred-therapist" label="Preferred Therapist (optional)">
-                          <select id="preferred-therapist" value={data.preferredTherapist} onChange={(event) => set("preferredTherapist", event.target.value)} className={`${inputClass} cursor-pointer appearance-none`}>
-                            <option value="">No preference — help me choose</option>
-                            <option value="ryann-simpson">Ryann Simpson</option>
-                            <option value="wilfred-bengnwi">Wilfred Bengnwi</option>
-                            <option value="meryem-ibrahim">Meryem Ibrahim</option>
-                            <option value="tim-kahtava">Tim Kahtava</option>
-                            <option value="dayong-quan">Dayong Quan</option>
                           </select>
                         </Field>
                         <Field id="additional-info" label="Anything else you'd like us to know? (optional)">

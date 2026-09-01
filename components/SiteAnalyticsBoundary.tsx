@@ -59,7 +59,7 @@ export default function SiteAnalyticsBoundary() {
       // are removed before tags render, and raw click IDs never enter either
       // the regular or Google Ads journey event payload.
       captureCampaignTermAndStripFromUrl();
-    } else if (pathname.startsWith("/lp/")) {
+    } else if (pathname.startsWith("/lp/") || pathname === "/welcome") {
       // This runs before the state update that permits GTM/Ads to render.
       captureCampaignTermAndStripFromUrl();
     }

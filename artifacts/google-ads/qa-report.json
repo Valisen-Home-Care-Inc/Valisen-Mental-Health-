@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-09-01T04:04:57.184Z",
+  "origin": "http://localhost:3001",
+  "negativeTraffic": {
+    "directGoogleLikeRequests": 0,
+    "metaRequests": 0,
+    "metaClearedPriorAdsSession": true,
+    "directThankYouRedirected": true
+  },
+  "signedJourney": {
+    "landingPath": "/welcome",
+    "visibleSearch": "?utm_source=google&utm_medium=cpc&utm_campaign=qa_campaign&utm_content=adgroup_3-creative_7",
+    "trackedBatches": 5,
+    "continuedAcrossNavigation": true,
+    "screenshot": "same-domain-ads-landing.png"
+  },
+  "thankYou": {
+    "temporaryFailureRetries": 3,
+    "conversionEventsAfterRecovery": 1,
+    "refreshConversionEvents": 0,
+    "contextBeforeConversion": true,
+    "screenshot": "same-domain-thank-you.png"
+  }
+}

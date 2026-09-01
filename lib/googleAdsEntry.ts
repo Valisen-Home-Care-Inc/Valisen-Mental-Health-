@@ -85,9 +85,7 @@ export function googleAdsValueTrackAttributionFromSearch(
     ? undefined
     : safeGoogleAdsValueTrackText(campaign.content, 60);
   const keyword = safeGoogleAdsValueTrackText(
-    params.get("vmh_keyword") ||
-      params.get("keyword") ||
-      params.get("utm_term"),
+    params.get("vmh_keyword") || params.get("keyword"),
     80,
   );
   return {
@@ -219,8 +217,7 @@ export function googleAdsJourneySearch(search: string): string {
     GOOGLE_ADS_VALUE_TRACK_QUERY_KEYS.some((key) => params.has(key)) ||
     params.has("campaignid") ||
     params.has("adgroupid") ||
-    params.has("keyword") ||
-    params.has("utm_term");
+    params.has("keyword");
   if (hasValueTrackInput) {
     const encoded = encodeGoogleAdsValueTrackAttribution(valueTrack);
     if (encoded) output.set("utm_content", encoded);

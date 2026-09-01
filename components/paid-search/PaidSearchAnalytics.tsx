@@ -1,33 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  trackFunnelViewOnce,
-  type PaidSearchFunnelPage,
-} from "@/lib/analytics";
+import { trackFunnelViewOnce } from "@/lib/analytics";
 import {
   captureCampaignAttribution,
   captureGoogleAdsClickAttribution,
 } from "@/lib/campaignAttribution";
 
-type PaidSearchLandingPath =
-  | "/lp/anxiety-therapy"
-  | "/lp/depression-therapy"
-  | "/lp/couples-therapy";
-
-const FIRST_PARTY_PAGE_BY_PATH = {
-  "/lp/anxiety-therapy": "paid_search_anxiety",
-  "/lp/depression-therapy": "paid_search_depression",
-  "/lp/couples-therapy": "paid_search_couples",
-} as const satisfies Record<PaidSearchLandingPath, PaidSearchFunnelPage>;
+type PaidSearchLandingPath = "/welcome";
 
 export default function PaidSearchAnalytics({
   landingPath,
 }: {
   landingPath: PaidSearchLandingPath;
 }) {
-  const firstPartyPage = FIRST_PARTY_PAGE_BY_PATH[landingPath];
-
   useEffect(() => {
     const attribution = captureCampaignAttribution(window.location.search);
     captureGoogleAdsClickAttribution(window.location.search);
@@ -45,7 +31,7 @@ export default function PaidSearchAnalytics({
     }
 
     const properties = {
-      page: firstPartyPage,
+      page: "paid_search_landing" as const,
       attribution,
       landingPageVariant: "paid" as const,
     };
@@ -90,7 +76,7 @@ export default function PaidSearchAnalytics({
     }
 
     return () => observer.disconnect();
-  }, [firstPartyPage, landingPath]);
+  }, [landingPath]);
 
   return null;
 }

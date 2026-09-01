@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import PaidSearchLandingPage from "@/components/paid-search/PaidSearchLandingPage";
 import { getPaidSearchLandingPage } from "@/lib/paidSearchLandingPages";
 
-const config = getPaidSearchLandingPage("anxiety-therapy");
-const canonical = "https://valisenmentalhealth.com/lp/anxiety-therapy";
+const config = getPaidSearchLandingPage();
+const canonical = "https://valisenmentalhealth.com/welcome";
 
 export const metadata: Metadata = {
   title: { absolute: config.title },
@@ -29,6 +29,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AnxietyTherapyLandingPage() {
-  return <PaidSearchLandingPage config={config} />;
+export default function WelcomeLandingPage() {
+  return <PaidSearchLandingPage config={config} landingPath="/welcome" />;
 }

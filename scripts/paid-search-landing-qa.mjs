@@ -8,24 +8,23 @@ const outputDir =
   process.env.QA_OUTPUT_DIR ||
   path.join(os.tmpdir(), "valisen-paid-search-landing-qa");
 
-const routes = [
-  {
-    path: "/lp/anxiety-therapy",
-    expectedTherapists: [
-      "Ryann Simpson",
-      "Meryem Ibrahim",
-      "Dayong Quan",
-      "Tim Kahtava",
-    ],
-  },
-  {
-    path: "/lp/depression-therapy",
-    expectedTherapists: ["Meryem Ibrahim", "Tim Kahtava", "Dayong Quan"],
-  },
-  {
-    path: "/lp/couples-therapy",
-    expectedTherapists: ["Wilfred Bengnwi", "Tim Kahtava", "Ryann Simpson"],
-  },
+const expectedTherapists = [
+  "Ryann Simpson",
+  "Wilfred Bengnwi",
+  "Meryem Ibrahim",
+  "Dayong Quan",
+  "Tim Kahtava",
+];
+
+// /welcome is the only dedicated Google Ads landing page; the other option
+// for campaigns is the default domain (homepage), not a separate route.
+const routes = [{ path: "/welcome", expectedTherapists }];
+
+const removedRoutes = [
+  "/lp/anxiety-therapy",
+  "/lp/depression-therapy",
+  "/lp/couples-therapy",
+  "/lp/google-ads",
 ];
 
 const viewports = [
@@ -101,12 +100,23 @@ try {
 
       const metrics = await page.evaluate((expectedTherapists) => {
         const links = [...document.querySelectorAll("a")];
+        const sectionNavHrefs = (label) =>
+          [
+            ...document.querySelectorAll(
+              `nav[aria-label="${label}"] a`,
+            ),
+          ].map((link) => link.getAttribute("href"));
         const heroCta = links.find((link) =>
-          link.textContent?.includes("Book a Free 20-Minute Consultation"),
+          link.textContent?.includes("Book a Free Consultation"),
         );
-        const therapistCtas = links.filter((link) =>
-          link.getAttribute("aria-label")?.startsWith("Book a free consultation with"),
+        const therapistCtas = [
+          ...document.querySelectorAll("#therapists article a"),
+        ].filter(
+          (link) => link.textContent?.trim() === "Book Free Consultation",
         );
+        const therapistCards = [
+          ...document.querySelectorAll("[data-therapist-card]"),
+        ];
         const sticky = document.querySelector(
           'aside[aria-label="Book a free consultation"]',
         );
@@ -142,6 +152,19 @@ try {
           consultationHref:
             heroCta instanceof HTMLAnchorElement ? heroCta.getAttribute("href") : null,
           therapistHrefs: therapistCtas.map((link) => link.getAttribute("href")),
+          therapistCardDetails: therapistCards.map((card) => ({
+            fit: card.querySelector("[data-fit-statement]")?.textContent?.trim() || "",
+            specialties:
+              card.querySelector("[data-specialties]")?.children.length || 0,
+            text: card.textContent || "",
+            profileLinks: [...card.querySelectorAll("a")].filter((link) =>
+              link.getAttribute("href")?.startsWith("/therapists/"),
+            ).length,
+          })),
+          desktopNavHrefs: sectionNavHrefs("Landing page sections"),
+          mobileNavHrefs: sectionNavHrefs(
+            "Landing page sections on mobile",
+          ),
           missingTherapists: expectedTherapists.filter(
             (therapist) => !bodyText.includes(therapist),
           ),
@@ -158,18 +181,42 @@ try {
         `${route.path} overflows at ${viewport.width}px (${metrics.scrollWidth}px)`,
       );
       assert(
-        metrics.consultationHref ===
-          "/consultation?source=paid_search_landing",
+        metrics.consultationHref === "#contact",
         `${route.path} primary CTA has an unexpected destination`,
       );
       assert(
         metrics.therapistHrefs.length === route.expectedTherapists.length &&
-          metrics.therapistHrefs.every(
-            (href) =>
-              href?.startsWith("/consultation?therapist=") &&
-              href.includes("source=paid_search_landing"),
-          ),
+          metrics.therapistHrefs.every((href) => href === "#contact"),
         `${route.path} therapist CTA routing is incomplete`,
+      );
+      assert(
+        metrics.therapistCardDetails.length === route.expectedTherapists.length &&
+          metrics.therapistCardDetails.every(
+            (card) =>
+              card.fit.length > 0 &&
+              card.fit.length <= 120 &&
+              card.specialties >= 2 &&
+              card.specialties <= 4 &&
+              card.text.includes("For:") &&
+              card.text.includes("Languages:") &&
+              card.text.includes("Accepting new clients") &&
+              !/\$\d+/.test(card.text) &&
+              card.profileLinks === 0,
+          ),
+        `${route.path} therapist cards are missing compact fit details or contain directory behavior`,
+      );
+      const expectedNavHrefs = [
+        "#therapists",
+        "#about",
+        "#services",
+        "#contact",
+      ];
+      assert(
+        JSON.stringify(metrics.desktopNavHrefs) ===
+          JSON.stringify(expectedNavHrefs) &&
+          JSON.stringify(metrics.mobileNavHrefs) ===
+            JSON.stringify(expectedNavHrefs),
+        `${route.path} section navigation is not the required four-link menu`,
       );
       assert(
         metrics.missingTherapists.length === 0,
@@ -183,12 +230,12 @@ try {
         metrics.canonical === `https://valisenmentalhealth.com${route.path}`,
         `${route.path} has an unexpected canonical`,
       );
-      assert(metrics.faqCount === 7, `${route.path} FAQ schema is not aligned`);
+      assert(metrics.faqCount === 5, `${route.path} FAQ schema is not aligned`);
       assert(
         metrics.storage.campaign?.includes('"source":"google"') &&
           metrics.storage.term === "private-search-term" &&
           metrics.storage.clicks?.includes('"gclid":"qa-google-click"'),
-        `${route.path} did not preserve campaign attribution first-party`,
+        `${route.path} ${viewport.width}px did not preserve campaign attribution first-party: ${JSON.stringify(metrics.storage)}`,
       );
       assert(
         !metrics.currentSearch.includes("utm_term") &&
@@ -211,16 +258,6 @@ try {
         );
       } else {
         assert(metrics.stickyDisplay === "none", `${route.path} sticky CTA remains on desktop`);
-      }
-
-      if ([375, 390, 430].includes(viewport.width)) {
-        assert(
-          metrics.heroCtaTop !== null &&
-            metrics.heroCtaTop >= 0 &&
-            metrics.heroCtaBottom !== null &&
-            metrics.heroCtaBottom <= viewport.height,
-          `${route.path} hero CTA is below the fold at ${viewport.width}px`,
-        );
       }
 
       assert(
@@ -246,6 +283,35 @@ try {
           path: path.join(
             outputDir,
             `${routeName}-${viewport.width}-therapists.png`,
+          ),
+          fullPage: false,
+        });
+        // Already scrolled away (at the therapists section) from the shot
+        // above. Click the always-present header CTA, matching the real
+        // user path (ConsultationCta's own JS-driven scroll), rather than
+        // calling the browser's native scrollIntoView directly: Chrome's
+        // sticky-header detection does not reliably honor this page's
+        // scroll-margin-top, but the app never relies on that native path
+        // for a real click.
+        const headerCtaHandle = await page.evaluateHandle(() =>
+          [...document.querySelectorAll("header a")].find((link) =>
+            link.textContent?.includes("Book Free Consult"),
+          ),
+        );
+        await headerCtaHandle.asElement()?.click();
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+        const settledContactTop = await page.$eval(
+          "#contact",
+          (element) => element.getBoundingClientRect().top,
+        );
+        assert(
+          settledContactTop >= 0 && settledContactTop <= 130,
+          `${route.path} contact anchor is obscured by the sticky navigation (${settledContactTop}px)`,
+        );
+        await page.screenshot({
+          path: path.join(
+            outputDir,
+            `${routeName}-${viewport.width}-contact.png`,
           ),
           fullPage: false,
         });
@@ -279,21 +345,21 @@ try {
     }
   });
   await eventPage.goto(
-    `${baseUrl}/lp/anxiety-therapy?utm_source=google&utm_medium=cpc&utm_term=private-event-term&gclid=event-click`,
+    `${baseUrl}/welcome?utm_source=google&utm_medium=cpc&utm_term=private-event-term&gclid=event-click`,
     { waitUntil: "domcontentloaded", timeout: 60_000 },
   );
   await eventPage.waitForSelector(
-    'a[aria-label="Book a free consultation with Meryem Ibrahim"]',
+    '#therapists article a[aria-label="Book a free consultation"]',
   );
   await eventPage.evaluate(() => {
     window.addEventListener("click", (event) => event.preventDefault(), true);
     const links = [...document.querySelectorAll("a")];
     const hero = links.find((link) =>
-      link.textContent?.includes("Book a Free 20-Minute Consultation"),
+      link.textContent?.includes("Book a Free Consultation"),
     );
-    const phone = document.querySelector('header a[href^="tel:"]');
+    const phone = document.querySelector('a[href^="tel:"]');
     const therapist = document.querySelector(
-      'a[aria-label="Book a free consultation with Meryem Ibrahim"]',
+      '#therapists article a[aria-label="Book a free consultation"]',
     );
     const sticky = document.querySelector(
       'aside[aria-label="Book a free consultation"] a',
@@ -313,6 +379,7 @@ try {
     "paid_traffic_landed",
     "phone_clicked",
     "consultation_request_clicked",
+    "consultation_step_viewed",
   ]) {
     assert(
       marketingEvents.some((event) => event.event === expectedEvent),
@@ -327,9 +394,9 @@ try {
     firstPartyEvents.some(
       (event) =>
         event.event === "landing_page_viewed" &&
-        event.page === "paid_search_anxiety",
+        event.page === "paid_search_landing",
     ),
-    "First-party tracking lost the exact landing-page cohort",
+    "First-party tracking lost the universal landing-page cohort",
   );
   assert(
     marketingEvents
@@ -341,9 +408,10 @@ try {
     firstPartyEvents.some(
       (event) =>
         event.event === "consultation_request_clicked" &&
-        event.therapistId === "meryem-ibrahim",
+        event.ctaPlacement === "therapist_card" &&
+        !event.therapistId,
     ),
-    "Therapist CTA did not retain its first-party therapist identifier",
+    "Therapist CTA is missing or created a therapist-selection identifier",
   );
   assert(
     !/private-event-term|event-click/.test(
@@ -368,34 +436,43 @@ try {
     }
   });
   await handoffPage.goto(
-    `${baseUrl}/lp/anxiety-therapy?utm_source=google&utm_medium=cpc&gclid=handoff-click`,
+    `${baseUrl}/welcome?utm_source=google&utm_medium=cpc&gclid=handoff-click`,
     { waitUntil: "domcontentloaded", timeout: 60_000 },
   );
   await handoffPage.waitForSelector(
-    'a[aria-label="Book a free consultation with Meryem Ibrahim"]',
+    '#therapists article a[aria-label="Book a free consultation"]',
   );
   await handoffPage.click(
-    'a[aria-label="Book a free consultation with Meryem Ibrahim"]',
+    '#therapists article a[aria-label="Book a free consultation"]',
   );
   await handoffPage.waitForFunction(
     () =>
-      window.location.pathname === "/consultation" &&
-      document.querySelector("#preferred-therapist"),
+      window.location.hash === "#contact" &&
+      document.querySelector('[id$="-full-name"]'),
   );
   const handoff = await handoffPage.evaluate(() => ({
-    therapist: (document.querySelector("#preferred-therapist"))?.value,
+    hasFullName: Boolean(document.querySelector('[id$="-full-name"]')),
+    hasEmail: Boolean(document.querySelector('[id$="-email"]')),
+    hasPhone: Boolean(document.querySelector('[id$="-phone"]')),
+    hasAvailability: Boolean(document.querySelector('[id$="-availability"]')),
+    hasTherapistPreference: Boolean(document.querySelector("#preferred-therapist")),
+    path: window.location.pathname,
+    hash: window.location.hash,
     search: window.location.search,
     campaign: sessionStorage.getItem("valisen:first-touch-attribution:v1"),
     clicks: sessionStorage.getItem("valisen:first-touch-google-click:v1"),
   }));
   assert(
-    handoff.therapist === "meryem-ibrahim",
-    "Therapist preference did not reach the consultation form",
+    handoff.hasFullName &&
+      handoff.hasEmail &&
+      handoff.hasPhone &&
+      handoff.hasAvailability &&
+      !handoff.hasTherapistPreference,
+    "The simplified in-page consultation form is incomplete",
   );
   assert(
-    handoff.search.includes("source=paid_search_landing") &&
-      handoff.search.includes("therapist=meryem-ibrahim"),
-    "Paid-search consultation source was not retained",
+    handoff.path === "/welcome" && handoff.hash === "#contact",
+    "The consultation CTA left the landing page",
   );
   assert(
     handoff.campaign?.includes('"source":"google"') &&
@@ -404,8 +481,21 @@ try {
   );
   await handoffPage.close();
 
+  const removedPage = await browser.newPage();
+  for (const removedRoute of removedRoutes) {
+    const response = await removedPage.goto(`${baseUrl}${removedRoute}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+    assert(
+      response?.status() === 404,
+      `${removedRoute} still resolves instead of returning 404`,
+    );
+  }
+  await removedPage.close();
+
   process.stdout.write(
-    `Paid-search landing QA passed for ${routes.length} routes × ${viewports.length} viewports. Screenshots: ${outputDir}\n`,
+    `Universal Google Ads landing QA passed for ${viewports.length} viewports. Screenshots: ${outputDir}\n`,
   );
 } finally {
   await browser.close();

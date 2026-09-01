@@ -156,10 +156,10 @@ describe("privacy-safe quiz analytics", () => {
 
 describe("privacy-safe acquisition funnel analytics", () => {
   it("keeps paid-search intent first-party while exposing only a neutral page to GTM", () => {
-    const dataLayer = installWindow(390, "/lp/anxiety-therapy");
+    const dataLayer = installWindow(390, "/lp/google-ads");
 
     trackFunnelEvent("landing_page_viewed", {
-      page: "paid_search_anxiety",
+      page: "paid_search_landing",
       landingPageVariant: "paid",
       attribution: { source: "google", medium: "cpc" },
     });
@@ -172,7 +172,7 @@ describe("privacy-safe acquisition funnel analytics", () => {
     ]);
     expect(recordFirstPartyFunnelEvent).toHaveBeenCalledWith(
       "landing_page_viewed",
-      expect.objectContaining({ page: "paid_search_anxiety" }),
+      expect.objectContaining({ page: "paid_search_landing" }),
     );
   });
 

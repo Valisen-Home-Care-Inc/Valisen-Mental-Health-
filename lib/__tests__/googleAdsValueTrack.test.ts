@@ -39,6 +39,15 @@ describe("Google Ads ValueTrack attribution", () => {
     });
   });
 
+  it("never treats a public utm_term as advertiser-controlled keyword data", () => {
+    const untrusted = `${input}&utm_term=private+search+query`;
+    const attribution = googleAdsValueTrackAttributionFromSearch(
+      "?utm_term=private+search+query",
+    );
+    expect(attribution.keyword).toBeUndefined();
+    expect(googleAdsJourneySearch(untrusted)).not.toContain("private");
+  });
+
   it("fits the existing signed content dimension and rejects malformed payloads", () => {
     const encoded = encodeGoogleAdsValueTrackAttribution({
       adGroupId: "7639334819",

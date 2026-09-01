@@ -30,7 +30,9 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("Google Ads journey boundaries", () => {
   it("uses fixed entry aliases and canonical closed paths", () => {
-    expect(googleAdsEntryTarget(["anxiety"])).toBe("/lp/anxiety-therapy");
+    expect(googleAdsEntryTarget(undefined)).toBe("/welcome");
+    expect(googleAdsEntryTarget(["anxiety"])).toBe("/welcome");
+    expect(googleAdsEntryTarget(["lp", "google-ads"])).toBeNull();
     expect(googleAdsEntryTarget(["therapists", "dayong-quan"])).toBe(
       "/therapists/dayong-quan",
     );
@@ -52,7 +54,7 @@ describe("Google Ads journey boundaries", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
-        "supabase/migrations/20260823000000_google_ads_journey.sql",
+        "supabase/migrations/20260830000000_universal_google_ads_landing.sql",
       ),
       "utf8",
     );
@@ -64,7 +66,7 @@ describe("Google Ads journey boundaries", () => {
   it("requires same-origin plus an untampered purpose-bound receipt", () => {
     const now = Date.now();
     const journey = createGoogleAdsJourney({
-      landingPath: "/lp/anxiety-therapy",
+      landingPath: "/welcome",
       search: "?utm_source=google&utm_medium=cpc&utm_campaign=anxiety&gclid=abcdef123",
       now,
     });

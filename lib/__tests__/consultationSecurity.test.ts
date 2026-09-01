@@ -102,7 +102,7 @@ function request(body: unknown, origin = "https://valisenmentalhealth.com") {
 
 function googleAdsProof() {
   const proof = createGoogleAdsJourney({
-    landingPath: "/lp/anxiety-therapy",
+    landingPath: "/welcome",
     search:
       "?utm_source=google&utm_medium=cpc&utm_campaign=trusted_campaign&utm_content=creative_7&gclid=abcdef123",
   });
@@ -227,6 +227,27 @@ describe("consultation submission boundary", () => {
 
     const invalid = await POST(request(payload({ phone: "call me" })));
     expect(invalid.status).toBe(400);
+  });
+
+  it("does not store a therapist preference when the landing-page form omits it", async () => {
+    const response = await POST(
+      request(
+        payload({
+          preferredTherapist: undefined,
+          source: "paid_search_landing",
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredTherapist: undefined }),
+    );
+    expect(flowMocks.sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining("Preferred therapist:     Not provided"),
+      }),
+    );
   });
 
   it("accepts only a strict non-PII checkpoint attribution object", async () => {
