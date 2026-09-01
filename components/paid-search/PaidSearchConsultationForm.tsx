@@ -24,6 +24,10 @@ import {
   shouldTrackConsultationSubmission,
   type ConsultationAvailability,
 } from "@/lib/consultation";
+import {
+  WELCOME_THANK_YOU_PATH,
+  stageWelcomeThankYou,
+} from "@/components/paid-search/thankYouHandoff";
 import { getFirstPartyFunnelSessionId } from "@/lib/funnelTracking";
 import {
   activeGoogleAdsSessionId,
@@ -362,25 +366,42 @@ export default function PaidSearchConsultationForm({
         }
       }
 
-      setSubmittedReference(reference);
-      if (
+      const canRetryConversion =
         googleAdsJourneyRef.current &&
-        googleAdsSessionIdRef.current &&
-        googleAdsJourneyTokenRef.current &&
-        confirmedConsultationReferenceIsValid(reference)
-      ) {
-        void retryGoogleAdsThankYouReceipt(
-          googleAdsSessionIdRef.current,
-          reference,
-          googleAdsJourneyTokenRef.current,
-        ).then((receipt) => {
-          const thankYouUrl = googleAdsThankYouUrl(receipt);
-          if (!thankYouUrl) return;
+        Boolean(googleAdsSessionIdRef.current) &&
+        Boolean(googleAdsJourneyTokenRef.current) &&
+        confirmedConsultationReferenceIsValid(reference);
+
+      // Anyone without a pending conversion receipt goes straight to the
+      // landing page's own thank-you screen. Ads journeys keep the inline
+      // state briefly so the signed receipt can still land and send them to
+      // /thank-you, which is what actually records the conversion.
+      if (!canRetryConversion) {
+        stageWelcomeThankYou(reference);
+        void flushGoogleAdsEvents(true);
+        window.location.assign(WELCOME_THANK_YOU_PATH);
+        return;
+      }
+
+      setSubmittedReference(reference);
+      void retryGoogleAdsThankYouReceipt(
+        googleAdsSessionIdRef.current as string,
+        reference,
+        googleAdsJourneyTokenRef.current as string,
+      ).then((receipt) => {
+        const thankYouUrl = googleAdsThankYouUrl(receipt);
+        if (thankYouUrl) {
           stageGoogleAdsInternalNavigation(thankYouUrl);
           void flushGoogleAdsEvents(true);
           window.location.replace(thankYouUrl);
-        });
-      }
+          return;
+        }
+        // The conversion receipt never arrived; still finish on a thank-you
+        // screen rather than leaving the visitor on the form.
+        stageWelcomeThankYou(reference);
+        void flushGoogleAdsEvents(true);
+        window.location.assign(WELCOME_THANK_YOU_PATH);
+      });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
       turnstileTokenRef.current = null;
