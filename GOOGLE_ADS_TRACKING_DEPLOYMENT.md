@@ -2,11 +2,11 @@
 
 ## What changed
 
-Google Ads no longer needs `ads.valisenmentalhealth.com` or separate campaign
-pages. Every ad group can use the normal homepage, `https://valisenmentalhealth.com`.
-When Google auto-tagging adds a valid `gclid`, `gbraid`, or `wbraid`, the homepage
-quietly passes through the same-domain signer and returns to the identical
-homepage with a signed, per-tab Google Ads journey.
+Google Ads no longer needs `ads.valisenmentalhealth.com`. Current ads use the
+dedicated landing page, `https://valisenmentalhealth.com/welcome`. When Google
+auto-tagging adds a valid `gclid`, `gbraid`, or `wbraid`, any approved final URL
+quietly passes through the same-domain signer and returns to that exact page
+with a signed, per-tab Google Ads journey.
 
 The visitor sees the same production pages and navigation as everyone else.
 Only a valid signed entry can write to the Google Ads CRM. Direct, organic,
@@ -28,17 +28,17 @@ arbitrary URLs in journey events.
 Untracked visual preview (this is the actual ad experience but does not create
 Ads CRM data without a Google click ID):
 
-- `http://localhost:3000/`
+- `http://localhost:3000/welcome`
 - `http://localhost:3000/admin/checkpoints/google-ads`
 
 Tracked local test, with `GOOGLE_ADS_CONVERSION_SECRET` configured locally:
 
-`http://localhost:3000/?gclid=local-test-123&utm_campaign=manual_test&utm_content=creative_1`
+`http://localhost:3000/welcome?gclid=local-test-123&utm_campaign=manual_test&utm_content=creative_1`
 
 Tracked production QA (each new Incognito window creates a fresh signed
 session):
 
-`https://valisenmentalhealth.com/?gclid=manual-test-20260823&utm_campaign=manual_test&utm_content=qa`
+`https://valisenmentalhealth.com/welcome?gclid=manual-test-20260901&utm_campaign=manual_test&utm_content=qa`
 
 Production CRM:
 
@@ -69,24 +69,24 @@ one-use signed conversion receipt.
    `supabase/migrations/20260823040000_google_ads_consultation_trigger_hotfix.sql`.
    "Success, no rows" is expected. Its transactional self-test verifies a
    complete manual Google Ads consultation save and rolls the test record back.
-6. Run the universal landing page migration:
-   `supabase/migrations/20260830000000_universal_google_ads_landing.sql`.
-   "Success, no rows" is expected. This adds `/welcome` to the closed
-   allowlist of trackable Google Ads paths. Without this step, journeys and
-   events on `/welcome` are rejected at the database level even though the
-   app code is deployed correctly — run it before testing tracking on the
-   new landing page.
-8. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+6. Run the latest welcome tracking hotfix in the Supabase SQL Editor:
+   `supabase/migrations/20260901000000_google_ads_welcome_tracking_hotfix.sql`.
+   "Success, no rows" is expected. It safely replaces the complete closed
+   path allowlist, so it works whether or not the earlier universal-landing
+   migration was run manually. Without this step, journeys and events on
+   `/welcome` are rejected at the database level even though the app code is
+   deployed correctly.
+7. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
    must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
    not put it in Supabase.
-9. Keep the existing Supabase URL/service-role credentials in Netlify; this
+8. Keep the existing Supabase URL/service-role credentials in Netlify; this
    change adds no new browser/public API key.
-10. Deploy the main Netlify site.
-11. Open the production QA URL in a fresh Incognito window, navigate to at least
+9. Deploy the main Netlify site.
+10. Open the production QA URL in a fresh Incognito window, navigate to at least
    two pages, and submit one real Turnstile-protected test consultation. In both
    the Google Ads and Consultations CRM sections, switch from **Live campaign**
    to **Test QA** and verify the journey and `VC-...` consultation there.
-12. After the main-domain test passes, remove the obsolete subdomain setup:
+11. After the main-domain test passes, remove the obsolete subdomain setup:
    remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
    GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
    allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host
@@ -103,11 +103,13 @@ records retain their summary under the clinic’s administrative retention rules
 
 Use this same final URL for every campaign and ad group:
 
-`https://valisenmentalhealth.com/google-ads`
+`https://valisenmentalhealth.com/welcome`
 
-This is the only campaign landing URL. Older `/google-ads/anxiety`,
-`/google-ads/depression`, and `/google-ads/couples` aliases all resolve to the
-same universal landing page for legacy safety and must not be assigned to new ads.
+The internal `/google-ads` routes remain diagnostic signer endpoints and must
+not be entered as the campaign Final URL. The app now signs direct auto-tagged
+clicks on `/welcome` before React loads. If approved final URLs are mixed in the
+future, each journey retains and displays the exact landing path separately in
+the CRM.
 
 Keep Google Ads auto-tagging on. To label CRM sessions with the exact Google Ads
 ad-group ID and the matched keyword, set this **Final URL suffix** at the account
@@ -127,7 +129,7 @@ each ad group. Current examples are:
   `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=General-Online-Therapy&vmh_keyword={keyword}`
 
 Use the same pattern for future ad groups, changing only the `vmh_adgroup`
-label. Every ad must use `https://valisenmentalhealth.com/google-ads` as its Final URL.
+label. Current ads should use `https://valisenmentalhealth.com/welcome` as their Final URL.
 Older visits cannot be retroactively assigned a keyword and will say **Not
 captured** in the CRM. `{keyword}` is the account keyword that matched the ad;
 Google can leave it empty for campaign types that do not use keywords.

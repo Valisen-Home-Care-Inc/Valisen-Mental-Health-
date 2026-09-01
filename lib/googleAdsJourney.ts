@@ -89,6 +89,7 @@ export type GoogleAdsFormFieldId =
 
 const EXTRA_GOOGLE_ADS_PATHS = [
   "/welcome",
+  "/welcome/thank-you",
   "/thank-you",
 ] as const;
 
@@ -98,21 +99,32 @@ export const GOOGLE_ADS_TRACKED_PATHS = [
 ] as const;
 
 const GOOGLE_ADS_TRACKED_PATH_SET = new Set<string>(GOOGLE_ADS_TRACKED_PATHS);
+const GOOGLE_ADS_NON_ENTRY_PATHS = new Set<string>([
+  "/sitewide",
+  "/thank-you",
+  "/welcome/thank-you",
+  "/consultation",
+  "/book-consultation",
+  "/get-matched",
+  "/intake",
+  "/quiz",
+]);
+
+/**
+ * Public final-URL paths that may enter the signed Ads boundary directly.
+ * Keeping this list derived from the closed journey allowlist lets campaigns
+ * safely mix approved landing pages without turning the signer into an open
+ * redirect.
+ */
+export const GOOGLE_ADS_DIRECT_ENTRY_PATHS = GOOGLE_ADS_TRACKED_PATHS.filter(
+  (path) => !GOOGLE_ADS_NON_ENTRY_PATHS.has(path),
+);
+
 const GOOGLE_ADS_ENTRY_TARGET_SET = new Set<string>(
-  GOOGLE_ADS_TRACKED_PATHS.filter(
-    (path) =>
-      ![
-        "/sitewide",
-        "/thank-you",
-        "/consultation",
-        "/book-consultation",
-        "/get-matched",
-        "/intake",
-        "/quiz",
-      ].includes(path),
-  ),
+  GOOGLE_ADS_DIRECT_ENTRY_PATHS,
 );
 const GOOGLE_ADS_ENTRY_ALIASES: Readonly<Record<string, string>> = {
+  home: "/",
   general: "/welcome",
   anxiety: "/welcome",
   depression: "/welcome",

@@ -1,10 +1,28 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import {
   GOOGLE_ADS_HOMEPAGE_ENTRY_BOOTSTRAP,
+  googleAdsDirectEntryPath,
   googleAdsHomepageEntryPath,
 } from "@/lib/googleAdsHomepageEntry";
+
+function runDirectEntryBootstrap(href: string): string[] {
+  const replacements: string[] = [];
+  const window = {
+    location: {
+      href,
+      replace: (value: string) => replacements.push(value),
+    },
+  };
+  runInNewContext(GOOGLE_ADS_HOMEPAGE_ENTRY_BOOTSTRAP, {
+    URL,
+    URLSearchParams,
+    window,
+  });
+  return replacements;
+}
 
 describe("Google Ads homepage entry", () => {
   it("bridges a real click through the signed general entry", () => {
@@ -15,8 +33,43 @@ describe("Google Ads homepage entry", () => {
         utm_content: "creative_7",
       }),
     ).toBe(
-      "/google-ads?gclid=Abcdef_123&utm_campaign=campaign_42&utm_content=creative_7",
+      "/google-ads/home?gclid=Abcdef_123&utm_campaign=campaign_42&utm_content=creative_7",
     );
+  });
+
+  it("bridges the live /welcome final URL through its matching signed entry", () => {
+    expect(
+      googleAdsDirectEntryPath("/welcome", {
+        gclid: "Abcdef_123",
+        vmh_campaignid: "18124413697",
+        vmh_adgroupid: "7639334819",
+        vmh_keyword: "online therapy ontario",
+      }),
+    ).toBe(
+      "/google-ads/welcome?gclid=Abcdef_123&vmh_campaignid=18124413697&vmh_adgroupid=7639334819&vmh_keyword=online+therapy+ontario",
+    );
+
+    expect(
+      runDirectEntryBootstrap(
+        "https://valisenmentalhealth.com/welcome?gclid=Abcdef_123&vmh_campaignid=18124413697&vmh_adgroupid=7639334819&vmh_keyword=online%20therapy%20ontario",
+      ),
+    ).toEqual([
+      "/google-ads/welcome?gclid=Abcdef_123&vmh_campaignid=18124413697&vmh_adgroupid=7639334819&vmh_keyword=online+therapy+ontario",
+    ]);
+  });
+
+  it("supports approved future final URLs without opening arbitrary redirects", () => {
+    expect(
+      googleAdsDirectEntryPath("/therapists", { gclid: "Abcdef_123" }),
+    ).toBe("/google-ads/therapists?gclid=Abcdef_123");
+    expect(
+      googleAdsDirectEntryPath("/admin", { gclid: "Abcdef_123" }),
+    ).toBeNull();
+    expect(
+      runDirectEntryBootstrap(
+        "https://valisenmentalhealth.com/admin?gclid=Abcdef_123",
+      ),
+    ).toEqual([]);
   });
 
   it("leaves ordinary, Meta and UTM-only homepage traffic alone", () => {
@@ -64,7 +117,7 @@ describe("Google Ads homepage entry", () => {
       layout.indexOf("google-ads-entry-bootstrap"),
     );
     expect(GOOGLE_ADS_HOMEPAGE_ENTRY_BOOTSTRAP).toContain(
-      'window.location.replace("/google-ads?"',
+      '"/google-ads"+landing',
     );
   });
 });

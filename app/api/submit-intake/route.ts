@@ -61,7 +61,6 @@ import { prepareGoogleAdsConsultationConversion } from "@/lib/server/googleAdsCo
 import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 
 export const runtime = "nodejs";
-export { recordCheckpointAttribution } from "@/lib/server/checkpointAttributionRepair";
 
 const CLINIC_EMAIL = "info@valisenmentalhealth.com";
 const MAX_BODY_BYTES = 24_000;

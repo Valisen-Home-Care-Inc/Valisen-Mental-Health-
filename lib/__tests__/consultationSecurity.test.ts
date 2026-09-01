@@ -48,15 +48,15 @@ vi.mock("nodemailer", () => ({
   },
 }));
 
-import {
-  POST,
-  recordCheckpointAttribution,
-} from "@/app/api/submit-intake/route";
+import { POST } from "@/app/api/submit-intake/route";
 import {
   markSubmissionCompleted,
   resetRateLimitState,
 } from "@/lib/server/rateLimit";
-import { verifyCheckpointAttributionRepairToken } from "@/lib/server/checkpointAttributionRepair";
+import {
+  recordCheckpointAttribution,
+  verifyCheckpointAttributionRepairToken,
+} from "@/lib/server/checkpointAttributionRepair";
 import { createGoogleAdsJourney } from "@/lib/server/googleAdsJourneySession";
 
 const consentLanguage =

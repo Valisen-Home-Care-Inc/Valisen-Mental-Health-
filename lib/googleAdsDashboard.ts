@@ -177,6 +177,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/consultation": "Free consultation",
   "/thank-you": "Consultation thank-you",
   "/welcome": "Dedicated landing page (/welcome)",
+  "/welcome/thank-you": "Landing-page request confirmation",
   "/sitewide": "Other tracked page",
 };
 
@@ -238,6 +239,7 @@ const SECTION_LABELS: Record<string, readonly string[]> = {
   ],
   "/quiz": ["Private therapist finder quiz"],
   "/thank-you": ["Consultation request received"],
+  "/welcome/thank-you": ["Consultation request received"],
   "/privacy-policy": ["Privacy policy"],
   "/terms": ["Terms of use"],
   "/resources/five-signs-of-perfectionism": [

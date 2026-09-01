@@ -125,24 +125,43 @@ const browser = await puppeteer.launch({ headless: true });
 const report = {
   checkedAt: new Date().toISOString(),
   origin,
+  directFinalUrl: {},
   negativeTraffic: {},
   signedJourney: {},
   thankYou: {},
 };
 
 try {
-  process.stdout.write("Checking direct Google-like traffic isolation\n");
+  process.stdout.write("Checking direct /welcome Google Ads entry\n");
   const direct = await preparePage(browser);
   await goto(
     direct.page,
-    `${origin}/welcome?utm_source=google&utm_medium=cpc&gclid=direct-google-click`,
+    `${origin}/welcome?gclid=direct-google-click&vmh_campaignid=18124413697&vmh_adgroupid=7639334819&vmh_keyword=online%20therapy%20ontario`,
+  );
+  const directLanding = await direct.page.evaluate(() => ({
+    pathname: window.location.pathname,
+    proof: sessionStorage.getItem("valisen:google-ads-journey-proof:v1"),
+  }));
+  assert(
+    directLanding.pathname === "/welcome" &&
+      directLanding.proof?.startsWith("v1."),
+    "A real click on the /welcome Final URL did not receive a signed journey",
   );
   assert(
-    direct.googleEventRequests.length === 0,
-    "A direct Google-like landing URL entered the isolated Google Ads CRM",
+    direct.entryResponses.some(
+      (response) => response.status === 302 && response.path === "/google-ads/welcome",
+    ),
+    "The /welcome click did not pass through its same-path signer",
   );
-  report.negativeTraffic.directGoogleLikeRequests =
-    direct.googleEventRequests.length;
+  assert(
+    direct.googleEventRequests.length > 0,
+    "The signed direct /welcome journey did not emit CRM events",
+  );
+  report.directFinalUrl = {
+    landingPath: directLanding.pathname,
+    signed: true,
+    trackedBatches: direct.googleEventRequests.length,
+  };
   await direct.page.close();
 
   process.stdout.write("Checking Meta traffic isolation\n");

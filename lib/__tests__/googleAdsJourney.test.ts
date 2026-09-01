@@ -31,6 +31,9 @@ afterEach(() => vi.unstubAllEnvs());
 describe("Google Ads journey boundaries", () => {
   it("uses fixed entry aliases and canonical closed paths", () => {
     expect(googleAdsEntryTarget(undefined)).toBe("/welcome");
+    expect(googleAdsEntryTarget(["home"])).toBe("/");
+    expect(googleAdsEntryTarget(["welcome"])).toBe("/welcome");
+    expect(googleAdsEntryTarget(["welcome", "thank-you"])).toBeNull();
     expect(googleAdsEntryTarget(["anxiety"])).toBe("/welcome");
     expect(googleAdsEntryTarget(["lp", "google-ads"])).toBeNull();
     expect(googleAdsEntryTarget(["therapists", "dayong-quan"])).toBe(
@@ -54,7 +57,7 @@ describe("Google Ads journey boundaries", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
-        "supabase/migrations/20260830000000_universal_google_ads_landing.sql",
+        "supabase/migrations/20260901000000_google_ads_welcome_tracking_hotfix.sql",
       ),
       "utf8",
     );

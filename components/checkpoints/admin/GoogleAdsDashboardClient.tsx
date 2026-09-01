@@ -110,6 +110,10 @@ function adGroupValue(attribution: {
     (attribution.adGroupId ? `Ad group ${attribution.adGroupId}` : "Not captured");
 }
 
+function finalUrlLabel(pathname: string): string {
+  return `valisenmentalhealth.com${pathname === "/" ? "/" : pathname}`;
+}
+
 function fieldLabel(value: string): string {
   const labels: Record<string, string> = {
     "first-name": "First-name field",
@@ -721,8 +725,8 @@ function PageTable({ pages }: { pages: GoogleAdsPageMetric[] }) {
     <article className="overflow-hidden rounded-[20px] border border-black/[0.065] bg-white shadow-[0_8px_35px_rgba(25,47,43,0.05)]">
       <SectionHeading
         eyebrow="Content performance"
-        title="Pages and active time"
-        detail="See which page paths hold attention and produce consultation intent."
+        title="Pages, final URLs, and active time"
+        detail="Landing paths remain separate, so different Google Ads final URLs can be compared without mixing their results."
         icon={Route}
       />
       {pages.length ? (
@@ -951,6 +955,12 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
           <span className="mt-0.5 block font-mono text-[9.5px] text-[#8b9693]">
             {shortSessionId(session.sessionId)}
           </span>
+          <span
+            className="mt-1 block truncate text-[9px] font-semibold text-[#5d7772]"
+            title={`https://${finalUrlLabel(session.landingPath)}`}
+          >
+            Final URL · {finalUrlLabel(session.landingPath)}
+          </span>
         </div>
         <div className="min-w-0">
           <span className="block truncate text-[11px] font-medium text-[#4b5a57]" title={campaign}>
@@ -993,7 +1003,11 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
       </summary>
       <div className="border-t border-black/[0.055] bg-[#f8faf8] px-5 py-5 sm:px-6">
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <JourneyFact label="Landing page" value={googleAdsPageLabel(session.landingPath)} detail={session.landingPath} />
+          <JourneyFact
+            label="Google Ads final URL"
+            value={finalUrlLabel(session.landingPath)}
+            detail={googleAdsPageLabel(session.landingPath)}
+          />
           <JourneyFact label="Latest page" value={googleAdsPageLabel(session.lastPath)} detail={session.lastPath} />
           <JourneyFact label="Campaign" value={campaign} />
           <JourneyFact
