@@ -9,7 +9,14 @@ import {
   googleAdsClickAttributionFromSearch,
   type CampaignAttribution,
 } from "@/lib/campaignAttribution";
-import { safeGoogleAdsCampaignIdentifier } from "@/lib/googleAdsEntry";
+import {
+  GOOGLE_ADS_CLICK_ATTRIBUTION_MAX_LENGTH,
+  decodeGoogleAdsClickAttribution,
+  encodeGoogleAdsClickAttribution,
+  hasGoogleAdsClickSignal,
+  safeGoogleAdsCampaignIdentifier,
+  type GoogleAdsValueTrackAttribution,
+} from "@/lib/googleAdsEntry";
 
 export const GOOGLE_ADS_JOURNEY_TTL_SECONDS =
   GOOGLE_ADS_JOURNEY_MAX_AGE_MS / 1_000;
@@ -31,6 +38,8 @@ type JourneyPayload = {
   source?: string;
   started: number;
   sub: typeof TOKEN_SUBJECT;
+  /** Signed, compact click attribution (campaign, ad group, keyword, ...). */
+  vt?: string;
 };
 
 export type VerifiedGoogleAdsJourney = {
@@ -40,6 +49,7 @@ export type VerifiedGoogleAdsJourney = {
   landingPath: string;
   sessionId: string;
   startedAt: string;
+  valueTrack?: GoogleAdsValueTrackAttribution;
 };
 
 function usableSecret(secret: string | undefined): secret is string {
@@ -88,6 +98,7 @@ function canonicalPayload(payload: JourneyPayload): JourneyPayload {
     ...(payload.source ? { source: payload.source } : {}),
     started: payload.started,
     sub: TOKEN_SUBJECT,
+    ...(payload.vt ? { vt: payload.vt } : {}),
   };
 }
 
@@ -95,6 +106,7 @@ export function createGoogleAdsJourney(input: {
   landingPath: string;
   search: string;
   now?: number;
+  valueTrack?: GoogleAdsValueTrackAttribution;
 }): { claim: VerifiedGoogleAdsJourney; token: string } | null {
   const secret = process.env.GOOGLE_ADS_CONVERSION_SECRET;
   const now = input.now ?? Date.now();
@@ -102,29 +114,42 @@ export function createGoogleAdsJourney(input: {
   const landing = canonicalizeGoogleAdsPath(input.landingPath);
   if (!usableSecret(secret) || landing === "/sitewide") return null;
 
-  const attribution = campaignAttributionFromSearch(input.search);
+  const rawAttribution = campaignAttributionFromSearch(input.search);
   const googleClickIdPresent =
     Object.keys(googleAdsClickAttributionFromSearch(input.search)).length > 0;
   const sessionId = `gas-${randomUUID()}`;
+  const encodedValueTrack = input.valueTrack
+    ? encodeGoogleAdsClickAttribution(input.valueTrack)
+    : undefined;
   const payload = canonicalPayload({
-    campaign: cleanDimension(attribution.campaign),
+    campaign: cleanDimension(rawAttribution.campaign),
     click: googleClickIdPresent,
-    content: cleanDimension(attribution.content),
+    content: cleanDimension(rawAttribution.content),
     exp: issued + GOOGLE_ADS_JOURNEY_TTL_SECONDS,
     iat: issued,
     landing,
-    medium: cleanDimension(attribution.medium),
+    medium: cleanDimension(rawAttribution.medium),
     nonce: randomBytes(16).toString("base64url"),
     session: sessionId,
-    source: cleanDimension(attribution.source),
+    source: cleanDimension(rawAttribution.source),
     started: issued,
     sub: TOKEN_SUBJECT,
+    vt: encodedValueTrack,
   });
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString(
     "base64url",
   );
   const unsigned = `${TOKEN_VERSION}.${encoded}`;
   const token = `${unsigned}.${signature(unsigned, secret).toString("base64url")}`;
+  // The claim mirrors exactly what verification will later return, so a
+  // server-side seed and the first event batch always carry identical values.
+  const attribution: CampaignAttribution = {
+    ...(payload.source ? { source: payload.source } : {}),
+    ...(payload.medium ? { medium: payload.medium } : {}),
+    ...(payload.campaign ? { campaign: payload.campaign } : {}),
+    ...(payload.content ? { content: payload.content } : {}),
+  };
+  const valueTrack = decodeGoogleAdsClickAttribution(encodedValueTrack) ?? undefined;
   return {
     claim: {
       attribution,
@@ -133,6 +158,7 @@ export function createGoogleAdsJourney(input: {
       landingPath: landing,
       sessionId,
       startedAt: new Date(issued * 1_000).toISOString(),
+      ...(valueTrack ? { valueTrack } : {}),
     },
     token,
   };
@@ -172,6 +198,7 @@ export function verifyGoogleAdsJourneyToken(
       "source",
       "started",
       "sub",
+      "vt",
     ]);
     if (Object.keys(raw).some((key) => !allowed.has(key))) return null;
     if (
@@ -184,7 +211,10 @@ export function verifyGoogleAdsJourneyToken(
       !decodeCanonical(raw.nonce, 16, 16) ||
       !googleAdsSessionIdIsValid(raw.session) ||
       typeof raw.landing !== "string" ||
-      canonicalizeGoogleAdsPath(raw.landing) !== raw.landing
+      canonicalizeGoogleAdsPath(raw.landing) !== raw.landing ||
+      (raw.vt !== undefined &&
+        (typeof raw.vt !== "string" ||
+          raw.vt.length > GOOGLE_ADS_CLICK_ATTRIBUTION_MAX_LENGTH))
     ) {
       return null;
     }
@@ -206,6 +236,7 @@ export function verifyGoogleAdsJourneyToken(
       campaign: cleanDimension(raw.campaign),
       content: cleanDimension(raw.content),
     };
+    const valueTrack = decodeGoogleAdsClickAttribution(raw.vt) ?? undefined;
     return {
       attribution,
       expiresAt: expires * 1_000,
@@ -213,6 +244,7 @@ export function verifyGoogleAdsJourneyToken(
       landingPath: raw.landing,
       sessionId: raw.session,
       startedAt: new Date(started * 1_000).toISOString(),
+      ...(valueTrack ? { valueTrack } : {}),
     };
   } catch {
     return null;
@@ -220,9 +252,7 @@ export function verifyGoogleAdsJourneyToken(
 }
 
 export function hasQualifiedGoogleAdsEntry(search: string): boolean {
-  if (Object.keys(googleAdsClickAttributionFromSearch(search)).length > 0) {
-    return true;
-  }
+  if (hasGoogleAdsClickSignal(search)) return true;
   const attribution = campaignAttributionFromSearch(search);
   const source = attribution.source?.trim().toLowerCase();
   const medium = attribution.medium

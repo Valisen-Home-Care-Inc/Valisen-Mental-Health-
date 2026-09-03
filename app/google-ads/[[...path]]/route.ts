@@ -8,6 +8,7 @@ import {
 import {
   googleAdsJourneySearch,
   googleAdsLandingSearch,
+  googleAdsValueTrackAttributionFromSearch,
 } from "@/lib/googleAdsEntry";
 import {
   GOOGLE_ADS_CLICK_KEYS,
@@ -18,6 +19,7 @@ import {
   hasQualifiedGoogleAdsEntry,
 } from "@/lib/server/googleAdsJourneySession";
 import { googleAdsEntryOrigin } from "@/lib/server/googleAdsOrigin";
+import { seedGoogleAdsSession } from "@/lib/server/googleAdsRepository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,9 +66,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const destination = new URL(`${landingPath}${safeSearch}`, publicEntry.origin);
   if (qualified) {
     const journeySearch = googleAdsJourneySearch(request.nextUrl.search);
+    const valueTrack = googleAdsValueTrackAttributionFromSearch(
+      request.nextUrl.search,
+    );
     const journey = createGoogleAdsJourney({
       landingPath,
       search: journeySearch,
+      valueTrack,
     });
     if (journey) {
       const fragment = new URLSearchParams({
@@ -80,6 +86,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
         }
       }
       destination.hash = fragment.toString();
+
+      // Count the click the moment it is signed. A visitor who leaves before
+      // the page's JavaScript runs is still an ad session in the CRM. This is
+      // best-effort: the first event batch seeds the same row if it fails.
+      try {
+        await seedGoogleAdsSession({
+          sessionId: journey.claim.sessionId,
+          startedAt: journey.claim.startedAt,
+          landingPath: journey.claim.landingPath,
+          attribution: journey.claim.attribution,
+          googleClickIdPresent: journey.claim.googleClickIdPresent,
+          valueTrack: journey.claim.valueTrack,
+        });
+      } catch (error) {
+        console.warn(
+          "google-ads-entry: session seed deferred to first event batch",
+          error instanceof Error ? error.name : "unknown",
+        );
+      }
     }
   } else if (!isCrawler) {
     destination.hash = new URLSearchParams({

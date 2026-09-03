@@ -53,7 +53,10 @@ async function preparePage(browser, confirmationStatuses = []) {
   await page.setRequestInterception(true);
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (url.pathname === "/api/google-ads/events") {
+    if (
+      url.pathname === "/api/google-ads/events" ||
+      url.pathname === "/api/journey/steps"
+    ) {
       googleEventRequests.push({
         body: request.postData() || "",
         url: request.url(),

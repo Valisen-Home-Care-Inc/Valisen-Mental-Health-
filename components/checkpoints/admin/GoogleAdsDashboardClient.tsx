@@ -3,12 +3,14 @@
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   ArrowUpRight,
   BarChart3,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
   Clock3,
+  Download,
   ExternalLink,
   FileText,
   Flag,
@@ -25,18 +27,27 @@ import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReporting
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
 import {
+  googleAdsCampaignLabel,
   googleAdsEventLabel,
+  googleAdsMatchTypeLabel,
+  googleAdsNetworkLabel,
   googleAdsPageLabel,
   googleAdsSectionReference,
   normalizeGoogleAdsDashboard,
   type GoogleAdsActionMetric,
   type GoogleAdsCampaignMetric,
+  type GoogleAdsClickAttribution,
   type GoogleAdsDashboardData,
   type GoogleAdsJourneyEvent,
   type GoogleAdsJourneySummary,
   type GoogleAdsPageMetric,
   type GoogleAdsSectionMetric,
 } from "@/lib/googleAdsDashboard";
+import {
+  buildGoogleAdsSummaryCsv,
+  googleAdsExportFilename,
+  type GoogleAdsExportKind,
+} from "@/lib/googleAdsExport";
 
 const RANGE_OPTIONS: Array<{
   value: Exclude<CheckpointDatePreset, "custom">;
@@ -50,6 +61,28 @@ const RANGE_OPTIONS: Array<{
 ];
 
 type DashboardScope = "live" | "test";
+
+const EXPORT_MENU_ITEMS: ReadonlyArray<{
+  key: GoogleAdsExportKind | "summary";
+  label: string;
+  detail: string;
+}> = [
+  {
+    key: "journeys",
+    label: "Journeys (CSV)",
+    detail: "One row per ad session: campaign, ad group, keyword, timing, outcome",
+  },
+  {
+    key: "events",
+    label: "Event timeline (CSV)",
+    detail: "Every recorded page, section, click, and form event",
+  },
+  {
+    key: "summary",
+    label: "Dashboard summary (CSV)",
+    detail: "The metrics and tables currently on screen",
+  },
+];
 
 function formatDate(value?: string, withTime = false): string {
   if (!value) return "—";
@@ -110,6 +143,42 @@ function adGroupValue(attribution: {
     (attribution.adGroupId ? `Ad group ${attribution.adGroupId}` : "Not captured");
 }
 
+function campaignValue(attribution: GoogleAdsClickAttribution): string {
+  return readableAdGroupName(googleAdsCampaignLabel(attribution)) || "Campaign not set";
+}
+
+function keywordDetail(attribution: {
+  keyword?: string;
+  matchType?: GoogleAdsClickAttribution["matchType"];
+  network?: GoogleAdsClickAttribution["network"];
+}): string {
+  if (!attribution.keyword) return "Unavailable for this visit";
+  return [
+    googleAdsMatchTypeLabel(attribution.matchType) || "Matched account keyword",
+    googleAdsNetworkLabel(attribution.network),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function suffixHint(attribution: GoogleAdsClickAttribution): string | null {
+  if (attribution.suffixReceived) return null;
+  return attribution.googleClickIdPresent
+    ? "Google click arrived without the final URL suffix — add it in Google Ads to capture ad group and keyword"
+    : "No Google Ads suffix data for this visit";
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function finalUrlLabel(pathname: string): string {
   return `valisenmentalhealth.com${pathname === "/" ? "/" : pathname}`;
 }
@@ -137,7 +206,9 @@ function kpiCards(data: GoogleAdsDashboardData) {
     {
       label: "Ad sessions",
       value: formatCount(kpis.sessions),
-      note: "Only verified Google ad clicks",
+      note: kpis.sessionsWithoutEvents
+        ? `${formatCount(kpis.sessionsWithoutEvents)} left before the page loaded`
+        : "Only verified Google ad clicks",
       icon: Users,
     },
     {
@@ -357,6 +428,13 @@ export default function GoogleAdsDashboardClient({
             Preview shared homepage
             <ExternalLink size={14} aria-hidden="true" />
           </a>
+          <ExportMenu
+            data={data}
+            range={range}
+            scope={scope}
+            customFrom={customFrom}
+            customTo={customTo}
+          />
           <button
             type="button"
             onClick={() => void loadData()}
@@ -444,6 +522,25 @@ export default function GoogleAdsDashboardClient({
 
       {data ? (
         <>
+          {scope === "live" && data.kpis.sessions > 0 && data.kpis.attributedSessions === 0 ? (
+            <section
+              role="status"
+              className="mt-5 flex gap-3 rounded-[16px] border border-[#e6cdbf] bg-[#fff8f3] px-5 py-4 text-[#7c4a2f] shadow-sm"
+            >
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <div>
+                <p className="text-[12px] font-semibold">
+                  Campaign, ad group, and keyword are not arriving from Google Ads
+                </p>
+                <p className="mt-1 text-[11px] leading-5">
+                  Google clicks are being counted, but none in this range carried the
+                  Google Ads <strong>final URL suffix</strong>. Apply the suffix from the
+                  tracking guide at the campaign or ad-group level; new clicks will then show
+                  the campaign name, ad group, matched keyword, and match type here.
+                </p>
+              </div>
+            </section>
+          ) : null}
           <section
             aria-label="Google Ads key performance indicators"
             className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8"
@@ -556,6 +653,145 @@ export default function GoogleAdsDashboardClient({
   );
 }
 
+function ExportMenu({
+  data,
+  range,
+  scope,
+  customFrom,
+  customTo,
+}: {
+  data: GoogleAdsDashboardData | null;
+  range: CheckpointDatePreset;
+  scope: DashboardScope;
+  customFrom: string;
+  customTo: string;
+}) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [busy, setBusy] = useState<GoogleAdsExportKind | "summary" | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const rangeReady = range !== "custom" || (Boolean(customFrom) && Boolean(customTo));
+
+  function closeMenu() {
+    detailsRef.current?.removeAttribute("open");
+  }
+
+  async function exportFromServer(kind: GoogleAdsExportKind) {
+    closeMenu();
+    if (busy || !rangeReady) return;
+    setBusy(kind);
+    setMessage(null);
+    try {
+      const params = new URLSearchParams({ kind, range, scope });
+      if (range === "custom") {
+        params.set("from", customFrom);
+        params.set("to", customTo);
+      }
+      const response = await fetch(
+        `/api/admin/checkpoints/google-ads/export?${params}`,
+        { credentials: "same-origin", cache: "no-store" },
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(body?.error || "The export could not be created.");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") || "";
+      const filename =
+        /filename="([^"]+)"/.exec(disposition)?.[1] || `google-ads-${kind}.csv`;
+      downloadBlob(blob, filename);
+      const rows = response.headers.get("x-export-rows") || "0";
+      setMessage(
+        response.headers.get("x-export-truncated") === "1"
+          ? `Downloaded the first ${Number(rows).toLocaleString("en-CA")} rows. Choose a shorter date range for a complete file.`
+          : `Downloaded ${Number(rows).toLocaleString("en-CA")} ${kind === "journeys" ? "journeys" : "events"}.`,
+      );
+    } catch (caught) {
+      setMessage(
+        caught instanceof Error ? caught.message : "The export could not be created.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function exportSummary() {
+    closeMenu();
+    if (!data || busy) return;
+    setBusy("summary");
+    try {
+      downloadBlob(
+        new Blob(["\uFEFF" + buildGoogleAdsSummaryCsv(data)], {
+          type: "text/csv;charset=utf-8",
+        }),
+        googleAdsExportFilename("summary", data.range, scope),
+      );
+      setMessage("Downloaded the dashboard summary.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function runExport(kind: GoogleAdsExportKind | "summary") {
+    if (kind === "summary") exportSummary();
+    else void exportFromServer(kind);
+  }
+
+  return (
+    <div className="relative">
+      <details ref={detailsRef} className="group relative">
+        <summary
+          className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-[12px] border border-[#b8d2cc] bg-white px-3.5 text-[11px] font-semibold text-[#286f68] shadow-[0_4px_18px_rgba(28,46,43,0.05)] transition hover:border-[#79a89d] hover:bg-[#f5faf8] marker:content-none [&::-webkit-details-marker]:hidden"
+          aria-label="Export Google Ads data"
+        >
+          {busy ? (
+            <RefreshCw size={14} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Download size={14} aria-hidden="true" />
+          )}
+          Export
+          <ChevronDown size={13} className="transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="absolute right-0 z-30 mt-2 w-[300px] overflow-hidden rounded-[14px] border border-black/[0.08] bg-white p-1.5 shadow-[0_18px_50px_rgba(25,47,43,0.16)]">
+          {EXPORT_MENU_ITEMS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => runExport(item.key)}
+              disabled={
+                busy !== null || (item.key === "summary" ? !data : !rangeReady)
+              }
+              className="block w-full rounded-[10px] px-3 py-2.5 text-left transition hover:bg-[#f2f7f5] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="block text-[12px] font-semibold text-[#2c3d3a]">{item.label}</span>
+              <span className="mt-0.5 block text-[10.5px] leading-4 text-[#7b8885]">{item.detail}</span>
+            </button>
+          ))}
+          <p className="px-3 pb-1.5 pt-2 text-[9.5px] leading-4 text-[#98a19f]">
+            Exports follow the selected scope and date range. Contact details are never included.
+          </p>
+        </div>
+      </details>
+      {message ? (
+        <p
+          role="status"
+          className="absolute right-0 top-full z-20 mt-2 w-[300px] rounded-[10px] border border-black/[0.07] bg-white px-3 py-2 text-[10.5px] leading-4 text-[#4f5f5b] shadow-md"
+        >
+          {message}
+          <button
+            type="button"
+            onClick={() => setMessage(null)}
+            className="ml-2 font-semibold text-[#286f68]"
+          >
+            Dismiss
+          </button>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function JourneyFunnel({ data }: { data: GoogleAdsDashboardData }) {
   const stages = data.funnel;
   const baseline = Math.max(1, data.kpis.sessions, stages[0]?.count || 0);
@@ -628,7 +864,7 @@ function CampaignTable({ campaigns }: { campaigns: GoogleAdsCampaignMetric[] }) 
       <SectionHeading
         eyebrow="Acquisition breakdown"
         title="Campaign performance"
-        detail="First-touch campaign, ad group, and matched Google Ads account keyword. The visitor's private search phrase is not collected."
+        detail="First-touch campaign, ad group, matched Google Ads account keyword, and match type. Google does not expose the visitor's actual search phrase in the click; use the Search terms report in Google Ads for that."
         icon={Megaphone}
       />
       {campaigns.length ? (
@@ -656,9 +892,10 @@ function CampaignTable({ campaigns }: { campaigns: GoogleAdsCampaignMetric[] }) 
                 >
                   <td className="max-w-[300px] px-5 py-3.5">
                     <span className="block truncate font-semibold text-[#344441]" title={campaign.campaign}>
-                      {campaign.campaign}
+                      {readableAdGroupName(campaign.campaign) || campaign.campaign}
                     </span>
                     <span className="mt-0.5 block truncate text-[10px] text-[#84908d]">
+                      {campaign.campaignId ? `Campaign ID ${campaign.campaignId} · ` : ""}
                       {campaign.source} / {campaign.medium}
                     </span>
                     {campaign.googleClickIdPresent ? (
@@ -683,8 +920,8 @@ function CampaignTable({ campaigns }: { campaigns: GoogleAdsCampaignMetric[] }) 
                     <span className="block truncate font-semibold text-[#344441]" title={campaign.keyword}>
                       {campaign.keyword ? `“${campaign.keyword}”` : "Not captured"}
                     </span>
-                    <span className="mt-0.5 block text-[9.5px] text-[#8a9491]">
-                      {campaign.keyword ? "Matched account keyword" : "Unavailable for this visit"}
+                    <span className="mt-0.5 block truncate text-[9.5px] text-[#8a9491]">
+                      {keywordDetail(campaign)}
                     </span>
                   </td>
                   <MetricCell value={campaign.sessions} strong />
@@ -933,12 +1170,13 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
           : session.consultationCtaClicked
             ? { label: "CTA clicked", style: "bg-[#f4eee7] text-[#775f45]" }
             : { label: "Browsing", style: "bg-[#eff2f0] text-[#61706c]" };
-  const campaign = session.attribution.campaign || "Campaign not set";
+  const campaign = campaignValue(session.attribution);
   const adGroup = adGroupValue(session.attribution);
   const keyword = session.attribution.keyword;
+  const hint = suffixHint(session.attribution);
   return (
     <details className="group bg-white open:bg-[#fbfcfb]">
-      <summary className="grid cursor-pointer list-none gap-3 px-5 py-4 marker:content-none hover:bg-[#f8faf8] sm:grid-cols-[minmax(190px,1.1fr)_minmax(250px,1.45fr)_100px_90px_auto] sm:items-center sm:px-6">
+      <summary className="grid cursor-pointer list-none gap-3 px-5 py-4 marker:content-none hover:bg-[#f8faf8] sm:grid-cols-[minmax(190px,1.1fr)_minmax(250px,1.45fr)_100px_100px_80px_auto] sm:items-center sm:px-6">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-[12px] font-semibold text-[#344441]">
@@ -968,10 +1206,14 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
           </span>
           <span className="mt-0.5 block truncate text-[9.5px] text-[#8a9491]">
             {adGroup} · {keyword ? `“${keyword}”` : "keyword not captured"}
+            {session.attribution.matchType
+              ? ` · ${googleAdsMatchTypeLabel(session.attribution.matchType)}`
+              : ""}
           </span>
           <span className="mt-0.5 block truncate text-[9px] text-[#98a19f]">
             {session.attribution.source || "Not set"} / {session.attribution.medium || "Not set"}
             {session.device ? ` · ${session.device}` : ""}
+            {hint ? ` · ${hint}` : ""}
           </span>
         </div>
         <div>
@@ -980,6 +1222,14 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
           </span>
           <span className="mt-0.5 block text-[12px] font-semibold tabular-nums text-[#486862]">
             {formatDuration(session.engagedMs)}
+          </span>
+        </div>
+        <div>
+          <span className="block text-[9px] uppercase tracking-[0.55px] text-[#8b9592]">
+            Session length
+          </span>
+          <span className="mt-0.5 block text-[12px] font-semibold tabular-nums text-[#486862]">
+            {session.eventCount ? formatDuration(session.durationMs) : "No page load"}
           </span>
         </div>
         <div>
@@ -1009,7 +1259,13 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
             detail={googleAdsPageLabel(session.landingPath)}
           />
           <JourneyFact label="Latest page" value={googleAdsPageLabel(session.lastPath)} detail={session.lastPath} />
-          <JourneyFact label="Campaign" value={campaign} />
+          <JourneyFact
+            label="Campaign"
+            value={campaign}
+            detail={session.attribution.campaignId
+              ? `Google Ads campaign ID ${session.attribution.campaignId}`
+              : undefined}
+          />
           <JourneyFact
             label="Ad group"
             value={adGroup}
@@ -1022,11 +1278,33 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
           <JourneyFact
             label="Matched keyword"
             value={keyword ? `“${keyword}”` : "Not captured"}
-            detail={keyword ? "Google Ads account keyword" : "Unavailable for this visit"}
+            detail={keywordDetail(session.attribution)}
+          />
+          <JourneyFact
+            label="Ad network / device"
+            value={googleAdsNetworkLabel(session.attribution.network) || "Not captured"}
+            detail={session.attribution.adDevice
+              ? `Google Ads device: ${session.attribution.adDevice}`
+              : session.attribution.creativeId
+                ? `Ad ID ${session.attribution.creativeId}`
+                : undefined}
+          />
+          <JourneyFact
+            label="Counted at"
+            value={session.seededAt ? "Click time (server)" : "First page event"}
+            detail={session.eventCount
+              ? `${formatCount(session.eventCount)} events · ${formatDuration(session.durationMs)} on site`
+              : "Left before the page finished loading"}
           />
           <JourneyFact label="First seen" value={formatDate(session.startedAt, true)} />
           <JourneyFact label="Last seen" value={formatDate(session.lastSeenAt, true)} />
         </div>
+        {hint ? (
+          <p className="mb-4 inline-flex items-center gap-2 rounded-[10px] border border-[#e6cdbf] bg-[#fff8f3] px-3 py-2 text-[10.5px] text-[#7c4a2f]">
+            <AlertTriangle size={13} aria-hidden="true" />
+            {hint}
+          </p>
+        ) : null}
         {session.consultationReferenceId ? (
           <div className="mb-4 inline-flex items-center gap-2 rounded-[10px] border border-[#dbe8e3] bg-white px-3 py-2 text-[10.5px] text-[#526a65]">
             <CheckCircle2 size={13} className="text-[#43806f]" aria-hidden="true" />

@@ -8,6 +8,7 @@ import {
   googleAdsEntryTarget,
   isCrisisPhoneHref,
   isGoogleAdsFormFieldId,
+  parseGoogleAdsJourneyBrowserClaim,
 } from "@/lib/googleAdsJourney";
 import {
   GOOGLE_ADS_CONVERSION_TTL_SECONDS,
@@ -123,6 +124,40 @@ describe("Google Ads journey boundaries", () => {
         now + GOOGLE_ADS_JOURNEY_TTL_SECONDS * 1_000,
       ),
     ).toBeNull();
+  });
+
+  it("seals the click attribution into the signed token for both server and browser", () => {
+    const valueTrack = {
+      campaignId: "18124413697",
+      campaignName: "Therapy Ontario Search",
+      adGroupId: "7639334819",
+      adGroupName: "Therapy-Ontario",
+      keyword: "online therapy ontario",
+      matchType: "phrase" as const,
+      network: "search" as const,
+      device: "mobile" as const,
+      creativeId: "987654321",
+    };
+    const journey = createGoogleAdsJourney({
+      landingPath: "/welcome",
+      search: "?utm_source=google&utm_medium=cpc&utm_campaign=Therapy%20Ontario%20Search&gclid=abcdef123",
+      valueTrack,
+    });
+    expect(journey?.claim.valueTrack).toEqual(valueTrack);
+    expect(journey?.claim.attribution).toEqual({
+      source: "google",
+      medium: "cpc",
+      campaign: "Therapy Ontario Search",
+    });
+    const verified = verifyGoogleAdsJourneyToken(journey?.token);
+    expect(verified?.valueTrack).toEqual(valueTrack);
+    expect(verified?.attribution).toEqual(journey?.claim.attribution);
+    expect(journey?.token.length).toBeLessThan(2_500);
+    // The browser reads only the narrow public claim and ignores the sealed detail.
+    const browserClaim = parseGoogleAdsJourneyBrowserClaim(journey?.token);
+    expect(browserClaim?.sessionId).toBe(journey?.claim.sessionId);
+    expect(browserClaim?.attribution.campaign).toBe("Therapy Ontario Search");
+    expect(JSON.stringify(browserClaim)).not.toContain("online therapy ontario");
   });
 });
 

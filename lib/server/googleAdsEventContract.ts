@@ -17,12 +17,22 @@ const MAX_SESSION_AGE_MS = GOOGLE_ADS_JOURNEY_MAX_AGE_MS;
 const MAX_FUTURE_SKEW_MS = 10 * 60 * 1000;
 const MAX_EVENT_SEQUENCE = 1_000_000;
 const MAX_ELAPSED_MS = MAX_SESSION_AGE_MS;
+const EVENT_BEFORE_SESSION_TOLERANCE_MS = 5 * 60 * 1000;
+
+/**
+ * Client clocks drift. A batch reports the browser's own send time so the
+ * server can rebase every timestamp before validating it; without this, a
+ * phone whose clock is fifteen minutes ahead would have every event rejected.
+ */
+export const GOOGLE_ADS_CLOCK_SKEW_TOLERANCE_MS = 60_000;
+const MAX_CLOCK_SKEW_MS = 366 * 24 * 60 * 60 * 1000;
 
 const TOP_LEVEL_KEYS = new Set([
   "sessionId",
   "sessionStartedAt",
   "landingPath",
   "events",
+  "sentAt",
 ]);
 
 const EVENT_KEYS = new Set([
@@ -108,6 +118,14 @@ export type GoogleAdsEventBatch = {
   sessionStartedAt: string;
   landingPath: string;
   events: GoogleAdsEventRecord[];
+};
+
+export type GoogleAdsEventBatchResult = {
+  batch: GoogleAdsEventBatch | null;
+  /** Individually invalid events that were dropped instead of failing the batch. */
+  rejectedEvents: number;
+  /** Milliseconds added to every client timestamp (0 when within tolerance). */
+  clockSkewMs: number;
 };
 
 function optionalText(value: unknown): string | undefined {
@@ -379,10 +397,19 @@ export function parseGoogleAdsEvent(input: unknown): GoogleAdsEventRecord | null
   return validEventSpecificShape(parsed) ? parsed : null;
 }
 
-export function parseGoogleAdsEventBatch(
+type ParsedEnvelope = {
+  sessionId: string;
+  sessionStart: number;
+  landingPath: string;
+  events: unknown[];
+  sentAt?: number;
+};
+
+function parseEnvelope(
   input: unknown,
-  maximumEvents = 20,
-): GoogleAdsEventBatch | null {
+  maximumEvents: number,
+  now: number,
+): ParsedEnvelope | null {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const raw = input as Record<string, unknown>;
   if (Object.keys(raw).some((key) => !TOP_LEVEL_KEYS.has(key))) return null;
@@ -390,7 +417,6 @@ export function parseGoogleAdsEventBatch(
     typeof raw.sessionStartedAt === "string"
       ? Date.parse(raw.sessionStartedAt)
       : NaN;
-  const now = Date.now();
   if (
     !googleAdsSessionIdIsValid(raw.sessionId) ||
     !Number.isFinite(sessionStart) ||
@@ -399,12 +425,30 @@ export function parseGoogleAdsEventBatch(
     !isTrackedPath(raw.landingPath) ||
     !Array.isArray(raw.events) ||
     raw.events.length < 1 ||
-    raw.events.length > maximumEvents
+    raw.events.length > maximumEvents ||
+    (raw.sentAt !== undefined &&
+      (typeof raw.sentAt !== "number" || !Number.isFinite(raw.sentAt)))
   ) {
     return null;
   }
+  return {
+    sessionId: raw.sessionId,
+    sessionStart,
+    landingPath: raw.landingPath,
+    events: raw.events,
+    sentAt: typeof raw.sentAt === "number" ? raw.sentAt : undefined,
+  };
+}
 
-  const events = raw.events.map(parseGoogleAdsEvent);
+/** Strict form: any invalid event rejects the whole batch. */
+export function parseGoogleAdsEventBatch(
+  input: unknown,
+  maximumEvents = 20,
+): GoogleAdsEventBatch | null {
+  const envelope = parseEnvelope(input, maximumEvents, Date.now());
+  if (!envelope) return null;
+
+  const events = envelope.events.map(parseGoogleAdsEvent);
   if (events.some((event) => event === null)) return null;
   const parsedEvents = events as GoogleAdsEventRecord[];
   if (
@@ -413,16 +457,98 @@ export function parseGoogleAdsEventBatch(
     new Set(parsedEvents.map((event) => event.sequence)).size !==
       parsedEvents.length ||
     parsedEvents.some(
-      (event) => Date.parse(event.occurredAt) < sessionStart - 5 * 60 * 1000,
+      (event) =>
+        Date.parse(event.occurredAt) <
+        envelope.sessionStart - EVENT_BEFORE_SESSION_TOLERANCE_MS,
     )
   ) {
     return null;
   }
 
   return {
-    sessionId: raw.sessionId,
-    sessionStartedAt: new Date(sessionStart).toISOString(),
-    landingPath: raw.landingPath,
+    sessionId: envelope.sessionId,
+    sessionStartedAt: new Date(envelope.sessionStart).toISOString(),
+    landingPath: envelope.landingPath,
     events: parsedEvents,
+  };
+}
+
+function rebaseEvent(
+  input: unknown,
+  skewMs: number,
+  sessionStart: number,
+): unknown {
+  if (!skewMs || !input || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+  const raw = input as Record<string, unknown>;
+  const occurredTime =
+    typeof raw.occurredAt === "string" ? Date.parse(raw.occurredAt) : NaN;
+  if (!Number.isFinite(occurredTime)) return input;
+  const adjusted = occurredTime + skewMs;
+  return {
+    ...raw,
+    occurredAt: new Date(adjusted).toISOString(),
+    elapsedMs: Math.max(0, Math.min(MAX_ELAPSED_MS, Math.round(adjusted - sessionStart))),
+  };
+}
+
+/**
+ * Tolerant form used by the live endpoint. One malformed event no longer
+ * discards the twenty valid ones queued beside it (and with them the whole
+ * session), and client clock drift is corrected before validation.
+ */
+export function parseGoogleAdsEventBatchLenient(
+  input: unknown,
+  maximumEvents = 20,
+  now = Date.now(),
+): GoogleAdsEventBatchResult {
+  const envelope = parseEnvelope(input, maximumEvents, now);
+  if (!envelope) return { batch: null, rejectedEvents: 0, clockSkewMs: 0 };
+
+  let clockSkewMs = 0;
+  if (envelope.sentAt !== undefined) {
+    const skew = now - envelope.sentAt;
+    if (
+      Math.abs(skew) > GOOGLE_ADS_CLOCK_SKEW_TOLERANCE_MS &&
+      Math.abs(skew) <= MAX_CLOCK_SKEW_MS
+    ) {
+      clockSkewMs = Math.round(skew);
+    }
+  }
+
+  const seenIds = new Set<string>();
+  const seenSequences = new Set<number>();
+  const events: GoogleAdsEventRecord[] = [];
+  let rejectedEvents = 0;
+  for (const candidate of envelope.events) {
+    const parsed = parseGoogleAdsEvent(
+      rebaseEvent(candidate, clockSkewMs, envelope.sessionStart),
+    );
+    if (
+      !parsed ||
+      seenIds.has(parsed.eventId) ||
+      seenSequences.has(parsed.sequence) ||
+      Date.parse(parsed.occurredAt) <
+        envelope.sessionStart - EVENT_BEFORE_SESSION_TOLERANCE_MS
+    ) {
+      rejectedEvents += 1;
+      continue;
+    }
+    seenIds.add(parsed.eventId);
+    seenSequences.add(parsed.sequence);
+    events.push(parsed);
+  }
+  if (!events.length) return { batch: null, rejectedEvents, clockSkewMs };
+
+  return {
+    batch: {
+      sessionId: envelope.sessionId,
+      sessionStartedAt: new Date(envelope.sessionStart).toISOString(),
+      landingPath: envelope.landingPath,
+      events,
+    },
+    rejectedEvents,
+    clockSkewMs,
   };
 }

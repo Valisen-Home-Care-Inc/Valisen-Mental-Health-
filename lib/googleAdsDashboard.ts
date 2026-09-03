@@ -10,7 +10,18 @@ import {
   type GoogleAdsEventName,
   type GoogleAdsTargetType,
 } from "@/lib/googleAdsJourney";
-import { decodeGoogleAdsValueTrackAttribution } from "@/lib/googleAdsEntry";
+import {
+  GOOGLE_ADS_AD_DEVICES,
+  GOOGLE_ADS_MATCH_TYPES,
+  GOOGLE_ADS_MATCH_TYPE_LABELS,
+  GOOGLE_ADS_NETWORKS,
+  GOOGLE_ADS_NETWORK_LABELS,
+  decodeGoogleAdsValueTrackAttribution,
+  safeGoogleAdsNumericId,
+  type GoogleAdsAdDevice,
+  type GoogleAdsMatchType,
+  type GoogleAdsNetwork,
+} from "@/lib/googleAdsEntry";
 
 export type GoogleAdsDashboardKpis = {
   sessions: number;
@@ -23,6 +34,10 @@ export type GoogleAdsDashboardKpis = {
   consultationOpportunities: number;
   bookedConsultations: number;
   paidTherapyConversions: number;
+  /** Signed clicks whose page never sent a single event (left before load). */
+  sessionsWithoutEvents: number;
+  /** Sessions that carried Google Ads campaign / ad group / keyword data. */
+  attributedSessions: number;
 };
 
 export type GoogleAdsFunnelStage = {
@@ -52,16 +67,35 @@ export type GoogleAdsSectionMetric = {
   engagedMs: number;
 };
 
-export type GoogleAdsCampaignMetric = {
-  source: string;
-  medium: string;
-  campaign: string;
+export type GoogleAdsClickAttribution = {
+  source?: string;
+  medium?: string;
+  /** Raw `utm_campaign` dimension (name, numeric ID, or QA label). */
+  campaign?: string;
+  campaignId?: string;
+  campaignName?: string;
   content?: string;
   adGroupId?: string;
   adGroupName?: string;
   keyword?: string;
+  matchType?: GoogleAdsMatchType;
+  network?: GoogleAdsNetwork;
+  adDevice?: GoogleAdsAdDevice;
+  creativeId?: string;
   legacyContent?: string;
   googleClickIdPresent: boolean;
+  /** True when the click carried the Google Ads final URL suffix data. */
+  suffixReceived: boolean;
+};
+
+export type GoogleAdsCampaignMetric = Omit<
+  GoogleAdsClickAttribution,
+  "source" | "medium" | "campaign" | "adDevice" | "creativeId"
+> & {
+  source: string;
+  medium: string;
+  /** Display label: campaign name, else the raw campaign dimension. */
+  campaign: string;
   sessions: number;
   engagedSessions: number;
   consultationCtaSessions: number;
@@ -100,9 +134,13 @@ export type GoogleAdsJourneySummary = {
   sessionId: string;
   startedAt: string;
   lastSeenAt: string;
+  /** Wall-clock span from first to last recorded activity. */
+  durationMs: number;
+  seededAt?: string;
   landingPath: string;
   lastPath: string;
   engagedMs: number;
+  maxScrollDepth: number;
   eventCount: number;
   device?: "mobile" | "tablet" | "desktop";
   consultationCtaClicked: boolean;
@@ -111,17 +149,7 @@ export type GoogleAdsJourneySummary = {
   consultationReferenceId?: string;
   booked: boolean;
   paidTherapy: boolean;
-  attribution: {
-    source?: string;
-    medium?: string;
-    campaign?: string;
-    content?: string;
-    adGroupId?: string;
-    adGroupName?: string;
-    keyword?: string;
-    legacyContent?: string;
-    googleClickIdPresent: boolean;
-  };
+  attribution: GoogleAdsClickAttribution;
   events: GoogleAdsJourneyEvent[];
 };
 
@@ -144,6 +172,9 @@ const TARGET_IDS = new Set<string>([
   "button",
   "submit",
 ]);
+const MATCH_TYPES = new Set<string>(GOOGLE_ADS_MATCH_TYPES);
+const NETWORKS = new Set<string>(GOOGLE_ADS_NETWORKS);
+const AD_DEVICES = new Set<string>(GOOGLE_ADS_AD_DEVICES);
 
 const EVENT_LABELS: Record<GoogleAdsEventName, string> = {
   journey_started: "Journey started",
@@ -341,10 +372,14 @@ function safeText(value: unknown, maximum = 120): string {
   return value.trim().replace(/[\r\n\t]+/g, " ").slice(0, maximum);
 }
 
-function date(value: unknown, fallback: string): string {
-  if (typeof value !== "string") return fallback;
+function optionalDate(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function date(value: unknown, fallback: string): string {
+  return optionalDate(value) ?? fallback;
 }
 
 function path(value: unknown): string {
@@ -372,6 +407,75 @@ function targetType(value: unknown): GoogleAdsTargetType | undefined {
     : undefined;
 }
 
+function matchType(value: unknown): GoogleAdsMatchType | undefined {
+  const text = safeText(value, 20).toLowerCase();
+  return MATCH_TYPES.has(text) ? (text as GoogleAdsMatchType) : undefined;
+}
+
+function network(value: unknown): GoogleAdsNetwork | undefined {
+  const text = safeText(value, 24).toLowerCase();
+  return NETWORKS.has(text) ? (text as GoogleAdsNetwork) : undefined;
+}
+
+function adDevice(value: unknown): GoogleAdsAdDevice | undefined {
+  const text = safeText(value, 12).toLowerCase();
+  return AD_DEVICES.has(text) ? (text as GoogleAdsAdDevice) : undefined;
+}
+
+/**
+ * Reads explicit click-attribution columns first and falls back to the
+ * `vt1~` encoding carried inside `utm_content` for sessions recorded before
+ * the first-class columns existed.
+ */
+function normalizeClickAttribution(
+  primary: UnknownRecord,
+  fallback: UnknownRecord = {},
+): GoogleAdsClickAttribution {
+  const field = (...keys: string[]) => pick(primary, ...keys) ?? pick(fallback, ...keys);
+  const content = safeText(field("content", "utmContent", "utm_content"), 120) || undefined;
+  const valueTrack = decodeGoogleAdsValueTrackAttribution(content);
+  const campaign = safeText(field("campaign", "utmCampaign", "utm_campaign"), 120) || undefined;
+  const campaignId =
+    safeGoogleAdsNumericId(safeText(field("campaignId", "campaign_id"), 20)) ||
+    safeGoogleAdsNumericId(campaign);
+  const campaignName = safeText(field("campaignName", "campaign_name"), 80) || undefined;
+  const adGroupId =
+    safeGoogleAdsNumericId(safeText(field("adGroupId", "ad_group_id"), 20)) ||
+    valueTrack?.adGroupId;
+  const adGroupName =
+    safeText(field("adGroupName", "ad_group_name"), 80) || valueTrack?.adGroupName;
+  const keyword = safeText(field("keyword"), 80) || valueTrack?.keyword;
+  const attribution: GoogleAdsClickAttribution = {
+    source: safeText(field("source", "utmSource", "utm_source"), 80) || undefined,
+    medium: safeText(field("medium", "utmMedium", "utm_medium"), 80) || undefined,
+    campaign,
+    campaignId,
+    campaignName,
+    content,
+    adGroupId,
+    adGroupName,
+    keyword,
+    matchType: matchType(field("matchType", "match_type")),
+    network: network(field("network")),
+    adDevice: adDevice(field("adDevice", "ad_device")),
+    creativeId: safeGoogleAdsNumericId(safeText(field("creativeId", "creative_id"), 20)),
+    legacyContent: content && !valueTrack ? content : undefined,
+    googleClickIdPresent: bool(
+      field("googleClickIdPresent", "google_click_id_present", "hasGoogleClickId", "has_google_click_id"),
+    ),
+    suffixReceived: false,
+  };
+  // Google appends the campaign ID by itself; ad group, keyword, and the
+  // typed names only arrive through the advertiser's final URL suffix.
+  attribution.suffixReceived = Boolean(
+    attribution.campaignName ||
+      attribution.adGroupId ||
+      attribution.adGroupName ||
+      attribution.keyword,
+  );
+  return attribution;
+}
+
 function fallbackKpis(): GoogleAdsDashboardKpis {
   return {
     sessions: 0,
@@ -384,6 +488,8 @@ function fallbackKpis(): GoogleAdsDashboardKpis {
     consultationOpportunities: 0,
     bookedConsultations: 0,
     paidTherapyConversions: 0,
+    sessionsWithoutEvents: 0,
+    attributedSessions: 0,
   };
 }
 
@@ -415,6 +521,12 @@ function normalizeKpis(value: unknown): GoogleAdsDashboardKpis {
     ),
     paidTherapyConversions: count(
       pick(source, "paidTherapyConversions", "paid_therapy_conversions", "paidTherapy", "paid_therapy"),
+    ),
+    sessionsWithoutEvents: count(
+      pick(source, "sessionsWithoutEvents", "sessions_without_events"),
+    ),
+    attributedSessions: count(
+      pick(source, "attributedSessions", "attributed_sessions"),
     ),
   };
 }
@@ -512,23 +624,22 @@ function normalizeCampaigns(value: unknown): GoogleAdsCampaignMetric[] {
     .slice(0, 100)
     .map((item) => {
       const source = record(item);
-      const content = safeText(
-        pick(source, "content", "utmContent", "utm_content"),
-        120,
-      ) || undefined;
-      const valueTrack = decodeGoogleAdsValueTrackAttribution(content);
+      const attribution = normalizeClickAttribution(source);
       return {
-        source: safeText(pick(source, "source", "utmSource", "utm_source"), 80) || "Not set",
-        medium: safeText(pick(source, "medium", "utmMedium", "utm_medium"), 80) || "Not set",
-        campaign: safeText(pick(source, "campaign", "utmCampaign", "utm_campaign"), 120) || "Not set",
-        content,
-        adGroupId: valueTrack?.adGroupId,
-        adGroupName: valueTrack?.adGroupName,
-        keyword: valueTrack?.keyword,
-        legacyContent: content && !valueTrack ? content : undefined,
-        googleClickIdPresent: bool(
-          pick(source, "googleClickIdPresent", "google_click_id_present", "hasGoogleClickId", "has_google_click_id"),
-        ),
+        source: attribution.source || "Not set",
+        medium: attribution.medium || "Not set",
+        campaign: googleAdsCampaignLabel(attribution) || "Not set",
+        campaignId: attribution.campaignId,
+        campaignName: attribution.campaignName,
+        content: attribution.content,
+        adGroupId: attribution.adGroupId,
+        adGroupName: attribution.adGroupName,
+        keyword: attribution.keyword,
+        matchType: attribution.matchType,
+        network: attribution.network,
+        legacyContent: attribution.legacyContent,
+        googleClickIdPresent: attribution.googleClickIdPresent,
+        suffixReceived: attribution.suffixReceived,
         sessions: count(pick(source, "sessions", "session_count")),
         engagedSessions: count(pick(source, "engagedSessions", "engaged_sessions")),
         consultationCtaSessions: count(
@@ -630,24 +741,27 @@ function normalizeRecentSessions(value: unknown, fallbackDate: string): GoogleAd
       const sessionId = safeText(pick(source, "sessionId", "session_id", "sessionKey", "session_key"), 96);
       if (!googleAdsSessionIdIsValid(sessionId)) return null;
       const startedAt = date(pick(source, "startedAt", "started_at"), fallbackDate);
-      const attribution = record(source.attribution);
-      const attributionContent = safeText(
-        pick(attribution, "content", "utmContent", "utm_content") ??
-          pick(source, "content", "utmContent", "utm_content"),
-        120,
-      ) || undefined;
-      const valueTrack = decodeGoogleAdsValueTrackAttribution(attributionContent);
+      const lastSeenAt = date(pick(source, "lastSeenAt", "last_seen_at"), startedAt);
       const reference = safeText(
         pick(source, "consultationReferenceId", "consultation_reference_id", "submissionReference", "submission_reference"),
         48,
       );
+      const suppliedDuration = pick(source, "durationMs", "duration_ms");
+      const durationMs =
+        suppliedDuration === undefined
+          ? Math.max(0, Date.parse(lastSeenAt) - Date.parse(startedAt))
+          : milliseconds(suppliedDuration);
+      const maxScroll = count(pick(source, "maxScrollDepth", "max_scroll_depth"));
       return {
         sessionId,
         startedAt,
-        lastSeenAt: date(pick(source, "lastSeenAt", "last_seen_at"), startedAt),
+        lastSeenAt,
+        durationMs,
+        seededAt: optionalDate(pick(source, "seededAt", "seeded_at")),
         landingPath: path(pick(source, "landingPath", "landing_path")),
         lastPath: path(pick(source, "lastPath", "last_path")),
         engagedMs: milliseconds(pick(source, "engagedMs", "engaged_ms")),
+        maxScrollDepth: [25, 50, 75, 100].includes(maxScroll) ? maxScroll : 0,
         eventCount: count(pick(source, "eventCount", "event_count")),
         device: ["mobile", "tablet", "desktop"].includes(
           safeText(pick(source, "device", "deviceCategory", "device_category"), 12),
@@ -666,34 +780,7 @@ function normalizeRecentSessions(value: unknown, fallbackDate: string): GoogleAd
           : undefined,
         booked: bool(pick(source, "booked", "consultationBooked", "consultation_booked")),
         paidTherapy: bool(pick(source, "paidTherapy", "paid_therapy")),
-        attribution: {
-          source: safeText(
-            pick(attribution, "source", "utmSource", "utm_source") ??
-              pick(source, "source", "utmSource", "utm_source"),
-            80,
-          ) || undefined,
-          medium: safeText(
-            pick(attribution, "medium", "utmMedium", "utm_medium") ??
-              pick(source, "medium", "utmMedium", "utm_medium"),
-            80,
-          ) || undefined,
-          campaign: safeText(
-            pick(attribution, "campaign", "utmCampaign", "utm_campaign") ??
-              pick(source, "campaign", "utmCampaign", "utm_campaign"),
-            120,
-          ) || undefined,
-          content: attributionContent,
-          adGroupId: valueTrack?.adGroupId,
-          adGroupName: valueTrack?.adGroupName,
-          keyword: valueTrack?.keyword,
-          legacyContent: attributionContent && !valueTrack
-            ? attributionContent
-            : undefined,
-          googleClickIdPresent: bool(
-            pick(attribution, "googleClickIdPresent", "google_click_id_present") ??
-              pick(source, "googleClickIdPresent", "google_click_id_present"),
-          ),
-        },
+        attribution: normalizeClickAttribution(record(source.attribution), source),
         events: normalizeJourneyEvents(
           pick(source, "events", "timeline", "recentEvents", "recent_events"),
           startedAt,
@@ -766,6 +853,26 @@ export function normalizeGoogleAdsDashboard(
       normalizedRange.from,
     ),
   };
+}
+
+/** Human campaign label: advertiser name first, then the raw dimension. */
+export function googleAdsCampaignLabel(
+  attribution: Pick<GoogleAdsClickAttribution, "campaign" | "campaignId" | "campaignName">,
+): string | undefined {
+  if (attribution.campaignName) return attribution.campaignName;
+  if (attribution.campaign && !safeGoogleAdsNumericId(attribution.campaign)) {
+    return attribution.campaign;
+  }
+  if (attribution.campaignId) return `Campaign ${attribution.campaignId}`;
+  return attribution.campaign || undefined;
+}
+
+export function googleAdsMatchTypeLabel(value?: GoogleAdsMatchType): string | undefined {
+  return value ? GOOGLE_ADS_MATCH_TYPE_LABELS[value] : undefined;
+}
+
+export function googleAdsNetworkLabel(value?: GoogleAdsNetwork): string | undefined {
+  return value ? GOOGLE_ADS_NETWORK_LABELS[value] : undefined;
 }
 
 export function googleAdsEventLabel(event: GoogleAdsEventName): string {

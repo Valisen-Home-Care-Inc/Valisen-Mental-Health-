@@ -3,6 +3,11 @@ import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const seedGoogleAdsSession = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/server/googleAdsRepository", () => ({ seedGoogleAdsSession }));
+
 import { GET } from "@/app/google-ads/[[...path]]/route";
 import { trackFunnelEvent, trackQuizEvent } from "@/lib/analytics";
 import {
@@ -76,7 +81,12 @@ function context(path?: string[]) {
   return { params: Promise.resolve({ path }) };
 }
 
-beforeEach(() => vi.stubEnv("GOOGLE_ADS_CONVERSION_SECRET", SECRET));
+beforeEach(() => {
+  vi.stubEnv("GOOGLE_ADS_CONVERSION_SECRET", SECRET);
+  seedGoogleAdsSession
+    .mockReset()
+    .mockResolvedValue({ accepted: true, seeded: true });
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -123,8 +133,93 @@ describe("same-domain Google Ads entry boundary", () => {
       adGroupName: "Therapy-Ontario",
       keyword: "online therapy ontario",
     });
+    expect(claims?.valueTrack).toEqual({
+      adGroupId: "7639334819",
+      adGroupName: "Therapy-Ontario",
+      keyword: "online therapy ontario",
+    });
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(response.headers.get("x-robots-tag")).toContain("noindex");
+
+    // The click is counted in the CRM at signing time, before any script runs.
+    expect(seedGoogleAdsSession).toHaveBeenCalledTimes(1);
+    expect(seedGoogleAdsSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: claims?.sessionId,
+        startedAt: claims?.startedAt,
+        landingPath: "/welcome",
+        googleClickIdPresent: true,
+        attribution: expect.objectContaining({
+          source: "google",
+          medium: "cpc",
+          campaign: "universal_42",
+        }),
+        valueTrack: {
+          adGroupId: "7639334819",
+          adGroupName: "Therapy-Ontario",
+          keyword: "online therapy ontario",
+        },
+      }),
+    );
+    const seeded = seedGoogleAdsSession.mock.calls[0][0] as {
+      attribution: Record<string, unknown>;
+    };
+    expect(seeded.attribution.content).toBe(claims?.attribution.content);
+  });
+
+  it("seeds the full suffix attribution and survives a database outage", async () => {
+    seedGoogleAdsSession.mockRejectedValueOnce(new Error("database down"));
+    const response = await GET(
+      new NextRequest(
+        "https://valisenmentalhealth.com/google-ads/welcome?gclid=Abcdef_123&gad_source=1&vmh_campaignid=18124413697&vmh_campaign=Therapy%20Ontario%20Search&vmh_adgroupid=7639334819&vmh_adgroup=High-Intent-Book-Now&vmh_keyword=therapist%20ottawa&vmh_matchtype=e&vmh_network=g&vmh_device=m&vmh_creative=987654321",
+      ),
+      context(["welcome"]),
+    );
+    expect(response.status).toBe(302);
+    const destination = new URL(response.headers.get("location") || "");
+    expect(destination.pathname).toBe("/welcome");
+    expect(destination.searchParams.get("utm_campaign")).toBe("Therapy Ontario Search");
+    expect(destination.searchParams.get("utm_content")).toBe("High-Intent-Book-Now");
+    const token = new URLSearchParams(destination.hash.slice(1)).get(
+      GOOGLE_ADS_ENTRY_FRAGMENT_KEY,
+    );
+    expect(verifyGoogleAdsJourneyToken(token)?.valueTrack).toEqual({
+      campaignId: "18124413697",
+      campaignName: "Therapy Ontario Search",
+      adGroupId: "7639334819",
+      adGroupName: "High-Intent-Book-Now",
+      keyword: "therapist ottawa",
+      matchType: "exact",
+      network: "search",
+      device: "mobile",
+      creativeId: "987654321",
+    });
+    expect(seedGoogleAdsSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        valueTrack: expect.objectContaining({
+          campaignName: "Therapy Ontario Search",
+          keyword: "therapist ottawa",
+          matchType: "exact",
+        }),
+      }),
+    );
+  });
+
+  it("signs a click that only carries gad_source without a click ID", async () => {
+    const response = await GET(
+      new NextRequest("https://valisenmentalhealth.com/google-ads/welcome?gad_source=1"),
+      context(["welcome"]),
+    );
+    const destination = new URL(response.headers.get("location") || "");
+    const token = new URLSearchParams(destination.hash.slice(1)).get(
+      GOOGLE_ADS_ENTRY_FRAGMENT_KEY,
+    );
+    const claims = verifyGoogleAdsJourneyToken(token);
+    expect(claims?.landingPath).toBe("/welcome");
+    expect(claims?.googleClickIdPresent).toBe(false);
+    expect(seedGoogleAdsSession).toHaveBeenCalledWith(
+      expect.objectContaining({ googleClickIdPresent: false }),
+    );
   });
 
   it("does not start a journey for a crawler/direct preview or an unknown path", async () => {
@@ -158,6 +253,7 @@ describe("same-domain Google Ads entry boundary", () => {
       context(["admin"]),
     );
     expect(unknown.status).toBe(404);
+    expect(seedGoogleAdsSession).not.toHaveBeenCalled();
   });
 
   it("does not let a production alias mint an accepted journey", async () => {

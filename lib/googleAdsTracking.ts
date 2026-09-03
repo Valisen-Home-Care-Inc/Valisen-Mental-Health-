@@ -21,7 +21,13 @@ import {
   type GoogleAdsTargetType,
 } from "@/lib/googleAdsJourney";
 
-const ENDPOINT = "/api/google-ads/events";
+/**
+ * Same-origin, neutrally named alias of `/api/google-ads/events`. Content
+ * blockers match request paths against generic "ads" patterns, which would
+ * silently drop whole journeys.
+ */
+export const GOOGLE_ADS_EVENTS_ENDPOINT = "/api/journey/steps";
+const ENDPOINT = GOOGLE_ADS_EVENTS_ENDPOINT;
 const SESSION_VERSION = 1;
 const THANK_YOU_VERSION = 1;
 const MAX_SESSION_AGE_MS = GOOGLE_ADS_JOURNEY_MAX_AGE_MS;
@@ -275,6 +281,22 @@ function retryDelay(response?: Response): number {
   );
 }
 
+function batchBody(
+  session: GoogleAdsSessionState,
+  events: QueuedGoogleAdsEvent[],
+): string {
+  return JSON.stringify({
+    journeyToken: session.journeyToken,
+    sessionId: session.id,
+    sessionStartedAt: session.startedAt,
+    landingPath: session.landingPath,
+    // Lets the server correct this device's clock drift before validating
+    // event timestamps.
+    sentAt: Date.now(),
+    events,
+  });
+}
+
 export function startGoogleAdsTracking(): string | undefined {
   const session = getOrCreateState();
   if (!session) return undefined;
@@ -343,6 +365,33 @@ export function recordGoogleAdsEvent(
   scheduleFlush();
 }
 
+/**
+ * Sends every queued event through `sendBeacon`, in batches, regardless of an
+ * in-flight fetch. Beacons are the last chance on page hide; the server
+ * de-duplicates by event ID, so overlapping deliveries are harmless.
+ */
+function beaconQueue(session: GoogleAdsSessionState): boolean {
+  if (typeof navigator === "undefined" || typeof navigator.sendBeacon !== "function") {
+    return false;
+  }
+  let handedOff = false;
+  for (let index = 0; index < queue.length; index += MAX_BATCH) {
+    const chunk = queue.slice(index, index + MAX_BATCH);
+    let accepted = false;
+    try {
+      accepted = navigator.sendBeacon(
+        ENDPOINT,
+        new Blob([batchBody(session, chunk)], { type: "application/json" }),
+      );
+    } catch {
+      accepted = false;
+    }
+    if (!accepted) break;
+    handedOff = true;
+  }
+  return handedOff;
+}
+
 export async function flushGoogleAdsEvents(
   useBeacon = false,
   timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
@@ -355,27 +404,16 @@ export async function flushGoogleAdsEvents(
     clearTimeout(flushTimer);
     flushTimer = null;
   }
+
+  if (useBeacon && beaconQueue(session)) {
+    // Keep the idempotent batch until a normal request confirms persistence.
+    persistQueue();
+    return true;
+  }
+
   if (flushInFlight) return flushInFlight;
   const events = queue.slice(0, MAX_BATCH);
-  const body = JSON.stringify({
-    journeyToken: session.journeyToken,
-    sessionId: session.id,
-    sessionStartedAt: session.startedAt,
-    landingPath: session.landingPath,
-    events,
-  });
-
-  if (useBeacon && navigator.sendBeacon) {
-    const handedOff = navigator.sendBeacon(
-      ENDPOINT,
-      new Blob([body], { type: "application/json" }),
-    );
-    if (handedOff) {
-      // Keep the idempotent batch until a normal request confirms persistence.
-      persistQueue();
-      return true;
-    }
-  }
+  const body = batchBody(session, events);
 
   flushInFlight = (async () => {
     const controller = new AbortController();

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseGoogleAdsEvent,
   parseGoogleAdsEventBatch,
+  parseGoogleAdsEventBatchLenient,
 } from "@/lib/server/googleAdsEventContract";
 
 let sequence = 0;
@@ -130,11 +131,82 @@ describe("Google Ads event contract", () => {
       events: [event("page_viewed", { path: "/" })],
     };
     expect(parseGoogleAdsEventBatch(valid)).not.toBeNull();
+    expect(parseGoogleAdsEventBatch({ ...valid, sentAt: Date.now() })).not.toBeNull();
     expect(
       parseGoogleAdsEventBatch({ ...valid, searchTerm: "private query" }),
     ).toBeNull();
     expect(
       parseGoogleAdsEventBatch({ ...valid, sessionId: "fs-normal-session-1234567890" }),
     ).toBeNull();
+  });
+
+  it("keeps the valid events of a batch when a sibling event is malformed", () => {
+    const startedAt = new Date().toISOString();
+    const first = event("journey_started", { path: "/welcome" });
+    const broken = event("page_viewed", { path: "/welcome", gclid: "raw-click-id" });
+    const duplicate = { ...event("page_viewed", { path: "/welcome" }), eventId: first.eventId };
+    const last = event("engagement_ping", { path: "/welcome", engagedMs: 2_500 });
+    const result = parseGoogleAdsEventBatchLenient({
+      sessionId: "gas-12345678-1234-4234-9234-123456789abc",
+      sessionStartedAt: startedAt,
+      landingPath: "/welcome",
+      events: [first, broken, duplicate, last],
+    });
+    expect(result.batch?.events.map((item) => item.eventId)).toEqual([
+      first.eventId,
+      last.eventId,
+    ]);
+    expect(result.rejectedEvents).toBe(2);
+    expect(result.clockSkewMs).toBe(0);
+    expect(
+      parseGoogleAdsEventBatchLenient({
+        sessionId: "gas-12345678-1234-4234-9234-123456789abc",
+        sessionStartedAt: startedAt,
+        landingPath: "/welcome",
+        events: [broken],
+      }).batch,
+    ).toBeNull();
+  });
+
+  it("corrects a skewed client clock before validating timestamps", () => {
+    const now = Date.now();
+    const skewedNow = now + 25 * 60_000;
+    const sessionStartedAt = new Date(now - 60_000).toISOString();
+    const item = event("page_viewed", {
+      path: "/welcome",
+      occurredAt: new Date(skewedNow).toISOString(),
+      elapsedMs: 123,
+    });
+    const envelope = {
+      sessionId: "gas-12345678-1234-4234-9234-123456789abc",
+      sessionStartedAt,
+      landingPath: "/welcome",
+      events: [item],
+    };
+    expect(parseGoogleAdsEventBatch(envelope)).toBeNull();
+
+    const result = parseGoogleAdsEventBatchLenient(
+      { ...envelope, sentAt: skewedNow },
+      20,
+      now,
+    );
+    expect(result.clockSkewMs).toBe(-25 * 60_000);
+    expect(result.batch?.events).toHaveLength(1);
+    expect(
+      Math.abs(Date.parse(result.batch!.events[0].occurredAt) - now),
+    ).toBeLessThan(1_000);
+    expect(result.batch!.events[0].elapsedMs).toBe(60_000);
+
+    // Small drift is left alone so ordinary devices keep exact timestamps.
+    const gentle = parseGoogleAdsEventBatchLenient(
+      {
+        ...envelope,
+        sentAt: now + 20_000,
+        events: [event("page_viewed", { path: "/welcome" })],
+      },
+      20,
+      now,
+    );
+    expect(gentle.clockSkewMs).toBe(0);
   });
 });

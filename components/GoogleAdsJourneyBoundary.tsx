@@ -24,6 +24,10 @@ import { isSensitiveGoogleAdsMarketingPath } from "@/lib/analyticsBoundary";
 
 const ACTIVE_WINDOW_MS = 60_000;
 const ENGAGEMENT_INTERVAL_MS = 10_000;
+/** A short first ping so very brief visits still record real active time. */
+const FIRST_ENGAGEMENT_PING_MS = 3_000;
+/** Visible time before React hydrated is credited up to one ping's worth. */
+const PRE_HYDRATION_CREDIT_MAX_MS = 60_000;
 const CONSULTATION_PATHS = new Set([
   "/consultation",
   "/book-consultation",
@@ -100,6 +104,7 @@ export default function GoogleAdsJourneyBoundary() {
       event: GoogleAdsEventName,
       properties: GoogleAdsEventProperties = {},
     ) => recordGoogleAdsEvent(event, { ...properties, path: pathname });
+    const firstPageOfDocument = lastPageViewRef.current === null;
     if (lastPageViewRef.current !== pathname) {
       lastPageViewRef.current = pathname;
       pageStateRef.current = { path: pathname, exited: false };
@@ -113,8 +118,23 @@ export default function GoogleAdsJourneyBoundary() {
     let currentSectionId: string | undefined;
     let lastActivityAt = Date.now();
     let lastEngagementAt = Date.now();
-    let engagementWindowOpen =
-      document.visibilityState === "visible" && document.hasFocus();
+    // The visitor just clicked an ad, so a visible document is an engaged one
+    // until a blur/hidden signal says otherwise. `document.hasFocus()` is
+    // unreliable before the first interaction on several mobile browsers and
+    // used to leave short visits with zero recorded active time.
+    let engagementWindowOpen = document.visibilityState === "visible";
+    if (firstPageOfDocument && engagementWindowOpen) {
+      // Credit the visible time between navigation start and hydration; on
+      // slow mobile connections that is often most of a short visit.
+      const navigationStart =
+        typeof performance !== "undefined" && typeof performance.now === "function"
+          ? Date.now() - Math.max(0, performance.now())
+          : Date.now();
+      lastEngagementAt = Math.max(
+        navigationStart,
+        Date.now() - PRE_HYDRATION_CREDIT_MAX_MS,
+      );
+    }
 
     const flushActiveTime = (now = Date.now()) => {
       const eligibleEnd = Math.min(now, lastActivityAt + ACTIVE_WINDOW_MS);
@@ -362,6 +382,9 @@ export default function GoogleAdsJourneyBoundary() {
       lastEngagementAt = Date.now();
     };
 
+    const firstEngagementTimer = window.setTimeout(() => {
+      flushActiveTime();
+    }, FIRST_ENGAGEMENT_PING_MS);
     const engagementTimer = window.setInterval(() => {
       flushActiveTime();
     }, ENGAGEMENT_INTERVAL_MS);
@@ -382,6 +405,7 @@ export default function GoogleAdsJourneyBoundary() {
     return () => {
       markExited();
       void flushGoogleAdsEvents();
+      window.clearTimeout(firstEngagementTimer);
       window.clearInterval(engagementTimer);
       mutationObserver.disconnect();
       sectionObserver?.disconnect();

@@ -23,6 +23,32 @@ does not store the person's actual Google search phrase, names, contact values,
 form text, quiz answers, raw click IDs, crisis-resource calls, DOM content, or
 arbitrary URLs in journey events.
 
+### September 2026 accuracy update
+
+- **Every signed click is counted at click time.** The `/welcome` page now
+  redirects a real Google click on the server (before any HTML is sent) and the
+  signer creates the CRM session row immediately. A visitor who leaves before
+  scripts run still appears as an ad session ("left before the page loaded").
+  Previously a session only existed once the browser had hydrated React and
+  flushed its first event batch, which is where most of the gap between Google's
+  click count and the CRM came from.
+- **One bad event no longer drops the batch.** The event endpoint keeps the
+  valid events and discards only the malformed one; a device whose clock is
+  wrong has its timestamps corrected server-side instead of being rejected.
+- **Exit signals are no longer lost.** The browser tracker now beacons every
+  queued event on page hide even while another request is in flight, credits
+  visible time before hydration, and sends its first active-time ping after
+  three seconds, so short visits show real active time instead of `0s`.
+- **Neutral event path.** Batches post to `/api/journey/steps` (the old
+  `/api/google-ads/events` path still works) so content blockers that match
+  "ads" in URLs cannot silently drop journeys.
+- **Campaign, ad group, keyword, and match type are first-class.** They are
+  sealed into the signed token, stored in their own columns at click time, and
+  shown in the CRM with a diagnostic when a click arrives without the suffix.
+  Google's own `gad_campaignid` parameter is read as a campaign-ID fallback.
+- **CSV export.** The Google Ads tab has an **Export** menu: journeys (one row
+  per session), the full event timeline, or the on-screen summary.
+
 ## URLs to view manually
 
 Untracked visual preview (this is the actual ad experience but does not create
@@ -76,17 +102,34 @@ one-use signed conversion receipt.
    migration was run manually. Without this step, journeys and events on
    `/welcome` are rejected at the database level even though the app code is
    deployed correctly.
-7. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+7. Run the click-attribution migration in the Supabase SQL Editor:
+   `supabase/migrations/20260903000000_google_ads_click_attribution.sql`.
+   "Success, no rows" is expected. It is safe to run more than once. It adds
+   the campaign / ad group / keyword / match-type columns (backfilling older
+   sessions from their encoded `utm_content`), installs
+   `seed_google_ads_session` (click-time session creation), replaces both
+   dashboard RPCs with the richer contract, adds the two export RPCs, and ends
+   with a transactional self-test that seeds a session, ingests events through
+   the production RPC, reads it back through the QA dashboard and both exports,
+   proves the live dashboard excludes it, and rolls everything back. If the
+   self-test fails, nothing is committed and the error names the failing step.
+   Until this migration is applied the app keeps working with the previous
+   behaviour: the signer falls back to `ensure_google_ads_session`, the
+   dashboard decodes ad group/keyword from `utm_content`, and the **Export**
+   menu explains that the migration is still needed.
+8. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
    must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
    not put it in Supabase.
-8. Keep the existing Supabase URL/service-role credentials in Netlify; this
+9. Keep the existing Supabase URL/service-role credentials in Netlify; this
    change adds no new browser/public API key.
-9. Deploy the main Netlify site.
-10. Open the production QA URL in a fresh Incognito window, navigate to at least
+10. Deploy the main Netlify site.
+11. Open the production QA URL in a fresh Incognito window, navigate to at least
    two pages, and submit one real Turnstile-protected test consultation. In both
    the Google Ads and Consultations CRM sections, switch from **Live campaign**
-   to **Test QA** and verify the journey and `VC-...` consultation there.
-11. After the main-domain test passes, remove the obsolete subdomain setup:
+   to **Test QA** and verify the journey and `VC-...` consultation there. The
+   journey should show **Counted at: Click time (server)**, a non-zero active
+   time, and the campaign/ad group/keyword from the QA URL.
+12. After the main-domain test passes, remove the obsolete subdomain setup:
    remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
    GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
    allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host
@@ -111,28 +154,49 @@ clicks on `/welcome` before React loads. If approved final URLs are mixed in the
 future, each journey retains and displays the exact landing path separately in
 the CRM.
 
-Keep Google Ads auto-tagging on. To label CRM sessions with the exact Google Ads
-ad-group ID and the matched keyword, set this **Final URL suffix** at the account
-or campaign level (do not include a leading `?`):
+Keep Google Ads auto-tagging on. Google adds `gclid` (or `gbraid`/`wbraid` on
+iOS), `gad_source=1`, and `gad_campaignid` to every click by itself; those are
+enough for the CRM to **count** the click. To also see the campaign name, ad
+group, matched keyword, match type, network, and device, set a **Final URL
+suffix** on **each ad group** (Google Ads → Ad groups → select the ad group →
+Settings → Ad group URL options → Final URL suffix). Do not include a leading
+`?`. Replace the two typed labels with your own names (letters, digits, spaces,
+hyphens):
 
-`vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_keyword={keyword}`
+```text
+vmh_campaignid={campaignid}&vmh_campaign=Therapy-Ontario-Search&vmh_adgroupid={adgroupid}&vmh_adgroup=Therapy-Ontario&vmh_keyword={keyword}&vmh_matchtype={matchtype}&vmh_network={network}&vmh_device={device}&vmh_creative={creative}
+```
 
-Google ValueTrack exposes the numeric ad-group ID, but not its human-readable
-name. For both the readable name and ID, set the complete suffix separately on
-each ad group. Current examples are:
+Current ad groups, each with its own suffix:
 
 - Therapy Ontario:
-  `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=Therapy-Ontario&vmh_keyword={keyword}`
+  `vmh_campaignid={campaignid}&vmh_campaign=Therapy-Ontario-Search&vmh_adgroupid={adgroupid}&vmh_adgroup=Therapy-Ontario&vmh_keyword={keyword}&vmh_matchtype={matchtype}&vmh_network={network}&vmh_device={device}&vmh_creative={creative}`
 - High Intent Book Now:
-  `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=High-Intent-Book-Now&vmh_keyword={keyword}`
+  `vmh_campaignid={campaignid}&vmh_campaign=Therapy-Ontario-Search&vmh_adgroupid={adgroupid}&vmh_adgroup=High-Intent-Book-Now&vmh_keyword={keyword}&vmh_matchtype={matchtype}&vmh_network={network}&vmh_device={device}&vmh_creative={creative}`
 - General Online Therapy:
-  `vmh_campaignid={campaignid}&vmh_adgroupid={adgroupid}&vmh_adgroup=General-Online-Therapy&vmh_keyword={keyword}`
+  `vmh_campaignid={campaignid}&vmh_campaign=Therapy-Ontario-Search&vmh_adgroupid={adgroupid}&vmh_adgroup=General-Online-Therapy&vmh_keyword={keyword}&vmh_matchtype={matchtype}&vmh_network={network}&vmh_device={device}&vmh_creative={creative}`
 
-Use the same pattern for future ad groups, changing only the `vmh_adgroup`
-label. Current ads should use `https://valisenmentalhealth.com/welcome` as their Final URL.
-Older visits cannot be retroactively assigned a keyword and will say **Not
-captured** in the CRM. `{keyword}` is the account keyword that matched the ad;
-Google can leave it empty for campaign types that do not use keywords.
+Rules and limits:
+
+- `{campaignid}`, `{adgroupid}`, `{keyword}`, `{matchtype}`, `{network}`,
+  `{device}`, and `{creative}` are Google ValueTrack placeholders that Google
+  fills in at click time. `vmh_campaign` and `vmh_adgroup` are typed by you
+  because ValueTrack only exposes numeric IDs, not names.
+- An ad-group-level suffix overrides a campaign- or account-level one, so
+  set it on every ad group (or on the campaign only if every ad group may share
+  one `vmh_adgroup` label).
+- `{keyword}` is the **account keyword that matched**, never the visitor's
+  search phrase. Google does not expose the actual search query in the click
+  URL to any advertiser; the only source is **Google Ads → Insights and reports
+  → Search terms**, which is aggregated. The CRM therefore shows the matched
+  keyword and match type, and the Search terms report shows the queries behind
+  each keyword.
+- Older visits cannot be retroactively assigned a keyword and will say
+  **Not captured**. When a live click arrives without any suffix data the CRM
+  flags it ("Google click arrived without the final URL suffix"), and a banner
+  appears when no click in the selected range carried it — that is the signal
+  that the suffix is not applied in the Google Ads account.
+- Use `https://valisenmentalhealth.com/welcome` as the Final URL on every ad.
 
 The signer forces `utm_source=google` and `utm_medium=cpc`. Never append an
 actual search query, email, phone, or any contact/form value. The allow-listed
@@ -140,6 +204,27 @@ ValueTrack fields above are sanitized, sealed into the signed journey, and
 removed from the visible landing URL. Raw `gclid`, `gbraid`, and `wbraid` values
 are moved into a one-time fragment, kept only in that browser tab, and also
 removed from the visible landing URL.
+
+## Exporting Google Ads data
+
+The Google Ads CRM tab has an **Export** menu beside the refresh button. It
+follows the selected scope (Live campaign / Test QA) and date range:
+
+- **Journeys (CSV)** — one row per ad session: clinic-local and UTC start time,
+  session length, active time, whether it was counted at click time, final URL,
+  last page, campaign, ad group, keyword, match type, network, device, whether
+  the suffix was received, event/page counts, scroll depth, CTA/form/request
+  flags, the consultation reference and booking/paid stages, and the raw
+  campaign dimensions.
+- **Event timeline (CSV)** — every recorded event with clinic-local time,
+  seconds since session start, page and section labels, and safe targets.
+- **Dashboard summary (CSV)** — the KPIs, funnel, campaign, page, section, and
+  interaction tables currently on screen.
+
+Exports are capped (10,000 journeys / 30,000 events per file) to stay within
+serverless response limits; the dashboard says when a narrower range is needed.
+Files open directly in Excel or Google Sheets and never contain names, contact
+details, form text, or search queries.
 
 ## Starting a new reporting period
 
@@ -205,6 +290,14 @@ npm run test:google-ads-ui
 The browser QA writes screenshots and a report to `artifacts/google-ads/`.
 Production still needs a real Turnstile submission, Supabase/CRM verification,
 and Tag Assistant because local mocks cannot prove live Google attribution.
+
+To reconcile the CRM with Google Ads, compare the **Ad sessions** card for
+**Today** (Toronto time, same as the Google Ads account) with Google's
+**Clicks**. Google counts a click the moment it is billed; the CRM counts it
+when the signed redirect reaches the server. Clicks that never reach the site
+(the visitor cancels during the network round trip), clicks Google later
+classifies as invalid, and browsers that block all first-party requests remain
+the only expected differences.
 
 Finally, this is behavioral analytics on mental-health pages that may later be
 linked to a voluntarily submitted consultation. Before ad spend, have the

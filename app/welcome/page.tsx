@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import PaidSearchLandingPage from "@/components/paid-search/PaidSearchLandingPage";
+import {
+  googleAdsDirectEntryPath,
+  type HomepageSearchParams,
+} from "@/lib/googleAdsHomepageEntry";
 import { getPaidSearchLandingPage } from "@/lib/paidSearchLandingPages";
 
 const config = getPaidSearchLandingPage();
@@ -29,6 +34,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function WelcomeLandingPage() {
+export default async function WelcomeLandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<HomepageSearchParams>;
+}) {
+  // A real Google Ads click is signed on the server before any HTML is sent,
+  // so the CRM counts it even if the visitor leaves before scripts run. The
+  // inline pre-hydration bridge in the root layout remains as a fallback.
+  const entry = googleAdsDirectEntryPath("/welcome", await searchParams);
+  if (entry) redirect(entry);
   return <PaidSearchLandingPage config={config} landingPath="/welcome" />;
 }

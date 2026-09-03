@@ -1,8 +1,12 @@
 {
-  "checkedAt": "2026-09-01T04:54:12.026Z",
-  "origin": "http://localhost:3001",
+  "checkedAt": "2026-09-03T22:20:31.422Z",
+  "origin": "http://localhost:3000",
+  "directFinalUrl": {
+    "landingPath": "/welcome",
+    "signed": true,
+    "trackedBatches": 1
+  },
   "negativeTraffic": {
-    "directGoogleLikeRequests": 0,
     "metaRequests": 0,
     "metaClearedPriorAdsSession": true,
     "directThankYouRedirected": true

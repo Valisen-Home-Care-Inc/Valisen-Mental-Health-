@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseGoogleAdsEventBatch } from "@/lib/server/googleAdsEventContract";
-import { persistGoogleAdsEventBatch } from "@/lib/server/googleAdsRepository";
+import { parseGoogleAdsEventBatchLenient } from "@/lib/server/googleAdsEventContract";
+import {
+  persistGoogleAdsEventBatch,
+  seedGoogleAdsSession,
+} from "@/lib/server/googleAdsRepository";
 import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 import {
   hasJsonContentType,
@@ -53,8 +56,16 @@ export async function POST(request: NextRequest) {
   if (!journey) return noStore(403);
   const batchInput = { ...envelope };
   delete batchInput.journeyToken;
-  const batch = parseGoogleAdsEventBatch(batchInput, MAX_EVENTS);
+  const parsed = parseGoogleAdsEventBatchLenient(batchInput, MAX_EVENTS);
+  const batch = parsed.batch;
   if (!batch || batch.sessionId !== journey.sessionId) return noStore(400);
+  if (parsed.rejectedEvents || parsed.clockSkewMs) {
+    console.warn(
+      "google-ads-events: batch normalized",
+      `rejected-${parsed.rejectedEvents}`,
+      `skew-${parsed.clockSkewMs}`,
+    );
+  }
   const trustedBatch = {
     ...batch,
     sessionStartedAt: journey.startedAt,
@@ -68,6 +79,35 @@ export async function POST(request: NextRequest) {
       googleClickIdPresent: journey.googleClickIdPresent,
     })),
   };
+
+  // The entry redirect normally seeds the session with its signed click
+  // attribution. If that call was unavailable, the opening batch repeats it
+  // so campaign, ad group, and keyword still reach the CRM.
+  if (
+    journey.valueTrack &&
+    batch.events.some(
+      (event) => event.event === "journey_started" || event.sequence === 1,
+    )
+  ) {
+    try {
+      await seedGoogleAdsSession(
+        {
+          sessionId: journey.sessionId,
+          startedAt: journey.startedAt,
+          landingPath: journey.landingPath,
+          attribution: journey.attribution,
+          googleClickIdPresent: journey.googleClickIdPresent,
+          valueTrack: journey.valueTrack,
+        },
+        2_000,
+      );
+    } catch (error) {
+      console.warn(
+        "google-ads-events: session seed skipped",
+        error instanceof Error ? error.name : "unknown",
+      );
+    }
+  }
 
   try {
     const result = await persistGoogleAdsEventBatch(trustedBatch);

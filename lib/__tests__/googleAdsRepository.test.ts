@@ -4,14 +4,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const callSupabaseRpc = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/server/supabaseServer", () => ({ callSupabaseRpc }));
+vi.mock("@/lib/server/supabaseServer", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/server/supabaseServer")>()),
+  callSupabaseRpc,
+}));
 
 import {
   consumeGoogleAdsConversion,
+  fetchGoogleAdsEventExportPage,
+  fetchGoogleAdsJourneyExportPage,
   fetchGoogleAdsTestDashboard,
   linkGoogleAdsConsultation,
+  seedGoogleAdsSession,
 } from "@/lib/server/googleAdsRepository";
 import { fetchConsultationTestManager } from "@/lib/server/growthRepository";
+import { SupabaseServerError } from "@/lib/server/supabaseServer";
 
 const SESSION_ID = "gas-12345678-1234-4234-9234-123456789abc";
 const REFERENCE_ID = "VC-ABCDEF123456";
@@ -67,6 +74,141 @@ describe("Google Ads durable repository boundaries", () => {
       }),
       3_000,
     );
+  });
+
+  it("seeds the session at click time and falls back to ensure before the migration exists", async () => {
+    const seed = {
+      sessionId: SESSION_ID,
+      startedAt: "2026-09-03T12:00:00.000Z",
+      landingPath: "/welcome",
+      attribution: {
+        source: "google",
+        medium: "cpc",
+        campaign: "Therapy Ontario Search",
+        content: "vt1~a:7639334819~k:online therapy ontario",
+      },
+      googleClickIdPresent: true,
+      valueTrack: {
+        campaignId: "18124413697",
+        campaignName: "Therapy Ontario Search",
+        adGroupId: "7639334819",
+        keyword: "online therapy ontario",
+        matchType: "phrase" as const,
+      },
+    };
+    callSupabaseRpc.mockReset().mockImplementation(async (name: string) =>
+      name === "seed_google_ads_session"
+        ? { accepted: true, seeded: true }
+        : { accepted: true },
+    );
+    await expect(seedGoogleAdsSession(seed)).resolves.toEqual({
+      accepted: true,
+      seeded: true,
+    });
+    expect(callSupabaseRpc).toHaveBeenCalledWith(
+      "seed_google_ads_session",
+      {
+        p_session_key: SESSION_ID,
+        p_session_started_at: "2026-09-03T12:00:00.000Z",
+        p_landing_path: "/welcome",
+        p_utm_source: "google",
+        p_utm_medium: "cpc",
+        p_utm_campaign: "Therapy Ontario Search",
+        p_utm_content: "vt1~a:7639334819~k:online therapy ontario",
+        p_google_click_id_present: true,
+        p_campaign_id: "18124413697",
+        p_campaign_name: "Therapy Ontario Search",
+        p_ad_group_id: "7639334819",
+        p_ad_group_name: null,
+        p_keyword: "online therapy ontario",
+        p_match_type: "phrase",
+        p_network: null,
+        p_ad_device: null,
+        p_creative_id: null,
+      },
+      2_500,
+    );
+
+    callSupabaseRpc.mockReset().mockImplementation(async (name: string) => {
+      if (name === "seed_google_ads_session") {
+        throw new SupabaseServerError("missing", 503, 404);
+      }
+      return { accepted: true };
+    });
+    await expect(seedGoogleAdsSession(seed)).resolves.toEqual({
+      accepted: true,
+      seeded: false,
+    });
+    expect(callSupabaseRpc.mock.calls.map(([name]) => name)).toEqual([
+      "seed_google_ads_session",
+      "ensure_google_ads_session",
+    ]);
+    expect(callSupabaseRpc).toHaveBeenLastCalledWith(
+      "ensure_google_ads_session",
+      expect.objectContaining({
+        p_session_key: SESSION_ID,
+        p_utm_campaign: "Therapy Ontario Search",
+        p_google_click_id_present: true,
+      }),
+      2_500,
+    );
+
+    callSupabaseRpc.mockReset().mockRejectedValue(new SupabaseServerError("down", 503));
+    await expect(seedGoogleAdsSession(seed)).rejects.toBeInstanceOf(SupabaseServerError);
+  });
+
+  it("pages the privacy-safe export RPCs", async () => {
+    const from = "2026-09-01T04:00:00.000Z";
+    const to = "2026-09-03T18:00:00.000Z";
+    await fetchGoogleAdsJourneyExportPage({ from, to, test: false, limit: 1_000, offset: 2_000 });
+    await fetchGoogleAdsEventExportPage({ from, to, test: true, limit: 5_000, offset: 0 });
+    expect(callSupabaseRpc).toHaveBeenCalledWith(
+      "export_google_ads_journeys",
+      { p_from: from, p_to: to, p_test: false, p_limit: 1_000, p_offset: 2_000 },
+      20_000,
+    );
+    expect(callSupabaseRpc).toHaveBeenCalledWith(
+      "export_google_ads_journey_events",
+      { p_from: from, p_to: to, p_test: true, p_limit: 5_000, p_offset: 0 },
+      20_000,
+    );
+  });
+
+  it("ships the click-attribution migration with a rollback self-test", () => {
+    const sql = readFileSync(
+      resolve(
+        process.cwd(),
+        "supabase/migrations/20260903000000_google_ads_click_attribution.sql",
+      ),
+      "utf8",
+    );
+    for (const column of [
+      "campaign_id", "campaign_name", "ad_group_id", "ad_group_name", "keyword",
+      "match_type", "network", "ad_device", "creative_id", "seeded_at",
+    ]) {
+      expect(sql).toContain(`add column if not exists ${column}`);
+    }
+    expect(sql).toContain("create or replace function public.seed_google_ads_session(");
+    expect(sql).toContain("on conflict (session_key) do nothing");
+    expect(sql).toContain("get diagnostics v_inserted = row_count");
+    expect(sql).toContain("google_ads_sessions_click_attribution_valid");
+    expect(sql).toContain("'sessionsWithoutEvents', total.sessions_without_events");
+    expect(sql).toContain("'attributedSessions', total.attributed_sessions");
+    expect(sql).toContain("'campaignName', recent.campaign_name");
+    expect(sql).toContain("'durationMs'");
+    expect(sql).toContain("FUNCTION public.get_google_ads_test_dashboard(");
+    expect(sql).toContain("v_test_definition like '%not ads_session.is_test%'");
+    expect(sql).toContain("create or replace function public.export_google_ads_journeys(");
+    expect(sql).toContain("create or replace function public.export_google_ads_journey_events(");
+    expect(sql).not.toMatch(/'email'|'phone'|coordination_details|first_name/);
+    expect(sql).toContain("select public.ingest_google_ads_events(");
+    expect(sql).toContain("select public.get_google_ads_test_dashboard(");
+    expect(sql).toContain("select public.export_google_ads_journeys(");
+    expect(sql).toContain("when sqlstate 'ZX001' then");
+    expect(sql).toContain("to service_role");
+    for (const value of ["exact", "phrase", "broad", "search", "search_partners", "display", "youtube", "video_partners", "performance_max", "demand_gen", "mobile", "tablet", "desktop", "other"]) {
+      expect(sql).toContain(`'${value}'`);
+    }
   });
 
   it("passes the signed receipt nonce hash to retry-idempotent consumption", async () => {
