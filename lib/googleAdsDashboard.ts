@@ -8,6 +8,7 @@ import {
   googleAdsSessionIdIsValid,
   isGoogleAdsSectionId,
   type GoogleAdsEventName,
+  type GoogleAdsFormFieldId,
   type GoogleAdsTargetType,
 } from "@/lib/googleAdsJourney";
 import {
@@ -145,6 +146,8 @@ export type GoogleAdsJourneySummary = {
   device?: "mobile" | "tablet" | "desktop";
   consultationCtaClicked: boolean;
   formStarted: boolean;
+  /** Ordered field identifiers only. No visitor-entered values are included. */
+  formFieldsEntered: GoogleAdsFormFieldId[];
   consultationSubmitted: boolean;
   consultationReferenceId?: string;
   booked: boolean;
@@ -193,6 +196,7 @@ const EVENT_LABELS: Record<GoogleAdsEventName, string> = {
   external_link_clicked: "External link clicked",
   form_started: "Consultation form started",
   form_field_focused: "Form field reached",
+  form_field_entered: "Form field received an entry",
   consultation_step_viewed: "Consultation step viewed",
   consultation_validation_failed: "Form validation shown",
   consultation_submitted: "Client submission signal recorded",
@@ -752,6 +756,28 @@ function normalizeRecentSessions(value: unknown, fallbackDate: string): GoogleAd
           ? Math.max(0, Date.parse(lastSeenAt) - Date.parse(startedAt))
           : milliseconds(suppliedDuration);
       const maxScroll = count(pick(source, "maxScrollDepth", "max_scroll_depth"));
+      const events = normalizeJourneyEvents(
+        pick(source, "events", "timeline", "recentEvents", "recent_events"),
+        startedAt,
+      );
+      const explicitFields = array(
+        pick(source, "formFieldsEntered", "form_fields_entered"),
+      ).filter(
+        (field): field is GoogleAdsFormFieldId =>
+          typeof field === "string" &&
+          (GOOGLE_ADS_FORM_FIELD_IDS as readonly string[]).includes(field),
+      );
+      const eventFields = events
+        .filter((event) => event.name === "form_field_entered")
+        .map((event) => event.targetId)
+        .filter(
+          (field): field is GoogleAdsFormFieldId =>
+            typeof field === "string" &&
+            (GOOGLE_ADS_FORM_FIELD_IDS as readonly string[]).includes(field),
+        );
+      const formFieldsEntered = Array.from(
+        new Set(explicitFields.length ? explicitFields : eventFields),
+      );
       return {
         sessionId,
         startedAt,
@@ -772,6 +798,7 @@ function normalizeRecentSessions(value: unknown, fallbackDate: string): GoogleAd
           pick(source, "consultationCtaClicked", "consultation_cta_clicked"),
         ),
         formStarted: bool(pick(source, "formStarted", "form_started")),
+        formFieldsEntered,
         consultationSubmitted: bool(
           pick(source, "consultationSubmitted", "consultation_submitted"),
         ),
@@ -781,10 +808,7 @@ function normalizeRecentSessions(value: unknown, fallbackDate: string): GoogleAd
         booked: bool(pick(source, "booked", "consultationBooked", "consultation_booked")),
         paidTherapy: bool(pick(source, "paidTherapy", "paid_therapy")),
         attribution: normalizeClickAttribution(record(source.attribution), source),
-        events: normalizeJourneyEvents(
-          pick(source, "events", "timeline", "recentEvents", "recent_events"),
-          startedAt,
-        ),
+        events,
       };
     })
     .filter((item): item is GoogleAdsJourneySummary => Boolean(item))

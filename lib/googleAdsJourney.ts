@@ -40,6 +40,7 @@ export const GOOGLE_ADS_EVENT_NAMES = [
   "external_link_clicked",
   "form_started",
   "form_field_focused",
+  "form_field_entered",
   "consultation_step_viewed",
   "consultation_validation_failed",
   "consultation_submitted",
@@ -73,6 +74,7 @@ export type GoogleAdsCtaPlacement =
   (typeof GOOGLE_ADS_CTA_PLACEMENTS)[number];
 
 export const GOOGLE_ADS_FORM_FIELD_IDS = [
+  "full-name",
   "first-name",
   "last-name",
   "email",
@@ -86,6 +88,12 @@ export const GOOGLE_ADS_FORM_FIELD_IDS = [
 
 export type GoogleAdsFormFieldId =
   (typeof GOOGLE_ADS_FORM_FIELD_IDS)[number];
+
+/** Public pages that contain a consultation form used by a signed Ads journey. */
+export const GOOGLE_ADS_CONSULTATION_FORM_PATHS = [
+  "/consultation",
+  "/welcome",
+] as const;
 
 const EXTRA_GOOGLE_ADS_PATHS = [
   "/welcome",

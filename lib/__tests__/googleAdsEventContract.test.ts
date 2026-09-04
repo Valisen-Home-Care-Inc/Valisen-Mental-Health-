@@ -33,6 +33,10 @@ describe("Google Ads event contract", () => {
         targetType: "form_field",
         targetId: "email",
       }),
+      event("form_field_entered", {
+        targetType: "form_field",
+        targetId: "full-name",
+      }),
       event("consultation_step_viewed", { formStep: 2 }),
       event("consultation_validation_failed", {
         formStep: 2,
@@ -45,6 +49,36 @@ describe("Google Ads event contract", () => {
       }),
     ];
     for (const item of emitted) expect(parseGoogleAdsEvent(item)).not.toBeNull();
+  });
+
+  it("accepts value-free field entry on each Ads consultation form path", () => {
+    expect(
+      parseGoogleAdsEvent(
+        event("form_field_entered", {
+          path: "/welcome",
+          targetType: "form_field",
+          targetId: "availability",
+        }),
+      ),
+    ).not.toBeNull();
+    expect(
+      parseGoogleAdsEvent(
+        event("form_field_entered", {
+          path: "/services",
+          targetType: "form_field",
+          targetId: "email",
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      parseGoogleAdsEvent(
+        event("form_field_entered", {
+          targetType: "form_field",
+          targetId: "email",
+          value: "private@example.com",
+        }),
+      ),
+    ).toBeNull();
   });
 
   it("accepts navigation, section, scroll, and bounded active-time shapes", () => {

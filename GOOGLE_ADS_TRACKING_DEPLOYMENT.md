@@ -17,11 +17,14 @@ the marker.
 
 The tracker records only closed structural data: allow-listed page/section
 visits, active time, scroll milestones, safe click categories, consultation CTA
-clicks, form progression, a durable consultation link, the matched keyword from
-the advertiser's Google Ads account, and staff-updated booked or paid stages. It
-does not store the person's actual Google search phrase, names, contact values,
-form text, quiz answers, raw click IDs, crisis-resource calls, DOM content, or
-arbitrary URLs in journey events.
+clicks, form progression, which allow-listed consultation fields received an
+entry, a durable consultation link, the matched keyword from the advertiser's
+Google Ads account, and staff-updated booked or paid stages. Field-entry events
+contain only identifiers such as `full-name`, `email`, or `availability`; they
+never contain what the person typed or selected. The tracker does not store the
+person's actual Google search phrase, names, contact values, form text, quiz
+answers, raw click IDs, crisis-resource calls, DOM content, or arbitrary URLs
+in journey events.
 
 ### September 2026 accuracy update
 
@@ -117,19 +120,24 @@ one-use signed conversion receipt.
    behaviour: the signer falls back to `ensure_google_ads_session`, the
    dashboard decodes ad group/keyword from `utm_content`, and the **Export**
    menu explains that the migration is still needed.
-8. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
+8. Run the privacy-safe form-field migration in the Supabase SQL Editor:
+   `supabase/migrations/20260904000000_google_ads_form_field_entry.sql`.
+   "Success, no rows" is expected. It adds the closed `form_field_entered`
+   event and ordered field-name summaries to both Live campaign and Test QA
+   journey details. It does not add any column capable of storing field values.
+9. Keep `GOOGLE_ADS_CONVERSION_SECRET` in Netlify as a server-only secret. It
    must be at least 32 random bytes. Do not prefix it with `NEXT_PUBLIC_` and do
    not put it in Supabase.
-9. Keep the existing Supabase URL/service-role credentials in Netlify; this
+10. Keep the existing Supabase URL/service-role credentials in Netlify; this
    change adds no new browser/public API key.
-10. Deploy the main Netlify site.
-11. Open the production QA URL in a fresh Incognito window, navigate to at least
+11. Deploy the main Netlify site.
+12. Open the production QA URL in a fresh Incognito window, navigate to at least
    two pages, and submit one real Turnstile-protected test consultation. In both
    the Google Ads and Consultations CRM sections, switch from **Live campaign**
    to **Test QA** and verify the journey and `VC-...` consultation there. The
    journey should show **Counted at: Click time (server)**, a non-zero active
    time, and the campaign/ad group/keyword from the QA URL.
-12. After the main-domain test passes, remove the obsolete subdomain setup:
+13. After the main-domain test passes, remove the obsolete subdomain setup:
    remove the Netlify custom domain `ads.valisenmentalhealth.com`, delete the
    GoDaddy `ads` CNAME, remove that hostname from the Cloudflare Turnstile
    allowlist, delete `NEXT_PUBLIC_GOOGLE_ADS_HOSTNAME`, and remove the ads host

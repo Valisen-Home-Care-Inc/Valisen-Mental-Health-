@@ -107,6 +107,7 @@ describe("Google Ads dashboard normalization", () => {
             eventCount: 2,
             consultationCtaClicked: true,
             formStarted: true,
+            formFieldsEntered: ["full-name", "email", "phone"],
             consultationSubmitted: true,
             submissionReference: "VC-ABCDEF12",
             booked: true,
@@ -169,6 +170,7 @@ describe("Google Ads dashboard normalization", () => {
       durationMs: 240_000,
       seededAt: "2026-08-23T15:00:00.500Z",
       maxScrollDepth: 75,
+      formFieldsEntered: ["full-name", "email", "phone"],
       attribution: {
         source: "google",
         campaign: "ottawa-anxiety",
@@ -187,6 +189,44 @@ describe("Google Ads dashboard normalization", () => {
       "consultation_cta_clicked",
       "consultation_submitted",
     ]);
+  });
+
+  it("derives privacy-safe field progress from a journey timeline", () => {
+    const data = normalizeGoogleAdsDashboard(
+      {
+        kpis: {},
+        recentSessions: [
+          {
+            sessionId: "gas-12345678-1234-1234-1234-123456789012",
+            startedAt: "2026-08-23T15:00:00.000Z",
+            timeline: [
+              {
+                event: "form_field_entered",
+                occurredAt: "2026-08-23T15:01:00.000Z",
+                path: "/consultation",
+                targetType: "form_field",
+                targetId: "full-name",
+              },
+              {
+                event: "form_field_entered",
+                occurredAt: "2026-08-23T15:01:10.000Z",
+                path: "/consultation",
+                targetType: "form_field",
+                targetId: "email",
+                value: "private@example.com",
+              },
+            ],
+          },
+        ],
+      },
+      RANGE,
+    );
+
+    expect(data.recentSessions[0].formFieldsEntered).toEqual([
+      "full-name",
+      "email",
+    ]);
+    expect(JSON.stringify(data)).not.toContain("private@example.com");
   });
 
   it("labels ID-only campaigns and flags clicks that arrived without the suffix", () => {

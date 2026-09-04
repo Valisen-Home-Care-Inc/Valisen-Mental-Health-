@@ -146,7 +146,7 @@ const CONSENT_VERSION = "consultation-coordination-v1";
 const GOOGLE_ADS_ERROR_FIELDS: Partial<
   Record<keyof ConsultationFormData, GoogleAdsFormFieldId>
 > = {
-  fullName: "first-name",
+  fullName: "full-name",
   email: "email",
   phone: "phone",
   therapyType: "therapy-type",
@@ -973,7 +973,13 @@ export default function ConsultationPage() {
                     ) : null}
                   </div>
                 ) : (
-                  <form ref={formRef} onSubmit={handleSubmit} noValidate className="scroll-mt-24">
+                  <form
+                    ref={formRef}
+                    onSubmit={handleSubmit}
+                    noValidate
+                    data-google-ads-consultation-form="true"
+                    className="scroll-mt-24"
+                  >
                     <div aria-hidden="true" className="absolute left-[-9999px] h-px w-px overflow-hidden">
                       <label htmlFor="consultation-website">Website</label>
                       <input
@@ -1013,18 +1019,18 @@ export default function ConsultationPage() {
                           </p>
                         </div>
                         <Field id="full-name" label="Full Name" required error={errors.fullName}>
-                          <input id="full-name" type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => set("fullName", event.target.value)} className={inputClass} placeholder="First and last name" aria-invalid={Boolean(errors.fullName)} />
+                            <input id="full-name" data-google-ads-field-id="full-name" type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => set("fullName", event.target.value)} className={inputClass} placeholder="First and last name" aria-invalid={Boolean(errors.fullName)} />
                         </Field>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <Field id="email" label="Email Address" required error={errors.email}>
-                            <input id="email" type="email" inputMode="email" autoComplete="email" maxLength={254} value={data.email} onChange={(event) => set("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)} />
+                            <input id="email" data-google-ads-field-id="email" type="email" inputMode="email" autoComplete="email" maxLength={254} value={data.email} onChange={(event) => set("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)} />
                           </Field>
                           <Field id="phone" label="Phone Number" required error={errors.phone}>
-                            <input id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} required value={data.phone} onChange={(event) => set("phone", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} />
+                            <input id="phone" data-google-ads-field-id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} required value={data.phone} onChange={(event) => set("phone", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} />
                           </Field>
                         </div>
                         <Field id="therapy-type" label="What type of therapy are you seeking?" required error={errors.therapyType}>
-                          <select id="therapy-type" value={data.therapyType} onChange={(event) => set("therapyType", event.target.value)} className={`${inputClass} cursor-pointer appearance-none`} aria-invalid={Boolean(errors.therapyType)}>
+                          <select id="therapy-type" data-google-ads-field-id="therapy-type" value={data.therapyType} onChange={(event) => set("therapyType", event.target.value)} className={`${inputClass} cursor-pointer appearance-none`} aria-invalid={Boolean(errors.therapyType)}>
                             <option value="">Please select…</option>
                             <option value="Individual Therapy">Individual Therapy</option>
                             <option value="Couples Therapy">Couples Therapy</option>
@@ -1034,7 +1040,7 @@ export default function ConsultationPage() {
                           </select>
                         </Field>
                         <Field id="additional-info" label="Anything else you'd like us to know? (optional)">
-                          <textarea id="additional-info" rows={3} maxLength={1500} value={data.additionalInfo} onChange={(event) => set("additionalInfo", event.target.value)} className={inputClass} placeholder="Share only what feels useful for coordinating your consultation." />
+                          <textarea id="additional-info" data-google-ads-field-id="additional-info" rows={3} maxLength={1500} value={data.additionalInfo} onChange={(event) => set("additionalInfo", event.target.value)} className={inputClass} placeholder="Share only what feels useful for coordinating your consultation." />
                         </Field>
                         <button type="button" onClick={continueToAvailability} className="btn-primary min-h-[54px] w-full justify-center text-[15px]">
                           Continue to Availability
@@ -1061,6 +1067,7 @@ export default function ConsultationPage() {
                                 <button
                                   key={option.value}
                                   type="button"
+                                  data-google-ads-field-id="availability"
                                   aria-pressed={selected}
                                   onClick={() => set("availability", option.value)}
                                   className={`relative flex min-h-[124px] flex-col items-center justify-center border px-3 py-4 text-center transition-all ${selected ? "border-teal bg-teal/[0.06] shadow-[0_0_0_1px_rgba(42,127,127,0.25)]" : "border-black/15 bg-[#FCFBF8] hover:border-teal/60"}`}
@@ -1078,7 +1085,7 @@ export default function ConsultationPage() {
 
                         <div data-error={errors.consent ? true : undefined} className="border border-black/10 bg-canvas p-4 sm:p-5">
                           <label className="flex cursor-pointer items-start gap-3">
-                            <input type="checkbox" checked={data.consent} onChange={(event) => set("consent", event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-teal" />
+                            <input type="checkbox" data-google-ads-field-id="consent" checked={data.consent} onChange={(event) => set("consent", event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-teal" />
                             <span className="text-[12.5px] leading-[1.65] text-ink-secondary">
                               {CONSENT_TEXT} See our <Link href="/privacy-policy" target="_blank" className="font-medium text-teal underline underline-offset-2">Privacy Policy</Link>.
                             </span>

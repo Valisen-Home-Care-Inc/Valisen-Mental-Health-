@@ -185,6 +185,7 @@ function finalUrlLabel(pathname: string): string {
 
 function fieldLabel(value: string): string {
   const labels: Record<string, string> = {
+    "full-name": "Full-name field",
     "first-name": "First-name field",
     "last-name": "Last-name field",
     email: "Email field",
@@ -1174,6 +1175,7 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
   const adGroup = adGroupValue(session.attribution);
   const keyword = session.attribution.keyword;
   const hint = suffixHint(session.attribution);
+  const lastEnteredField = session.formFieldsEntered.at(-1);
   return (
     <details className="group bg-white open:bg-[#fbfcfb]">
       <summary className="grid cursor-pointer list-none gap-3 px-5 py-4 marker:content-none hover:bg-[#f8faf8] sm:grid-cols-[minmax(190px,1.1fr)_minmax(250px,1.45fr)_100px_100px_80px_auto] sm:items-center sm:px-6">
@@ -1312,6 +1314,33 @@ function JourneyDetails({ session }: { session: GoogleAdsJourneySummary }) {
             <span className="font-mono font-semibold text-[#2d5d56]">
               {session.consultationReferenceId}
             </span>
+          </div>
+        ) : null}
+        {session.formFieldsEntered.length ? (
+          <div className="mb-4 rounded-[12px] border border-[#dbe8e3] bg-white px-4 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-[10.5px] font-semibold text-[#3f5d57]">
+                Consultation fields with an entry
+              </p>
+              <p className="text-[9px] text-[#83918d]">
+                Field names only; typed values are never stored
+              </p>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {session.formFieldsEntered.map((field, index) => (
+                <span
+                  key={field}
+                  className="rounded-full bg-[#e5f1ed] px-2.5 py-1 text-[9.5px] font-medium text-[#37685f]"
+                >
+                  {index + 1}. {fieldLabel(field)}
+                </span>
+              ))}
+            </div>
+            {!session.consultationReferenceId && lastEnteredField ? (
+              <p className="mt-2 text-[9.5px] text-[#687b76]">
+                Last recorded field before this journey stopped: {fieldLabel(lastEnteredField)}
+              </p>
+            ) : null}
           </div>
         ) : null}
         {session.events.length ? (

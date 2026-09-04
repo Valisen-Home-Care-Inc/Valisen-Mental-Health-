@@ -425,7 +425,7 @@ export default function PaidSearchConsultationForm({
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} noValidate className="relative rounded-[24px] bg-white p-4 text-ink shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-5">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate data-google-ads-consultation-form="true" className="relative rounded-[24px] bg-white p-4 text-ink shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-5">
       <div aria-hidden="true" className="absolute left-[-9999px] h-px w-px overflow-hidden">
         <label htmlFor={`${instanceId}-website`}>Website</label>
         <input id={`${instanceId}-website`} name="website" tabIndex={-1} autoComplete="new-password" value={data.website} onChange={(event) => update("website", event.target.value)} />
@@ -449,18 +449,18 @@ export default function PaidSearchConsultationForm({
       */}
       <div className="mt-3.5 grid gap-3 min-[360px]:grid-cols-2">
         <Field id={`${instanceId}-full-name`} label="Full name" error={errors.fullName}>
-          <input id={`${instanceId}-full-name`} type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => update("fullName", event.target.value)} className={inputClass} placeholder="First and last name" aria-invalid={Boolean(errors.fullName)} />
+          <input id={`${instanceId}-full-name`} data-google-ads-field-id="full-name" type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => update("fullName", event.target.value)} className={inputClass} placeholder="First and last name" aria-invalid={Boolean(errors.fullName)} />
         </Field>
         <Field id={`${instanceId}-phone`} label="Phone number" error={errors.phone}>
-          <input id={`${instanceId}-phone`} type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={data.phone} onChange={(event) => update("phone", event.target.value)} className={inputClass} placeholder="(613) 555-0123" aria-invalid={Boolean(errors.phone)} />
+          <input id={`${instanceId}-phone`} data-google-ads-field-id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={data.phone} onChange={(event) => update("phone", event.target.value)} className={inputClass} placeholder="(613) 555-0123" aria-invalid={Boolean(errors.phone)} />
         </Field>
       </div>
       <div className="mt-3 grid gap-3 min-[360px]:grid-cols-2">
         <Field id={`${instanceId}-email`} label="Email address" error={errors.email}>
-          <input id={`${instanceId}-email`} type="email" inputMode="email" autoComplete="email" maxLength={254} value={data.email} onChange={(event) => update("email", event.target.value)} className={inputClass} placeholder="you@example.com" aria-invalid={Boolean(errors.email)} />
+          <input id={`${instanceId}-email`} data-google-ads-field-id="email" type="email" inputMode="email" autoComplete="email" maxLength={254} value={data.email} onChange={(event) => update("email", event.target.value)} className={inputClass} placeholder="you@example.com" aria-invalid={Boolean(errors.email)} />
         </Field>
         <Field id={`${instanceId}-availability`} label="Best time to call" error={errors.availability}>
-          <select id={`${instanceId}-availability`} value={data.availability} onChange={(event) => update("availability", event.target.value as ConsultationAvailability | "")} className={`${inputClass} cursor-pointer appearance-none`} aria-invalid={Boolean(errors.availability)}>
+          <select id={`${instanceId}-availability`} data-google-ads-field-id="availability" value={data.availability} onChange={(event) => update("availability", event.target.value as ConsultationAvailability | "")} className={`${inputClass} cursor-pointer appearance-none`} aria-invalid={Boolean(errors.availability)}>
             <option value="">Choose a time</option>
             {Object.entries(CONSULTATION_AVAILABILITY_WINDOWS).map(([value, option]) => (
               <option key={value} value={value}>{option.label}: {option.time}</option>
@@ -471,13 +471,13 @@ export default function PaidSearchConsultationForm({
 
       <div className="mt-3">
         <Field id={`${instanceId}-additional-info`} label="Anything else you'd like us to know? (optional)" required={false}>
-          <textarea id={`${instanceId}-additional-info`} rows={2} maxLength={1500} value={data.notes} onChange={(event) => update("notes", event.target.value)} className={inputClass} placeholder="Share only what feels useful for coordinating your consultation." />
+          <textarea id={`${instanceId}-additional-info`} data-google-ads-field-id="additional-info" rows={2} maxLength={1500} value={data.notes} onChange={(event) => update("notes", event.target.value)} className={inputClass} placeholder="Share only what feels useful for coordinating your consultation." />
         </Field>
       </div>
 
       <div data-error={errors.consent ? true : undefined} className="mt-3 rounded-[14px] border border-black/10 bg-canvas p-3">
         <label className="flex cursor-pointer items-start gap-2.5">
-          <input type="checkbox" checked={data.consent} onChange={(event) => update("consent", event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-teal" />
+          <input type="checkbox" data-google-ads-field-id="consent" checked={data.consent} onChange={(event) => update("consent", event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-teal" />
           <span className="text-[11.5px] leading-[1.5] text-ink-secondary">
             I consent to Valisen contacting me about this consultation request. See our{" "}
             <Link href="/privacy-policy" target="_blank" className="font-semibold text-teal underline underline-offset-2">Privacy Policy</Link>.

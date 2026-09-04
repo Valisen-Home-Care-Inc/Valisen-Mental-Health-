@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import {
   canonicalizeGoogleAdsPath,
   captureGoogleAdsJourneyFromUrl,
+  GOOGLE_ADS_CONSULTATION_FORM_PATHS,
   googleAdsSectionId,
   isCrisisPhoneHref,
   isGoogleAdsFormFieldId,
@@ -34,6 +35,9 @@ const CONSULTATION_PATHS = new Set([
   "/get-matched",
   "/intake",
 ]);
+const CONSULTATION_FORM_PATHS = new Set<string>(
+  GOOGLE_ADS_CONSULTATION_FORM_PATHS,
+);
 
 type PageState = {
   path: string;
@@ -54,10 +58,20 @@ function clickedElement(target: EventTarget | null): Element | null {
 
 function consultationFieldId(element: Element): GoogleAdsFormFieldId | null {
   if (!(element instanceof HTMLElement)) return null;
+  const field = element.closest<HTMLElement>("[data-google-ads-field-id]");
+  const declaredId = field?.dataset.googleAdsFieldId;
+  if (isGoogleAdsFormFieldId(declaredId)) return declaredId;
   if (isGoogleAdsFormFieldId(element.id)) return element.id;
   if (element.matches('input[type="checkbox"]')) return "consent";
   if (element.matches('button[aria-pressed]')) return "availability";
   return null;
+}
+
+function consultationFormField(element: Element): GoogleAdsFormFieldId | null {
+  if (!element.closest("form[data-google-ads-consultation-form='true']")) {
+    return null;
+  }
+  return consultationFieldId(element);
 }
 
 function therapistIdFromPath(pathname: string): string | undefined {
@@ -112,6 +126,7 @@ export default function GoogleAdsJourneyBoundary() {
     }
 
     const focusedFields = new Set<GoogleAdsFormFieldId>();
+    const enteredFields = new Set<GoogleAdsFormFieldId>();
     const viewedSections = new Set<string>();
     const observedSections = new WeakSet<Element>();
     const reachedScrollDepths = new Set<25 | 50 | 75 | 100>();
@@ -227,10 +242,10 @@ export default function GoogleAdsJourneyBoundary() {
     };
 
     const onFocus = (event: FocusEvent) => {
-      if (canonicalizeGoogleAdsPath(pathname) !== "/consultation") return;
+      if (!CONSULTATION_FORM_PATHS.has(canonicalizeGoogleAdsPath(pathname))) return;
       const element = clickedElement(event.target);
-      if (!element || !element.closest("form")) return;
-      const targetId = consultationFieldId(element);
+      if (!element) return;
+      const targetId = consultationFormField(element);
       if (!targetId || focusedFields.has(targetId)) return;
       focusedFields.add(targetId);
       recordPageEvent("form_field_focused", {
@@ -240,10 +255,35 @@ export default function GoogleAdsJourneyBoundary() {
       });
     };
 
+    /** Records only that a field received input; the field value is never read. */
+    const recordFieldEntry = (element: Element | null) => {
+      if (!element || !CONSULTATION_FORM_PATHS.has(canonicalizeGoogleAdsPath(pathname))) {
+        return;
+      }
+      const targetId = consultationFormField(element);
+      if (!targetId || enteredFields.has(targetId)) return;
+      enteredFields.add(targetId);
+      recordPageEvent("form_field_entered", {
+        sectionId: currentSectionId,
+        targetType: "form_field",
+        targetId,
+      });
+    };
+
+    const onInput = (event: Event) => {
+      const element = clickedElement(event.target);
+      // Let the form's own change handler record `form_started` first.
+      queueMicrotask(() => recordFieldEntry(element));
+    };
+
     const onClick = (event: MouseEvent) => {
       const origin = clickedElement(event.target);
       const actionable = origin?.closest("a, button, [role='button']");
       if (!actionable) return;
+
+      // Availability uses pressed buttons rather than a native input. Treat
+      // the first selection as field entry without inspecting the selection.
+      queueMicrotask(() => recordFieldEntry(actionable));
 
       const sectionId =
         actionable.closest("section")?.getAttribute("data-google-ads-section-id") ||
@@ -391,6 +431,7 @@ export default function GoogleAdsJourneyBoundary() {
 
     document.addEventListener("click", onClick, true);
     document.addEventListener("focusin", onFocus, true);
+    document.addEventListener("input", onInput, true);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pagehide", onPageHide);
     window.addEventListener("focus", onWindowFocus);
@@ -411,6 +452,7 @@ export default function GoogleAdsJourneyBoundary() {
       sectionObserver?.disconnect();
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("focusin", onFocus, true);
+      document.removeEventListener("input", onInput, true);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("focus", onWindowFocus);

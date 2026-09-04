@@ -1,6 +1,7 @@
 import {
   GOOGLE_ADS_EVENT_NAMES,
   GOOGLE_ADS_CTA_PLACEMENTS,
+  GOOGLE_ADS_CONSULTATION_FORM_PATHS,
   GOOGLE_ADS_FORM_FIELD_IDS,
   GOOGLE_ADS_TARGET_TYPES,
   GOOGLE_ADS_TRACKED_PATHS,
@@ -66,6 +67,9 @@ const CTA_PLACEMENTS = new Set<string>(GOOGLE_ADS_CTA_PLACEMENTS);
 const TARGET_TYPES = new Set<string>(GOOGLE_ADS_TARGET_TYPES);
 const TRACKED_PATHS = new Set<string>(GOOGLE_ADS_TRACKED_PATHS);
 const FORM_FIELD_IDS = new Set<string>(GOOGLE_ADS_FORM_FIELD_IDS);
+const CONSULTATION_FORM_PATHS = new Set<string>(
+  GOOGLE_ADS_CONSULTATION_FORM_PATHS,
+);
 const CLICK_EVENTS = new Set<GoogleAdsEventName>([
   "internal_link_clicked",
   "control_clicked",
@@ -180,6 +184,7 @@ function validTargetShape(event: GoogleAdsEventRecord): boolean {
   if (
     !CLICK_EVENTS.has(event.event) &&
     event.event !== "form_field_focused" &&
+    event.event !== "form_field_entered" &&
     event.event !== "consultation_validation_failed"
   ) {
     return !hasTarget;
@@ -220,8 +225,9 @@ function validTargetShape(event: GoogleAdsEventRecord): boolean {
     case "external_link_clicked":
       return event.targetType === "external" && !event.targetPath && !event.targetId;
     case "form_field_focused":
+    case "form_field_entered":
       return (
-        event.path === "/consultation" &&
+        CONSULTATION_FORM_PATHS.has(event.path) &&
         event.targetType === "form_field" &&
         Boolean(event.targetId && FORM_FIELD_IDS.has(event.targetId)) &&
         !event.targetPath
@@ -266,11 +272,12 @@ function validEventSpecificShape(event: GoogleAdsEventRecord): boolean {
     [
       "form_started",
       "form_field_focused",
+      "form_field_entered",
       "consultation_step_viewed",
       "consultation_validation_failed",
       "consultation_submitted",
     ].includes(event.event) &&
-    event.path !== "/consultation"
+    !CONSULTATION_FORM_PATHS.has(event.path)
   ) {
     return false;
   }

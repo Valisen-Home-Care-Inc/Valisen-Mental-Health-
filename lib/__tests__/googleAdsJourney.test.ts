@@ -50,6 +50,7 @@ describe("Google Ads journey boundaries", () => {
   });
 
   it("allowlists form fields, tracked SQL paths, and omits crisis calls", () => {
+    expect(isGoogleAdsFormFieldId("full-name")).toBe(true);
     expect(isGoogleAdsFormFieldId("email")).toBe(true);
     expect(isGoogleAdsFormFieldId("entered-value@example.com")).toBe(false);
     expect(isCrisisPhoneHref("tel:988")).toBe(true);
@@ -65,6 +66,21 @@ describe("Google Ads journey boundaries", () => {
     for (const path of GOOGLE_ADS_TRACKED_PATHS) {
       expect(migration, `missing SQL path ${path}`).toContain(`'${path}'`);
     }
+  });
+
+  it("ships a closed, value-free consultation field-entry migration", () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        "supabase/migrations/20260904000000_google_ads_form_field_entry.sql",
+      ),
+      "utf8",
+    );
+    expect(migration).toContain("'form_field_entered'");
+    expect(migration).toContain("'full-name', 'first-name', 'last-name'");
+    expect(migration).toContain("v_path not in (''/consultation'', ''/welcome'')");
+    expect(migration).toContain("'formFieldsEntered'");
+    expect(migration).not.toMatch(/first_name|email_address|phone_number|field_value/);
   });
 
   it("requires same-origin plus an untampered purpose-bound receipt", () => {
