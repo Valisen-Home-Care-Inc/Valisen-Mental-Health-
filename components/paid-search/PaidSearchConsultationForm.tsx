@@ -87,7 +87,7 @@ function makeSubmissionId(): string {
 
 function splitFullName(value: string): { firstName: string; lastName: string } | null {
   const parts = value.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
-  if (parts.length < 2) return null;
+  if (parts.length < 1) return null;
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
@@ -202,7 +202,7 @@ export default function PaidSearchConsultationForm({
 
   function validate(): FormErrors {
     const next: FormErrors = {};
-    if (!splitFullName(data.fullName)) next.fullName = "Please enter your first and last name.";
+    if (!splitFullName(data.fullName)) next.fullName = "Please enter your first name.";
     if (!data.email.trim()) {
       next.email = "Email address is required.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
@@ -301,6 +301,7 @@ export default function PaidSearchConsultationForm({
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
+          formVariant: "welcome",
           clientSubmissionId: submissionIdRef.current,
           formStartedAt: formStartedAtRef.current,
           firstName: name.firstName,

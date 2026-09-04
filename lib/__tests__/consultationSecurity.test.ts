@@ -250,6 +250,48 @@ describe("consultation submission boundary", () => {
     );
   });
 
+  it.each([false, true])("saves a first-name-only welcome request (signed Ads: %s)", async (signedAds) => {
+    const proof = signedAds ? googleAdsProof() : undefined;
+    const response = await POST(request(payload({
+      formVariant: "welcome",
+      firstName: "Alex",
+      lastName: "",
+      source: signedAds ? "google_ads" : "paid_search_landing",
+      googleAdsSessionId: proof?.claim.sessionId,
+      googleAdsJourneyToken: proof?.token,
+    })));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      referenceId: expect.stringMatching(/^VC-[A-Z0-9]+$/),
+      crmSaved: true,
+      ...(signedAds ? { googleAdsThankYouReady: true } : {}),
+    });
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firstName: "Alex",
+        lastName: "",
+        sourceKind: signedAds ? "google_ads" : "website",
+      }),
+    );
+    expect(flowMocks.upsertConsultationLead.mock.calls[0][0]).not.toHaveProperty("formVariant");
+    expect(flowMocks.verifyTurnstile).toHaveBeenCalledOnce();
+    expect(flowMocks.sendMail).toHaveBeenCalled();
+  });
+
+  it.each([
+    { formVariant: "welcome", firstName: "  ", lastName: "" },
+    { lastName: "" },
+    { formVariant: "another-form", lastName: "" },
+    { formVariant: true, lastName: "" },
+  ])("rejects an empty welcome name and preserves other form validation: %j", async (overrides) => {
+    const response = await POST(request(payload(overrides)));
+    expect(response.status).toBe(400);
+    expect(flowMocks.upsertConsultationLead).not.toHaveBeenCalled();
+    expect(flowMocks.sendMail).not.toHaveBeenCalled();
+  });
+
   it("accepts only a strict non-PII checkpoint attribution object", async () => {
     const attribution = {
       source: "mental_battery_checkpoint",

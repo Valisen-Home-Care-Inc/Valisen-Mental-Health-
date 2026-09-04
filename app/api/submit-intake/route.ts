@@ -113,6 +113,7 @@ const HEADER_ROW = [
 ];
 
 const ALLOWED_KEYS = new Set([
+  "formVariant",
   "clientSubmissionId",
   "formStartedAt",
   "firstName",
@@ -213,6 +214,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   if (Object.keys(input).some((key) => !ALLOWED_KEYS.has(key))) {
     return { error: "Invalid request fields." };
   }
+  if (input.formVariant !== undefined && input.formVariant !== "welcome") {
+    return { error: "Invalid consultation form." };
+  }
   if (!validSubmissionId(input.clientSubmissionId)) {
     return { error: "Invalid submission identifier." };
   }
@@ -291,7 +295,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const timeOfDay = input.timeOfDay;
   const expectedDays = CONSULTATION_DAYS;
 
-  if (!firstName || !lastName || !validEmail(email)) {
+  // Only the /welcome form accepts a first name without a surname.
+  // This form marker is validation-only and is not stored in the CRM.
+  if (!firstName || (!lastName && input.formVariant !== "welcome") || !validEmail(email)) {
     return { error: "Please provide a valid name and email address." };
   }
   if (!isValidConsultationPhone(phone)) {

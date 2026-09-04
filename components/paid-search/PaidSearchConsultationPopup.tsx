@@ -7,7 +7,7 @@ import { CONSULTATION_DURATION_MINUTES } from "@/lib/therapists";
 
 const DISMISSED_STORAGE_KEY = "valisen:google-ads-lp-popup-dismissed:v1";
 const TRIGGER_SECTION_ID = "therapists";
-const DELAY_MS = 5_000;
+const DELAY_MS = 7_000;
 
 function alreadyDismissedThisSession(): boolean {
   try {
@@ -26,7 +26,7 @@ function rememberDismissed(): void {
 }
 
 /**
- * Shows a booking nudge once, five seconds after the visitor has scrolled
+ * Shows a booking nudge once, seven seconds after the visitor has scrolled
  * fully past the therapist grid. It never renders a second live copy of the
  * consultation form (that would double-record Google Ads journey events for
  * every visitor who sees it); instead it hands off to the tracked form via
