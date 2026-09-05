@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import Footer from "@/components/Footer";
 import NavBar from "@/components/NavBar";
+import ConsultationJaneBookingCard from "@/components/ConsultationJaneBookingCard";
 import { stageGoogleAdsClickAttributionForConversion } from "@/lib/campaignAttribution";
 import {
   captureGoogleAdsJourneyFromUrl,
@@ -254,8 +255,8 @@ export default function GoogleAdsThankYou() {
               Thank you. Your request is in.
             </h1>
             <p className="mx-auto mt-5 max-w-[570px] text-[15px] leading-7 text-ink-secondary sm:text-base">
-              A member of the Valisen team will contact you within one business
-              day to coordinate your free consultation. Your requested time is
+              A member of the Valisen team will contact you within 24 hours
+              to coordinate your free consultation. Your requested time is
               a preference until our team confirms it with you.
             </p>
             <div className="mx-auto mt-8 max-w-[540px] rounded-2xl border border-[#cfe0da] bg-[#f3f8f5] px-5 py-5 text-left">
@@ -269,6 +270,7 @@ export default function GoogleAdsThankYou() {
                 .
               </p>
             </div>
+            <ConsultationJaneBookingCard />
             <Link
               href="/"
               onClick={(event) => {

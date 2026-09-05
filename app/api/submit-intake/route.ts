@@ -59,6 +59,7 @@ import {
 import { googleAdsSessionIdIsValid } from "@/lib/googleAdsJourney";
 import { prepareGoogleAdsConsultationConversion } from "@/lib/server/googleAdsConsultationConversion";
 import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
+import { buildConsultationConfirmationEmail } from "@/lib/server/consultationConfirmationEmail";
 
 export const runtime = "nodejs";
 
@@ -140,6 +141,7 @@ const ALLOWED_KEYS = new Set([
 ]);
 
 type IntakePayload = {
+  formVariant?: "welcome";
   clientSubmissionId: string;
   formStartedAt: number;
   firstName: string;
@@ -296,7 +298,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const expectedDays = CONSULTATION_DAYS;
 
   // Only the /welcome form accepts a first name without a surname.
-  // This form marker is validation-only and is not stored in the CRM.
+  // The marker also selects the welcome receipt email; it is not stored in the CRM.
   if (!firstName || (!lastName && input.formVariant !== "welcome") || !validEmail(email)) {
     return { error: "Please provide a valid name and email address." };
   }
@@ -333,6 +335,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
     payload: {
       clientSubmissionId: input.clientSubmissionId,
       formStartedAt: input.formStartedAt,
+      formVariant: input.formVariant === "welcome" ? "welcome" : undefined,
       firstName,
       lastName,
       email,
@@ -917,6 +920,29 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
       error instanceof Error ? error.name : "unknown",
     );
     return badRequest("We couldn't send your request. Please try again or call us.", 503);
+  }
+
+  if (payload.formVariant === "welcome") {
+    // Only the durable notification-claim owner sends the visitor receipt.
+    // Keep intake successful if SMTP fails after the clinic has been notified.
+    const confirmation = buildConsultationConfirmationEmail({
+      firstName: payload.firstName,
+      referenceId,
+    });
+    try {
+      await transporter.sendMail({
+        from: `"Valisen Mental Health" <${process.env.GMAIL_USER}>`,
+        to: payload.email,
+        replyTo: CLINIC_EMAIL,
+        ...confirmation,
+        messageId: `<consultation-visitor-${payload.clientSubmissionId}@valisenmentalhealth.com>`,
+      });
+    } catch (error) {
+      console.warn(
+        `submit-intake: visitor confirmation failed ${referenceId}`,
+        error instanceof Error ? error.name : "unknown",
+      );
+    }
   }
 
   if (preferredTherapist && isSpecificTherapistSlug(preferredTherapist)) {

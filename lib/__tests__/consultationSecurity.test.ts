@@ -277,7 +277,99 @@ describe("consultation submission boundary", () => {
     );
     expect(flowMocks.upsertConsultationLead.mock.calls[0][0]).not.toHaveProperty("formVariant");
     expect(flowMocks.verifyTurnstile).toHaveBeenCalledOnce();
-    expect(flowMocks.sendMail).toHaveBeenCalled();
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
+    expect(flowMocks.sendMail).toHaveBeenLastCalledWith(expect.objectContaining({
+      to: "alex@example.com",
+      replyTo: "info@valisenmentalhealth.com",
+      subject: "We've received your consultation request | Valisen",
+      text: expect.stringContaining("within 24 hours"),
+      html: expect.stringContaining('href="https://valisenmentalhealth.janeapp.com/"'),
+      messageId: "<consultation-visitor-11111111-1111-4111-8111-111111111111@valisenmentalhealth.com>",
+    }));
+  });
+
+  it("keeps visitor confirmation restricted to the welcome form", async () => {
+    const response = await POST(request(payload()));
+    expect(response.status).toBe(200);
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(1);
+    expect(flowMocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({
+      to: "info@valisenmentalhealth.com",
+    }));
+  });
+
+  it("does not repeat private intake details in the welcome receipt", async () => {
+    const response = await POST(request(payload({
+      formVariant: "welcome",
+      notes: "Sensitive private intake notes",
+    })));
+    expect(response.status).toBe(200);
+    const receipt = flowMocks.sendMail.mock.calls.find(([message]) => message.to === "alex@example.com")?.[0];
+    expect(receipt).toBeDefined();
+    for (const body of [receipt.text, receipt.html]) {
+      expect(body).not.toContain("Sensitive private intake notes");
+      expect(body).not.toContain("416-555-0100");
+      expect(body).not.toContain("Individual Therapy");
+      expect(body).not.toContain("alex@example.com");
+    }
+  });
+
+  it("does not resend the welcome receipt when the browser retries a completed request", async () => {
+    const input = payload({ formVariant: "welcome" });
+    expect((await POST(request(input))).status).toBe(200);
+    const duplicate = await POST(request(input));
+    expect(duplicate.status).toBe(200);
+    await expect(duplicate.json()).resolves.toMatchObject({ duplicate: true });
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([true, false])("does not send welcome mail without owning the durable claim (already sent: %s)", async (alreadySent) => {
+    flowMocks.claimConsultationNotification.mockResolvedValue({
+      accepted: true,
+      claimed: false,
+      alreadySent,
+      reason: alreadySent ? "already_sent" : "lease_active",
+    });
+    const response = await POST(request(payload({ formVariant: "welcome" })));
+    expect(response.status).toBe(alreadySent ? 200 : 202);
+    expect(flowMocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it("preserves successful intake if the visitor email fails", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      flowMocks.sendMail.mockResolvedValueOnce({ messageId: "clinic" })
+        .mockRejectedValueOnce(new Error("SMTP unavailable"));
+      const response = await POST(request(payload({ formVariant: "welcome" })));
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ ok: true, crmSaved: true });
+      expect(flowMocks.completeConsultationNotificationClaim).toHaveBeenCalledWith(
+        expect.any(String), expect.any(String), expect.any(String), "sent",
+      );
+      expect(warning).toHaveBeenCalledWith(
+        expect.stringContaining("visitor confirmation failed VC-"), "Error",
+      );
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("does not send a visitor receipt when the clinic notification fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      flowMocks.sendMail.mockRejectedValueOnce(new Error("SMTP unavailable"));
+      const response = await POST(request(payload({ formVariant: "welcome" })));
+      expect(response.status).toBe(503);
+      expect(flowMocks.sendMail).toHaveBeenCalledTimes(1);
+      expect(flowMocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: "info@valisenmentalhealth.com" }));
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("does not email a welcome honeypot submission", async () => {
+    const response = await POST(request(payload({ formVariant: "welcome", website: "spam.example" })));
+    expect(response.status).toBe(200);
+    expect(flowMocks.sendMail).not.toHaveBeenCalled();
   });
 
   it.each([

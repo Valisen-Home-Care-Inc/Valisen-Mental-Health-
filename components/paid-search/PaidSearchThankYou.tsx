@@ -4,6 +4,7 @@ import { Check, Clock3, Phone } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import CrisisNote from "@/components/CrisisNote";
+import ConsultationJaneBookingCard from "@/components/ConsultationJaneBookingCard";
 import { consumeWelcomeThankYou } from "@/components/paid-search/thankYouHandoff";
 
 const PHONE_NUMBER = "613-707-0333";
@@ -86,6 +87,8 @@ export default function PaidSearchThankYou() {
                 </p>
               ) : null}
             </div>
+
+            <ConsultationJaneBookingCard />
 
             <a
               href={PHONE_HREF}
