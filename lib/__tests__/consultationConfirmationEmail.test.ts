@@ -12,15 +12,17 @@ describe("welcome consultation confirmation email", () => {
     for (const body of [email.text, email.html]) {
       expect(body).toContain("Hello Alex,");
       expect(body).toContain("within 24 hours");
-      expect(body).toContain("not a confirmed appointment");
+      expect(body).toContain("Thank you for requesting a free consultation");
+      expect(body).toContain("to arrange your consultation");
+      expect(body).toContain("Prefer to book now?");
       expect(body).toContain(CLINIC_JANE_BOOKING_URL);
-      expect(body).toContain("VC-TEST123");
-      expect(body).toContain("613-707-0333");
-      expect(body).toContain("does not subscribe you to promotional emails");
+      expect(body).not.toContain("Your next step starts here");
+      expect(body).not.toContain("VC-TEST123");
     }
     expect(email.html).toContain(`href="${CLINIC_JANE_BOOKING_URL}"`);
     expect(email.html).toContain("View availability on Jane");
     expect(email.html).not.toMatch(/<img|<script|utm_|gclid|janeapp\.com\/\?/i);
+    expect(email.text.split(/\s+/).length).toBeLessThan(65);
   });
 
   it("escapes dynamic content without changing the plain-text greeting", () => {
@@ -31,7 +33,7 @@ describe("welcome consultation confirmation email", () => {
     expect(email.html).not.toContain("<img");
     expect(email.html).toContain("&lt;img");
     expect(email.html).toContain("&amp; Alex");
-    expect(email.html).toContain("VC-&lt;test&gt;");
+    expect(email.html).not.toContain("VC-");
     expect(email.text).toContain('Hello <img src=x onerror="alert(1)"> & Alex,');
   });
 });
