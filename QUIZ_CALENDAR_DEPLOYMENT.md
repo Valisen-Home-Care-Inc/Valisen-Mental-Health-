@@ -26,10 +26,18 @@ Old and current quiz positions differ at Q17–Q19; the aggregate question chart
 
 ## Verification
 
+### Calendar and results visual refresh
+
+The shared `/welcome` and quiz-results calendar now uses the site's sage/cream styling, clearer date controls, and a compact scrollable list containing all the original time slots. Booking rules, consent, submissions, email delivery, and CRM tracking are unchanged.
+
+Quiz results display the female therapist first without changing the saved strongest match or its reasons. Phones use swipeable cards with accessible previous/next controls; larger screens show both cards. The full result breakdown and match explanations expand on demand. No additional database migration or configuration is required for this visual refresh.
+
+### Checks
+
 - `npm test`
 - `npm run typecheck`
 - `npm run lint`
-- With a local dev server: `npm run test:quiz-calendar-ui` (defaults to `http://127.0.0.1:3010`; use `SITE_URL` to override). Uses mocked APIs and blocks external requests; sends no real leads or emails.
+- With a local dev server: `npm run test:quiz-calendar-ui` (defaults to `http://127.0.0.1:3010`; use `SITE_URL` to override). Checks 320/375/390/768/1024/1440px layouts, female-first display, touch swipes and keyboard controls, expandable details, calendar selection, the `/welcome` flexible-time option, consent, booking retries, and privacy-safe result metrics. Uses mocked APIs and blocks external requests; sends no real leads or emails. Screenshots go to a temporary directory.
 - Optional isolated SQL check: `node scripts/quiz-result-engagement-sql-qa.cjs <path-to-@electric-sql/pglite>`.
 
 `test:quiz-ui` and `test:quiz-calendar-ui` both exercise the current flow. The older `scripts/quiz-flow-smoke.mjs` is retained as a legacy test of the retired 19-question/contact-help layout.

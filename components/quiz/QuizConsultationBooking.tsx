@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckCircle2, LoaderCircle } from "lucide-react";
+import { CheckCircle2, LoaderCircle, Phone } from "lucide-react";
+import styles from "./ResultsReveal.module.css";
 import ConsultationTimeSlotPicker from "@/components/paid-search/ConsultationTimeSlotPicker";
 import TurnstileWidget from "@/components/TurnstileWidget";
 import { CONSULTATION_DAYS, confirmedConsultationReferenceFromResponse, type ConsultationSlotSelection } from "@/lib/consultation";
@@ -76,16 +77,19 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
     <p className="mt-3 text-xs text-ink-secondary">Reference: {booked}</p>
   </div>;
 
-  return <form onSubmit={submit} noValidate className="rounded-2xl border border-teal/20 bg-white p-5 shadow-card" data-result-section="booking">
-    <h2 className="font-serif text-2xl text-ink">Book your free consultation</h2>
-    <p className="mb-4 mt-2 text-sm text-ink-secondary">20-minute phone call · All times are Toronto time.</p>
+  return <form onSubmit={submit} noValidate className={styles.booking} data-result-section="booking">
+    <div className={styles.bookingHeader}>
+      <p className={styles.eyebrow}>No cost. No commitment.</p>
+      <h2>Book a free call</h2>
+      <p className={styles.bookingMeta}><Phone size={13} aria-hidden="true" />20-minute phone call · Toronto time</p>
+    </div>
     <fieldset disabled={sending} className="min-w-0" onClick={(event) => {
       const button = (event.target as HTMLElement).closest('button[aria-pressed]');
       if (button?.closest('[aria-label^="Choose a date"]')) onInteraction("date_selected");
     }}>
       <ConsultationTimeSlotPicker idPrefix="quiz-consultation-slot" value={selection} calendarToday={today} allowFlexible={false} invalid={Boolean(error && !selection)} onChange={(value) => { setSelection(value); if (value?.kind === "specific") onInteraction("time_selected"); }} />
-      <label className="mt-5 flex items-start gap-3 text-sm leading-6 text-ink-secondary">
-        <input type="checkbox" checked={consent} onChange={(event) => { setConsent(event.target.checked); onInteraction("consent_changed"); }} className="mt-1 h-4 w-4 shrink-0 accent-teal" />
+      <label className={styles.bookingConsent}>
+        <input type="checkbox" checked={consent} onChange={(event) => { setConsent(event.target.checked); onInteraction("consent_changed"); }} />
         <span>{QUIZ_BOOKING_CONSENT_TEXT}</span>
       </label>
       <TurnstileWidget action="consultation_request" onToken={setToken} resetKey={resetKey} />
@@ -93,6 +97,7 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
       <button type="submit" className="btn-primary mt-4 min-h-12 w-full justify-center">
         {sending ? <><LoaderCircle size={18} className="mr-2 animate-spin" aria-hidden="true" /> Booking…</> : "Book free consultation"}
       </button>
+      <p className={styles.bookingNote}>We&apos;ll use the contact details you already shared.</p>
     </fieldset>
   </form>;
 }

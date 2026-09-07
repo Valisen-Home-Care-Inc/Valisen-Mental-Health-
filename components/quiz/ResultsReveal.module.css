@@ -1,0 +1,97 @@
+.results { min-width: 0; padding-bottom: 90px; color: #2c3c34; scroll-margin-top: 100px; }
+.eyebrow { color: #347368; font-size: 10px; font-weight: 600; letter-spacing: 1.3px; text-transform: uppercase; }
+.hero { padding: 24px; border: 1px solid #dbe5d8; border-radius: 24px; background: linear-gradient(120deg, #f0f5ec, #faf8f0); scroll-margin-top: 100px; outline: none; }
+.hero h1 { margin-top: 8px; max-width: 600px; font-family: Georgia, serif; font-size: 30px; font-weight: 400; line-height: 1.13; letter-spacing: -.7px; }
+.heroIntro { margin-top: 10px; max-width: 480px; font-size: 13px; line-height: 1.6; color: #5b6a60; }
+.heroSnapshot { margin-top: 18px; }
+.snapshot { padding: 14px 16px; border: 1px solid #d8e4d6; border-radius: 17px; background: #ffffff65; }
+.summaryAreas { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 10px; }
+.summaryArea { font-size: 11px; line-height: 1.6; color: #3f7163; }
+.summaryArea::before { content: ""; display: inline-block; width: 4px; height: 4px; margin: 0 5px 2px 0; border-radius: 50%; background: #8aad93; }
+.jumpLinks { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 17px; padding-top: 12px; border-top: 1px solid #dce4d6; }
+.jumpLinks a { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; font-size: 12px; font-weight: 600; color: #286e62; text-decoration: none; }
+.jumpLinks a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.workspace { display: grid; gap: 22px; grid-template-areas: "matches" "booking" "details"; margin-top: 26px; min-width: 0; align-items: start; }
+.matches { grid-area: matches; min-width: 0; scroll-margin-top: 100px; }
+.sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.sectionHeading h2 { margin-top: 5px; font: 400 25px/1.15 Georgia, serif; letter-spacing: -.5px; }
+.matchCount { flex-shrink: 0; padding: 5px 9px; border: 1px solid #dce5d9; border-radius: 20px; background: #f3f6ed; color: #526c5c; font-size: 10px; }
+.carouselNav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px 0 10px; }
+.carouselNav p { font-size: 11px; color: #657166; }
+.carouselNav > div { display: flex; align-items: center; gap: 9px; }
+.carouselNav button { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #d8e2d7; border-radius: 50%; background: #fff; color: #276e63; }
+.carouselNav button:disabled { opacity: .3; }
+.carouselNav span { color: #586a5d; font-size: 11px; font-variant-numeric: tabular-nums; }
+.therapistTrack { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 94%; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 2px 2px 5px; scroll-padding-left: 2px; align-items: start; }
+.therapistTrack::-webkit-scrollbar { display: none; }
+.matchCard { min-width: 0; padding: 19px; border: 1px solid #e1e4d6; border-radius: 21px; background: linear-gradient(155deg,#fff 25%,#f8f5ec); scroll-snap-align: start; scroll-snap-stop: always; }
+.matchEyebrow { font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #76603a; }
+.person { display: flex; align-items: flex-start; gap: 13px; margin-top: 15px; }
+.portrait { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 65px; height: 78px; overflow: hidden; border-radius: 14px; background: #e6eee3; color: #357263; font: 24px Georgia, serif; }
+.personName { font: 400 24px/1.1 Georgia, serif; letter-spacing: -.5px; overflow-wrap: anywhere; }
+.credentials { margin-top: 6px; font-size: 12px; line-height: 1.5; color: #567061; }
+.personMeta { margin-top: 15px; display: grid; gap: 7px; font-size: 12px; line-height: 1.5; color: #596c5c; }
+.personMeta p { display: flex; align-items: flex-start; gap: 7px; }
+.personMeta svg { flex-shrink: 0; margin-top: 1px; }
+.specialties { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 13px; }
+.specialties span { border-radius: 7px; background: #eef1e7; padding: 4px 7px; font-size: 11px; color: #58644f; }
+.matchReasons { margin-top: 14px; border-top: 1px solid #e3e5d9; }
+.matchReasons summary { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; font-size: 12px; font-weight: 600; color: #3b6555; }
+.matchReasons summary::-webkit-details-marker { display: none; }
+.matchReasons[open] summary svg { transform: rotate(180deg); }
+.matchReasons ul { display: grid; gap: 8px; margin: 0 0 12px; padding-left: 15px; list-style: disc; color: #5e6a5e; font-size: 12px; line-height: 1.65; }
+.profileLink { display: flex; align-items: center; justify-content: space-between; min-height: 42px; color: #286f62; font-size: 12px; font-weight: 600; text-decoration: none; }
+.profileLink:hover { text-decoration: underline; text-underline-offset: 4px; }
+.matchDisclaimer { margin: 9px 2px 0; color: #677063; font-size: 12px; line-height: 1.65; }
+.noMatch { padding: 24px; background: white; border-radius: 18px; font-size: 14px; line-height: 1.7; }
+.bookingPlacement { grid-area: booking; min-width: 0; width: 100%; max-width: 600px; justify-self: center; scroll-margin-top: 100px; outline: none; }
+.booking { border: 1px solid #d5e1d5; border-radius: 24px; padding: 20px; background: #fff; box-shadow: 0 8px 32px #28473308; }
+.bookingHeader { margin-bottom: 17px; }
+.bookingHeader h2 { margin-top: 7px; font: 400 28px/1.12 Georgia, serif; letter-spacing: -.6px; }
+.bookingMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: #657467; }
+.bookingMeta svg { color: #347768; }
+.bookingConsent { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; color: #5d6c60; font-size: 12px; line-height: 1.65; cursor: pointer; }
+.bookingConsent input { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; accent-color: #276e63; }
+.bookingNote { margin-top: 9px; color: #677368; font-size: 11px; text-align: center; line-height: 1.5; }
+.detailsPlacement { grid-area: details; min-width: 0; scroll-margin-top: 100px; }
+.footer { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; padding-top: 19px; border-top: 1px solid #e0e5d8; }
+.retake { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-size: 12px; color: #606b60; }
+.reference { font-size: 10px; color: #6f786c; overflow-wrap: anywhere; }
+.sticky { position: fixed; inset: auto 0 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid #d8e3d7; background: #fffffff5; backdrop-filter: blur(12px); }
+.sticky p { font: 18px Georgia, serif; }
+.sticky span { display: block; margin-top: 3px; font: 10px/1.4 Arial, sans-serif; color: #687766; }
+.sticky button { flex-shrink: 0; min-height: 44px; padding: 10px 18px; border-radius: 25px; background: #286e63; color: #fff; font-size: 12px; font-weight: 600; }
+.results :is(a, button, summary):focus-visible { outline: 2px solid #2a7f7f; outline-offset: 3px; }
+@media (min-width: 640px) {
+  .results { padding-bottom: 0; }
+  .hero { padding: 28px 32px 18px; }
+  .heroContent { display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; gap: 30px; }
+  .heroSnapshot { margin-top: 0; }
+  .hero h1 { font-size: 35px; }
+  .carouselNav { display: none; }
+  .therapistTrack { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(2,minmax(0,1fr)); overflow: visible; align-items: stretch; }
+  .matchCard { display: flex; flex-direction: column; }
+  .profileLink { margin-top: auto; }
+  .footer { flex-direction: row; justify-content: space-between; align-items: center; gap: 25px; }
+  .sticky { display: none; }
+}
+@media (min-width: 1180px) {
+  .workspace { grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); grid-template-areas: "matches booking" "details booking"; grid-template-rows: auto 1fr; gap: 20px 24px; }
+  .matchCard { padding: 17px; }
+  .person { gap: 10px; }
+  .portrait { width: 56px; height: 72px; }
+  .personName { font-size: 22px; }
+}
+@media (max-width: 359px) {
+  .hero { padding: 19px; }
+  .hero h1 { font-size: 27px; }
+  .jumpLinks { column-gap: 13px; }
+  .jumpLinks a { font-size: 11px; }
+  .booking { padding: 15px; }
+  .bookingHeader h2 { font-size: 26px; }
+  .matchCard { padding: 15px; }
+  .sectionHeading h2 { font-size: 23px; }
+  .matchCount { display: none; }
+  .personName { font-size: 22px; }
+  .portrait { width: 58px; height: 72px; }
+}

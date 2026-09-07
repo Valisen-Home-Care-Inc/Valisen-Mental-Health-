@@ -29,11 +29,11 @@ const origin = process.env.SITE_URL || "http://127.0.0.1:3010";
 const output = fs.mkdtempSync(path.join(os.tmpdir(), "valisen-quiz-calendar-"));
 const browser = await puppeteer.launch({ headless: true });
 try {
-  async function pageFor(width, restore) {
+  async function pageFor(width, restore, savedMatch = match) {
     const page = await browser.newPage();
     const requests = [], metrics = [], errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.setViewport({ width, height: 900 });
+    await page.setViewport({ width, height: 900, hasTouch: width < 640 });
     await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
     await page.evaluateOnNewDocument((savedToken) => { if (savedToken) sessionStorage.setItem("valisen.quiz.resultToken", savedToken); }, restore ? token : null);
     await page.setRequestInterception(true);
@@ -41,7 +41,7 @@ try {
       const url = new URL(request.url());
       if (url.hostname === "challenges.cloudflare.com") return void request.respond({ status: 200, contentType: "application/javascript", body: 'window.turnstile={render:function(el,options){setTimeout(function(){options.callback("test-turnstile-token")},0);return "qa"},remove:function(){},execute:function(){}};' });
       if (url.origin !== origin) return void request.abort();
-      if (url.pathname === "/api/quiz-lead/result") return void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, referenceId: "VQ-CALENDARQA", firstName: "Alex", email: "qa@example.invalid", phone: "613-555-0100", outcome, match, intent: "see_recommended_therapist", attribution: {} }) });
+      if (url.pathname === "/api/quiz-lead/result") return void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, referenceId: "VQ-CALENDARQA", firstName: "Alex", email: "qa@example.invalid", phone: "613-555-0100", outcome, match: savedMatch, intent: "see_recommended_therapist", attribution: {} }) });
       if (url.pathname === "/api/submit-intake") {
         requests.push(JSON.parse(request.postData()));
         return void request.respond({ status: requests.length === 1 ? 503 : 200, contentType: "application/json", body: JSON.stringify(requests.length === 1 ? { error: "Temporary test failure" } : { ok: true, referenceId: "VC-CALENDARQA", crmSaved: true }) });
@@ -52,6 +52,7 @@ try {
     });
     return { page, requests, metrics, errors };
   }
+  if (!process.argv.includes('--welcome-only')) {
   const fresh = await pageFor(390, false);
   await fresh.page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
   for (let index = 0; index < QUESTIONS.length; index++) {
@@ -74,6 +75,65 @@ try {
   assert.equal(fresh.metrics.length, 0, "Result metrics must not run before submission");
   await fresh.page.close();
   console.log("PASS all 18 quiz screens; no result analytics before saved results");
+
+  // A male strongest match must still DISPLAY the woman first, without relabeling the strongest match.
+  const malePrimary = { ...match, therapistSlug: "tim-kahtava", reasons: match.alternative.reasons, alternative: { therapistSlug: "meryem-ibrahim", reasons: match.reasons } };
+  for (const width of [320, 375, 390, 768, 1024, 1440]) {
+    const { page, requests, errors } = await pageFor(width, true, malePrimary);
+    await page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
+    await page.waitForSelector('#quiz-therapist-cards article');
+    const cards = await page.$$eval('#quiz-therapist-cards article', (items) => items.map((item) => ({ name: item.querySelector('h3').textContent, text: item.textContent })));
+    assert.equal(cards[0].name, "Meryem Ibrahim");
+    assert(cards[1].text.includes("Your strongest match"));
+    assert.equal(await page.$eval('#quiz-result-details details', (el) => el.open), false);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page.$eval('[data-quiz-results]', (el) => el.scrollIntoView());
+    await page.screenshot({ path: path.join(output, `results-viewport-${width}.png`) });
+    await page.screenshot({ path: path.join(output, `results-${width}.png`), fullPage: true });
+    console.log(`Results height at ${width}px: ${await page.$eval('[data-quiz-results]', (el) => Math.round(el.getBoundingClientRect().height))}px`);
+
+    if (width < 640) {
+      await page.click('[aria-label="Next therapist"]');
+      await page.waitForFunction(() => document.querySelector('[aria-label="Next therapist"]').disabled);
+      await page.click('[aria-label="Previous therapist"]');
+      await page.waitForFunction(() => document.querySelector('[aria-label="Previous therapist"]').disabled);
+      await page.$eval('#quiz-therapist-cards', (el) => el.scrollIntoView({ block: "center" }));
+      const rect = await page.$eval('#quiz-therapist-cards', (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width }; });
+      const client = await page.createCDPSession();
+      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: rect.x + rect.width - 30, y: rect.y + 90 }] });
+      for (let step = 1; step <= 6; step++) await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: rect.x + rect.width - 30 - (rect.width - 60) * step / 6, y: rect.y + 90 }] });
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForFunction(() => document.querySelector('[aria-label="Next therapist"]').disabled);
+      await page.focus('[aria-label="Previous therapist"]');
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => document.querySelector('[aria-label="Previous therapist"]').disabled);
+    }
+    await page.click('#quiz-therapist-cards article:first-child summary');
+    await page.waitForFunction(() => document.querySelector('#quiz-therapist-cards article:first-child details').open);
+    await page.click('#quiz-result-details summary');
+    await page.waitForFunction(() => document.querySelector('#quiz-result-details details').open);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Expanded content must also fit');
+    await page.click('#quiz-result-details summary');
+    await page.click('#quiz-therapist-cards article:first-child summary');
+    await page.click('#quiz-consultation-booking [aria-label="Next month"]');
+    await page.click('#quiz-consultation-booking [aria-label="Previous month"]');
+    assert.equal(await page.$eval('#quiz-consultation-booking [aria-label="Previous month"]', (el) => el.disabled), true);
+    assert(await page.$$eval('[aria-label^="Choose a date"] button', (items) => items.filter((el) => /Saturday|Sunday/.test(el.getAttribute('aria-label'))).every((el) => el.disabled)));
+    await page.click('[aria-label^="Choose a date"] button:not([disabled])');
+    await page.waitForSelector('[aria-label^="Choose a time"] button');
+    await page.$eval('[aria-label^="Choose a time"] button:last-child', (el) => el.scrollIntoView({ block: 'center' }));
+    await page.click('[aria-label^="Choose a time"] button:last-child');
+    assert.equal(await page.$eval('[aria-label^="Choose a time"] button:last-child', (el) => el.getAttribute('aria-pressed')), 'true');
+    await page.$eval('#quiz-consultation-booking', (el) => el.scrollIntoView());
+    await page.screenshot({ path: path.join(output, `calendar-viewport-${width}.png`) });
+    await page.screenshot({ path: path.join(output, `calendar-${width}.png`), fullPage: true });
+    await page.click('[aria-label^="Choose a date"] button:not([disabled]):not([aria-pressed="true"])');
+    assert.equal(await page.$$eval('[aria-label^="Choose a time"] button[aria-pressed="true"]', (items) => items.length), 0, 'Changing the date must clear the old time');
+    assert.equal(requests.length, 0);
+    assert.deepEqual(errors, []);
+    console.log(`PASS design ${width}px: female first, swipe/keyboard, details, overflow, month navigation, all time slots, date reset`);
+    await page.close();
+  }
 
   for (const width of [375, 1440]) {
     const { page, requests, metrics, errors } = await pageFor(width, true);
@@ -110,6 +170,38 @@ try {
     assert(metrics.some((entry) => entry.snapshot.actions.booking_completed === 1));
     assert.deepEqual(errors, []);
     console.log(`PASS ${width}px: two therapists, saved details, calendar, consent, retry, confirmation, privacy-safe metrics`);
+    await page.close();
+  }
+  }
+  for (const width of [320, 390, 1440]) {
+    const { page, requests, errors } = await pageFor(width, false);
+    await page.goto(origin + '/welcome', { waitUntil: 'networkidle2', timeout: 120000 });
+    const form = await page.$('form[data-google-ads-consultation-form]');
+    await (await form.$('input[autocomplete="name"]')).type('Alex');
+    await (await form.$('input[type="tel"]')).type('6135550100');
+    await (await form.$('input[type="email"]')).type('qa@example.invalid');
+    await (await form.$('input[type="checkbox"]')).click();
+    await form.evaluate((el) => [...el.querySelectorAll('button')].find((button) => button.textContent.includes('Continue to Pick a Time')).click());
+    await page.waitForSelector('[aria-label^="Choose a date"]');
+    await (await form.$('[aria-label^="Choose a date"] button:not([disabled])')).click();
+    await page.waitForSelector('[aria-label^="Choose a time"] button');
+    const firstTime = await form.$('[aria-label^="Choose a time"] button');
+    await firstTime.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+    await page.waitForFunction((element) => { const r = element.getBoundingClientRect(); return element.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); }, {}, firstTime);
+    await firstTime.click();
+    await page.waitForSelector('[aria-label^="Choose a time"] button[aria-pressed="true"]');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await form.evaluate((el) => window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 125, behavior: 'instant' }));
+    await page.screenshot({ path: path.join(output, `welcome-viewport-${width}.png`) });
+    await form.screenshot({ path: path.join(output, `welcome-calendar-${width}.png`) });
+    await form.evaluate((el) => [...el.querySelectorAll('button')].find((button) => button.textContent.includes('suitable time')).click());
+    assert.equal(await form.$$eval('[aria-label^="Choose a date"]', (items) => items.length), 0);
+    assert((await form.evaluate((el) => el.textContent)).includes('within 24 hours'));
+    await form.evaluate((el) => [...el.querySelectorAll('button')].find((button) => button.textContent.includes('Pick a specific time instead')).click());
+    await page.waitForSelector('[aria-label^="Choose a date"]');
+    assert.equal(requests.length, 0, 'Visual checks must not create a booking');
+    assert.deepEqual(errors, []);
+    console.log(`PASS welcome ${width}px: contact handoff, calendar, selected time, flexible toggle, no overflow`);
     await page.close();
   }
   console.log(`Screenshots: ${output}`);

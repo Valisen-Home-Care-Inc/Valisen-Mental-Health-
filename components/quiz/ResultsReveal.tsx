@@ -5,19 +5,19 @@ import {
   useRef,
   useState,
 } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import {
+  ArrowDown,
   Check,
   ChevronDown,
   Download,
-  Languages as LanguagesIcon,
   Phone,
   RotateCcw,
-  Video,
 } from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
 import QuizConsultationBooking from "@/components/quiz/QuizConsultationBooking";
+import TherapistMatchCarousel from "@/components/quiz/TherapistMatchCarousel";
+import { getPresentedTherapistMatches } from "@/lib/quizTherapistPresentation";
+import styles from "./ResultsReveal.module.css";
 import { useQuizResultEngagement } from "@/components/quiz/useQuizResultEngagement";
 import {
   DIMENSION_LABELS,
@@ -30,19 +30,9 @@ import {
   type Dimension,
   type QuizOutcome,
 } from "@/lib/quiz";
-import type { MatchReason, MatchResult } from "@/lib/matching";
-import {
-  getTherapistBySlug,
-  type Therapist,
-} from "@/lib/therapists";
-import {
-  getTherapistBookingConfig,
-  type TherapistBookingConfig,
-} from "@/lib/therapistBooking";
-import {
-  getResultMatchReasons,
-  type QuizIntent,
-} from "@/lib/quizIntent";
+import type { MatchResult } from "@/lib/matching";
+import { getTherapistBySlug } from "@/lib/therapists";
+import type { QuizIntent } from "@/lib/quizIntent";
 import type { CampaignAttribution } from "@/lib/campaignAttribution";
 import {
   getDeviceCategory,
@@ -68,39 +58,6 @@ function useReducedMotion(): boolean {
     return () => query.removeEventListener("change", onChange);
   }, []);
   return reduced;
-}
-
-function TherapistHeadshot({
-  therapist,
-  className,
-  sizes,
-  priority = false,
-}: {
-  therapist: Therapist;
-  className: string;
-  sizes: string;
-  priority?: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className={className}>
-      {therapist.photo && !failed ? (
-        <Image
-          src={therapist.photo}
-          alt={`${therapist.name}, ${therapist.credentialSummary}`}
-          fill
-          priority={priority}
-          className="object-cover object-top"
-          sizes={sizes}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <span className="grid h-full w-full place-items-center bg-teal-xlight font-serif text-[28px] font-medium text-teal">
-          {therapist.initials}
-        </span>
-      )}
-    </div>
-  );
 }
 
 function CrisisSupportBlock() {
@@ -236,37 +193,27 @@ function ScoreRing({
 function ResultSnapshot({
   outcome,
   topConcerns,
-  prominent = false,
 }: {
   outcome: QuizOutcome;
   topConcerns: Array<{ dimension: Dimension; bandLabel: string }>;
-  prominent?: boolean;
 }) {
   const content = getResultContent(outcome);
   return (
-    <div
-      className={`rounded-[18px] border border-teal/18 bg-teal-xlight/30 ${
-        prominent ? "p-5 md:p-6" : "px-4 py-3.5"
-      }`}
-    >
+    <div className={styles.snapshot}>
       <p className="text-[11px] font-semibold uppercase tracking-[1.2px] text-teal-dark">
         What stood out
       </p>
-      <p
-        className={`mt-1 font-serif font-medium leading-[1.2] text-ink ${
-          prominent ? "text-[23px] md:text-[26px]" : "text-[18px]"
-        }`}
-      >
+      <p className="mt-1 font-serif text-[18px] font-medium leading-[1.25] text-ink">
         {content.heading}
       </p>
       {topConcerns.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={styles.summaryAreas}>
           {topConcerns.slice(0, 3).map((concern) => (
             <span
               key={concern.dimension}
-              className="rounded-pill border border-teal/20 bg-white/80 px-3 py-1 text-[12px] font-medium text-teal-dark"
+              className={styles.summaryArea}
             >
-              {DIMENSION_LABELS[concern.dimension]} · {concern.bandLabel}
+              {DIMENSION_LABELS[concern.dimension]}<span className="sr-only">: {concern.bandLabel}</span>
             </span>
           ))}
         </div>
@@ -276,104 +223,6 @@ function ResultSnapshot({
         </p>
       )}
     </div>
-  );
-}
-
-function TherapistDetails({
-  therapist,
-  booking,
-  reasons,
-  large = false,
-}: {
-  therapist: Therapist;
-  booking?: TherapistBookingConfig;
-  reasons: MatchReason[];
-  large?: boolean;
-}) {
-  const firstName = therapist.name.split(" ")[0];
-  const languages = booking?.languages ?? therapist.languages;
-  const formats = booking?.serviceFormat ?? therapist.sessionTypes;
-
-  return (
-    <article
-      className={
-        large
-          ? "grid gap-5 sm:grid-cols-[180px_1fr]"
-          : "grid items-start gap-4 sm:grid-cols-[96px_minmax(0,1fr)]"
-      }
-    >
-      <TherapistHeadshot
-        therapist={therapist}
-        priority={large}
-        className={`relative shrink-0 overflow-hidden border border-gold/35 ${
-          large
-            ? "aspect-[4/5] w-full rounded-[20px] sm:w-[180px]"
-            : "h-24 w-24 rounded-[18px]"
-        }`}
-        sizes={large ? "(max-width: 639px) 90vw, 180px" : "96px"}
-      />
-      <div className="min-w-0">
-        <h2
-          className={`font-serif font-medium leading-[1.12] text-ink ${
-            large ? "text-[29px] md:text-[34px]" : "text-[25px]"
-          }`}
-        >
-          {therapist.name}
-        </h2>
-        <p className="mt-1 text-[13.5px] font-medium text-teal-dark">
-          {therapist.credentials}
-        </p>
-        <dl className="mt-4 grid gap-2 text-[13px] text-ink-secondary">
-          {languages.length > 0 ? (
-            <div className="flex items-start gap-2">
-              <LanguagesIcon size={15} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
-              <div>
-                <dt className="sr-only">Languages</dt>
-                <dd>{languages.join(" · ")}</dd>
-              </div>
-            </div>
-          ) : null}
-          {formats.length > 0 ? (
-            <div className="flex items-start gap-2">
-              <Video size={15} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
-              <div>
-                <dt className="sr-only">Service format</dt>
-                <dd>{formats.join(" · ")}</dd>
-              </div>
-            </div>
-          ) : null}
-        </dl>
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {therapist.specialties.slice(0, 4).map((area) => (
-            <span
-              key={area}
-              className="rounded-pill bg-white/75 px-2.5 py-1 text-[12px] font-medium text-ink-secondary"
-            >
-              {area}
-            </span>
-          ))}
-        </div>
-
-        {reasons.length > 0 ? (
-          <div className="mt-5 rounded-[16px] border border-gold/30 bg-white/65 p-4">
-            <p className="text-[12px] font-semibold uppercase tracking-[1px] text-[#76591F]">
-              Why {firstName} may be a match
-            </p>
-            <ul className="mt-2.5 space-y-2">
-              {reasons.slice(0, 3).map((reason) => (
-                <li
-                  key={reason.detail}
-                  className="flex items-start gap-2 text-[13.5px] leading-[1.5] text-ink-secondary"
-                >
-                  <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-gold-dark" />
-                  {reason.detail}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-    </article>
   );
 }
 
@@ -388,24 +237,21 @@ function DetailedResults({
   const rows = [...outcome.scores].sort(
     (left, right) => (right.average ?? -1) - (left.average ?? -1),
   );
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(min-width: 1024px)").matches;
-  });
+  const [open, setOpen] = useState(false);
 
   return (
     <details
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="group mt-6 overflow-hidden rounded-card border-[0.5px] border-hairline bg-white shadow-card"
+      className="group overflow-hidden rounded-[20px] border border-hairline bg-white"
     >
-      <summary className="flex min-h-[68px] cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 md:px-8">
+      <summary className="flex min-h-[68px] cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
         <span>
           <span className="font-serif text-[20px] font-medium text-ink md:text-[22px]">
             Understand your results
           </span>
           <span className="mt-1 block text-[13px] text-ink-secondary">
-            Score direction, answered-item context and area breakdown
+            Your score, key areas, and what may help
           </span>
         </span>
         <ChevronDown
@@ -415,7 +261,7 @@ function DetailedResults({
         />
       </summary>
 
-      <div className="border-t border-hairline px-6 py-6 md:px-8">
+      <div className="border-t border-hairline px-5 py-5">
         <div className="grid items-center gap-5 rounded-[18px] border border-teal/20 bg-teal-xlight/30 p-5 sm:grid-cols-[124px_1fr]">
           <ScoreRing score={outcome.score} reducedMotion={reducedMotion} />
           <div>
@@ -579,14 +425,14 @@ function ResultsPdfDownload({
   }
 
   return (
-    <section className="mt-7 border-t border-hairline pt-7 text-center">
+    <section>
       <button
         type="button"
         onClick={() => void downloadResults()}
         disabled={status === "loading"}
         aria-busy={status === "loading"}
         aria-describedby="quiz-results-pdf-status"
-        className="btn-outline min-h-[52px] w-full justify-center sm:w-auto"
+        className="btn-outline min-h-11 w-full justify-center !px-5 !py-2.5 !text-xs sm:w-auto"
       >
         <Download size={17} className="mr-2" aria-hidden="true" />
         {status === "loading" ? "Preparing Your PDF…" : "Download My Results PDF"}
@@ -601,7 +447,7 @@ function ResultsPdfDownload({
       >
         {status === "complete"
           ? "Your PDF download has started."
-          : error ?? "Your private PDF is prepared only when you select this button."}
+          : error}
       </div>
     </section>
   );
@@ -626,11 +472,7 @@ export default function ResultsReveal({
   const [stickyVisible, setStickyVisible] = useState(false);
   const [booked, setBooked] = useState(false);
   const suggested = match.status === "match" ? getTherapistBySlug(match.therapistSlug) : undefined;
-  const alternative = match.status === "match" && match.alternative ? getTherapistBySlug(match.alternative.therapistSlug) : undefined;
-  const candidates = match.status === "match" ? [
-    ...(suggested ? [{ therapist: suggested, reasons: match.reasons }] : []),
-    ...(alternative && match.alternative ? [{ therapist: alternative, reasons: match.alternative.reasons }] : []),
-  ] : [];
+  const candidates = getPresentedTherapistMatches(match);
   const topConcerns = [...outcome.scores].sort((a, b) => (b.average ?? -1) - (a.average ?? -1))
     .filter((row) => row.average !== null).slice(0, 3)
     .map((row) => ({ dimension: row.dimension, bandLabel: bandFor(row.average).label }));
@@ -656,43 +498,57 @@ export default function ResultsReveal({
   useEffect(() => {
     const update = () => {
       const rect = calendarRef.current?.getBoundingClientRect();
-      setStickyVisible(Boolean(rect && rect.bottom < 0 && (rootRef.current?.getBoundingClientRect().bottom ?? 0) > innerHeight * 0.45));
+      const root = rootRef.current?.getBoundingClientRect();
+      setStickyVisible(Boolean(rect && root && root.top < innerHeight * 0.5 && root.bottom > innerHeight * 0.45 && (rect.top > innerHeight - 80 || rect.bottom < 0)));
     };
+    update();
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, []);
 
-  return <div ref={rootRef} data-quiz-results="" className="scroll-mt-24 pb-20 md:pb-0">
+  return <div ref={rootRef} data-quiz-results="" className={styles.results}>
     <p role="status" className="sr-only">Your personalized results and booking options are ready.</p>
     {safetyFlagged ? <CrisisSupportBlock /> : null}
-    <div ref={headingRef} tabIndex={-1} className="scroll-mt-24 rounded-card border border-hairline bg-white p-6 shadow-card outline-none md:p-8" data-result-section="summary">
-      <h1 className="font-serif text-3xl text-ink md:text-4xl">Your results and therapist matches</h1>
-      <p className="mt-3 text-sm leading-6 text-ink-secondary">A starting point based on your answers. Meet the therapists below, then book a free consultation with our team.</p>
-      <div className="mt-5"><ResultSnapshot outcome={outcome} topConcerns={topConcerns} prominent={intent === "exploring"} /></div>
+    <div ref={headingRef} tabIndex={-1} className={styles.hero} data-result-section="summary">
+      <div className={styles.heroContent}>
+        <div>
+          <p className={styles.eyebrow}>Your personal check-in</p>
+          <h1>Your results.</h1>
+          <p className={styles.heroIntro}>Meet your therapist matches and find a time for a free consultation with our team.</p>
+        </div>
+        <div className={styles.heroSnapshot}><ResultSnapshot outcome={outcome} topConcerns={topConcerns} /></div>
+      </div>
+      <nav className={styles.jumpLinks} aria-label="Explore your results">
+        <a href="#quiz-therapist-matches">Matches <ArrowDown size={12} aria-hidden="true" /></a>
+        <a href="#quiz-consultation-booking">Free call <ArrowDown size={12} aria-hidden="true" /></a>
+        <a href="#quiz-result-details">Breakdown <ArrowDown size={12} aria-hidden="true" /></a>
+      </nav>
     </div>
-    <section className="mt-6 grid gap-5 lg:grid-cols-2" aria-label="Your therapist matches" data-result-section="therapists">
-      {candidates.map(({ therapist, reasons }, index) => <div key={therapist.slug} className="rounded-card border border-gold/30 bg-gold-light/25 p-5 md:p-6">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-teal-dark">{index === 0 ? "Your strongest match" : "Another match for you"}</p>
-        <TherapistDetails therapist={therapist} booking={getTherapistBookingConfig(therapist.slug)} reasons={index === 0 ? getResultMatchReasons(outcome, therapist, reasons) : reasons} />
-        <Link href={getTherapistBookingConfig(therapist.slug)?.profileUrl || "/therapists"} onClick={() => { recordAction("profile_clicked"); trackQuizEvent("therapist_profile_clicked", { ...properties, therapistId: therapist.slug, profileLinkPlacement: "exploring_match_card" }); }} className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-teal underline">Learn more about {therapist.name.split(" ")[0]}</Link>
-      </div>)}
-      {!candidates.length ? <p className="rounded-card bg-white p-6">Our team can help you choose a therapist during your free consultation.</p> : null}
-    </section>
-    <p className="mt-3 text-xs leading-5 text-ink-secondary">These matches are a starting point, not a diagnosis, clinical recommendation, or guaranteed fit.</p>
-    <div ref={calendarRef} id="quiz-consultation-booking" tabIndex={-1} className="mx-auto mt-7 max-w-[600px] scroll-mt-24 outline-none">
-      <QuizConsultationBooking submissionToken={submissionToken} firstName={firstName} email={initialEmail} phone={initialPhone}
-        onInteraction={(action) => { recordAction(action); if (action === "booking_clicked") trackQuizEvent("consultation_request_clicked", { ...properties, ctaPlacement: "results_primary" }); }}
-        onBooked={(reference) => { setBooked(true); trackFunnelEvent("consultation_request_submitted", { page: "quiz", submissionReference: reference }); }} />
+    <div className={styles.workspace}>
+      <TherapistMatchCarousel candidates={candidates} outcome={outcome} reducedMotion={reducedMotion}
+        onProfile={(slug) => { recordAction("profile_clicked"); trackQuizEvent("therapist_profile_clicked", { ...properties, therapistId: slug, profileLinkPlacement: "exploring_match_card" }); }} />
+      <div ref={calendarRef} id="quiz-consultation-booking" tabIndex={-1} className={styles.bookingPlacement}>
+        <QuizConsultationBooking submissionToken={submissionToken} firstName={firstName} email={initialEmail} phone={initialPhone}
+          onInteraction={(action) => { recordAction(action); if (action === "booking_clicked") trackQuizEvent("consultation_request_clicked", { ...properties, ctaPlacement: "results_primary" }); }}
+          onBooked={(reference) => { setBooked(true); trackFunnelEvent("consultation_request_submitted", { page: "quiz", submissionReference: reference }); }} />
+      </div>
+      <div className={styles.detailsPlacement} id="quiz-result-details" data-result-section="details" onClick={(event) => { const summary = (event.target as HTMLElement).closest("summary"); if (summary && !summary.closest("details")?.open) recordAction("details_opened"); }}>
+        <DetailedResults outcome={outcome} reducedMotion={reducedMotion} />
+      </div>
     </div>
     {userEmailDeliveryFailed ? <p role="status" className="mt-4 rounded-xl bg-gold-light p-4 text-sm">Your result is saved. We couldn&apos;t send the results email yet, but you can continue here.</p> : null}
-    <div data-result-section="details" onClick={(event) => { const summary = (event.target as HTMLElement).closest("summary"); if (summary && !summary.closest("details")?.open) recordAction("details_opened"); }}><DetailedResults outcome={outcome} reducedMotion={reducedMotion} /></div>
-    <div className="mt-7 text-center">
-      {referenceId ? <p className="text-xs text-ink-secondary">Submission reference: {referenceId}</p> : null}
-      <button type="button" onClick={() => { recordAction("restart_clicked"); onRestart(); }} className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm text-ink-secondary"><RotateCcw size={14} aria-hidden="true" />Retake the quiz</button>
+    <div className={styles.footer}>
+      <div data-result-section="download" onClick={(event) => { if ((event.target as HTMLElement).closest("button")) recordAction("pdf_clicked"); }}><ResultsPdfDownload submissionToken={submissionToken} referenceId={referenceId} /></div>
+      <div>
+        <button type="button" onClick={() => { recordAction("restart_clicked"); onRestart(); }} className={styles.retake}><RotateCcw size={14} aria-hidden="true" />Retake the quiz</button>
+        {referenceId ? <p className={styles.reference}>Submission reference: {referenceId}</p> : null}
+      </div>
     </div>
     <CrisisNote className="mt-5 text-center" />
-    <div data-result-section="download" onClick={(event) => { if ((event.target as HTMLElement).closest("button")) recordAction("pdf_clicked"); }}><ResultsPdfDownload submissionToken={submissionToken} referenceId={referenceId} /></div>
-    {stickyVisible && !booked ? <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 p-4 md:hidden"><button type="button" className="btn-primary min-h-12 w-full justify-center" onClick={() => { calendarRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" }); calendarRef.current?.focus({ preventScroll: true }); }}>Book free consultation</button></div> : null}
+    {stickyVisible && !booked ? <div className={styles.sticky}>
+      <p>A first hello<span>Free · 20-minute phone call</span></p>
+      <button type="button" onClick={() => { calendarRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" }); calendarRef.current?.focus({ preventScroll: true }); }}>Choose a time <ArrowDown size={13} className="ml-1 inline" aria-hidden="true" /></button>
+    </div> : null}
   </div>;
 }
