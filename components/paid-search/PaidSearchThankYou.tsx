@@ -4,8 +4,10 @@ import { Check, Clock3, Phone } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import CrisisNote from "@/components/CrisisNote";
-import ConsultationJaneBookingCard from "@/components/ConsultationJaneBookingCard";
-import { consumeWelcomeThankYou } from "@/components/paid-search/thankYouHandoff";
+import {
+  consumeWelcomeThankYou,
+  type WelcomeThankYouHandoff,
+} from "@/components/paid-search/thankYouHandoff";
 
 const PHONE_NUMBER = "613-707-0333";
 const PHONE_HREF = "tel:613-707-0333";
@@ -20,7 +22,7 @@ const PHONE_HREF = "tel:613-707-0333";
  * submission ends on a real thank-you screen.
  */
 export default function PaidSearchThankYou() {
-  const [reference, setReference] = useState<string | null>(null);
+  const [handoff, setHandoff] = useState<WelcomeThankYouHandoff | null>(null);
   const consumedRef = useRef(false);
 
   useEffect(() => {
@@ -29,8 +31,11 @@ export default function PaidSearchThankYou() {
     // reference with the now-empty result.
     if (consumedRef.current) return;
     consumedRef.current = true;
-    setReference(consumeWelcomeThankYou());
+    setHandoff(consumeWelcomeThankYou());
   }, []);
+
+  const reference = handoff?.reference ?? null;
+  const slotLabel = handoff?.slotLabel;
 
   return (
     <main className="min-h-screen bg-canvas">
@@ -62,9 +67,20 @@ export default function PaidSearchThankYou() {
               Thank you. Your request is in.
             </h1>
             <p className="mx-auto mt-5 max-w-[570px] text-[15px] leading-7 text-ink-secondary sm:text-base">
-              A member of the Valisen team will contact you within 24 hours to
-              coordinate your free consultation. Your requested time is a
-              preference until our team confirms it with you.
+              {slotLabel ? (
+                <>
+                  You requested <strong className="text-ink">{slotLabel}</strong>.
+                  A member of the Valisen team will call to confirm that time
+                  within 24 hours &mdash; it&apos;s a preference until then, not
+                  a booked appointment.
+                </>
+              ) : (
+                <>
+                  A member of the Valisen team will contact you within 24 hours to
+                  coordinate your free consultation. Your requested time is a
+                  preference until our team confirms it with you.
+                </>
+              )}
             </p>
 
             <p className="mx-auto mt-6 inline-flex items-center gap-2 rounded-pill bg-teal-xlight px-4 py-1.5 text-[12px] font-semibold text-teal-dark">
@@ -87,8 +103,6 @@ export default function PaidSearchThankYou() {
                 </p>
               ) : null}
             </div>
-
-            <ConsultationJaneBookingCard />
 
             <a
               href={PHONE_HREF}

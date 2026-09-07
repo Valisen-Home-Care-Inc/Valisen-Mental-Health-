@@ -36,6 +36,226 @@ export const CONSULTATION_DAYS_LABEL = "Monday to Sunday";
 export type ConsultationAvailability =
   keyof typeof CONSULTATION_AVAILABILITY_WINDOWS;
 
+/**
+ * Fixed time-of-day options shown in the "/welcome" slot picker's time grid,
+ * on 20-minute increments to match the actual length of the free
+ * consultation call advertised elsewhere on the site. There is no
+ * scheduling system behind this yet, so these are the same hardcoded
+ * options every selectable day rather than real per-day or per-therapist
+ * availability. Each maps back onto an existing {@link ConsultationAvailability}
+ * bucket so nothing downstream (validation, the CRM record, the Sheet
+ * export, the notification email) needs to change to support a specific
+ * time being requested.
+ */
+export const CONSULTATION_TIME_SLOTS: ReadonlyArray<{
+  time: string;
+  availability: ConsultationAvailability;
+}> = [
+  { time: "9:00 AM", availability: "morning" },
+  { time: "9:20 AM", availability: "morning" },
+  { time: "9:40 AM", availability: "morning" },
+  { time: "10:00 AM", availability: "morning" },
+  { time: "10:20 AM", availability: "morning" },
+  { time: "10:40 AM", availability: "morning" },
+  { time: "11:00 AM", availability: "morning" },
+  { time: "11:20 AM", availability: "morning" },
+  { time: "11:40 AM", availability: "morning" },
+  { time: "12:00 PM", availability: "afternoon" },
+  { time: "12:20 PM", availability: "afternoon" },
+  { time: "12:40 PM", availability: "afternoon" },
+  { time: "1:00 PM", availability: "afternoon" },
+  { time: "1:20 PM", availability: "afternoon" },
+  { time: "1:40 PM", availability: "afternoon" },
+  { time: "2:00 PM", availability: "afternoon" },
+  { time: "2:20 PM", availability: "afternoon" },
+  { time: "2:40 PM", availability: "afternoon" },
+  { time: "3:00 PM", availability: "afternoon" },
+  { time: "3:20 PM", availability: "afternoon" },
+  { time: "3:40 PM", availability: "afternoon" },
+  { time: "4:00 PM", availability: "late_afternoon" },
+  { time: "4:20 PM", availability: "late_afternoon" },
+  { time: "4:40 PM", availability: "late_afternoon" },
+  { time: "5:00 PM", availability: "late_afternoon" },
+  { time: "5:20 PM", availability: "late_afternoon" },
+  { time: "5:40 PM", availability: "late_afternoon" },
+  { time: "6:00 PM", availability: "late_afternoon" },
+  { time: "6:20 PM", availability: "late_afternoon" },
+  { time: "6:40 PM", availability: "late_afternoon" },
+  { time: "7:00 PM", availability: "late_afternoon" },
+  { time: "7:20 PM", availability: "late_afternoon" },
+  { time: "7:40 PM", availability: "late_afternoon" },
+];
+
+const WEEKDAY_SHORT_SUN_FIRST = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const WEEKDAY_LONG = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+const MONTH_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+export { WEEKDAY_SHORT_SUN_FIRST, MONTH_LONG as CONSULTATION_MONTH_NAMES };
+
+function toIsoDate(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** How far out the fake calendar offers days at all — a plausibility bound, not real availability data. */
+export const CONSULTATION_BOOKING_WINDOW_DAYS = 30;
+
+export type ConsultationCalendarCell = {
+  /** ISO date, e.g. "2026-09-09". */
+  date: string;
+  dayOfMonth: number;
+  /** Whether this cell belongs to the month being displayed (vs. a leading/trailing filler day). */
+  inDisplayedMonth: boolean;
+  /** Weekday, not in the past, and within the booking window — the only signal this calendar shows. */
+  selectable: boolean;
+};
+
+/**
+ * A standard Sunday-first month grid for `year`/`month` (0-11), always in
+ * full rows of 7 so the layout never reflows. Weekends are shown but always
+ * closed (the clinic doesn't offer weekend consultations) rather than
+ * omitted from the grid. Deliberately exposes only one signal per day —
+ * selectable or not — rather than simulating booked/pending/partially-booked
+ * states, since there's no real scheduling system behind this to make those
+ * states true.
+ */
+export function getConsultationCalendarMonth(
+  year: number,
+  month: number,
+  now: Date = new Date(),
+): ConsultationCalendarCell[] {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const windowEnd = new Date(today);
+  windowEnd.setDate(windowEnd.getDate() + CONSULTATION_BOOKING_WINDOW_DAYS);
+
+  const firstOfMonth = new Date(year, month, 1);
+  const firstColumnSunFirst = firstOfMonth.getDay(); // 0=Sun..6=Sat
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = Math.ceil((firstColumnSunFirst + daysInMonth) / 7) * 7;
+
+  const cells: ConsultationCalendarCell[] = [];
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - firstColumnSunFirst + 1;
+    const inDisplayedMonth = dayNum >= 1 && dayNum <= daysInMonth;
+    if (!inDisplayedMonth) {
+      cells.push({ date: "", dayOfMonth: 0, inDisplayedMonth: false, selectable: false });
+      continue;
+    }
+    const cellDate = new Date(year, month, dayNum);
+    const dow = cellDate.getDay();
+    const isWeekday = dow !== 0 && dow !== 6;
+    const isStrictlyFuture = cellDate.getTime() > today.getTime();
+    const withinWindow = cellDate.getTime() <= windowEnd.getTime();
+    cells.push({
+      date: toIsoDate(cellDate),
+      dayOfMonth: cellDate.getDate(),
+      inDisplayedMonth: true,
+      selectable: isWeekday && isStrictlyFuture && withinWindow,
+    });
+  }
+  return cells;
+}
+
+/**
+ * A fixed weekly availability pattern, indexed by `Date#getDay()`
+ * (0=Sunday..6=Saturday). Each entry is a list of `[startIndex, endIndex]`
+ * indices into {@link CONSULTATION_TIME_SLOTS}. There is no real scheduling
+ * system behind this — it's the same shape every week, not per-therapist or
+ * per-date data — but it reads as a realistic recurring schedule (busier
+ * some days, a single slot on others, closed weekends) rather than either
+ * "wide open every day" or randomized noise.
+ */
+function range(start: number, end: number): number[] {
+  const out: number[] = [];
+  for (let i = start; i <= end; i++) out.push(i);
+  return out;
+}
+
+/** Every `step`-th index from `start` to `end` inclusive — a full span, thinned out. */
+function stepRange(start: number, end: number, step: number): number[] {
+  const out: number[] = [];
+  for (let i = start; i <= end; i += step) out.push(i);
+  return out;
+}
+
+const WEEKLY_AVAILABILITY_INDICES: ReadonlyArray<ReadonlyArray<number>> = [
+  [], // Sunday — closed
+  range(18, 32), // Monday — 3:00 PM to 7:40 PM
+  stepRange(0, 32, 2), // Tuesday — full 9:00 AM to 7:40 PM span, every other slot
+  [...range(0, 11), ...range(24, 29)], // Wednesday — 9:00 AM-12:40 PM, and 5:00-6:40 PM
+  range(21, 29), // Thursday — 4:00 PM to 6:40 PM
+  [19], // Friday — a single slot, 3:20 PM
+  [], // Saturday — closed
+];
+
+/**
+ * The available times for a given date, per the fixed weekly pattern above.
+ * Deterministic by day of week (every Tuesday looks the same), not a claim
+ * about real bookings — nothing labels a time as "taken" or references
+ * other clients.
+ */
+export function getAvailableTimeSlotsForDate(
+  isoDate: string,
+): typeof CONSULTATION_TIME_SLOTS {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const keep = new Set(WEEKLY_AVAILABILITY_INDICES[date.getDay()]);
+  return CONSULTATION_TIME_SLOTS.filter((_, index) => keep.has(index));
+}
+
+/** Human-readable label for an ISO date, e.g. "Tuesday, September 9". */
+export function formatConsultationDateLabel(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return `${WEEKDAY_LONG[date.getDay()]}, ${MONTH_LONG[date.getMonth()]} ${date.getDate()}`;
+}
+
+/**
+ * Human-readable label for a chosen day + time, e.g.
+ * "Tuesday, September 9 at 11:00 AM". Used both for the on-screen
+ * confirmation and as the text sent to the server to fold into the
+ * coordination notes.
+ */
+export function formatPreferredSlotLabel(isoDate: string, time: string): string {
+  return `${formatConsultationDateLabel(isoDate)} at ${time}`;
+}
+
+/** What the "/welcome" slot picker produces: either a specific day+time, or an explicit "no preference" choice. */
+export type ConsultationSlotSelection =
+  | {
+      kind: "specific";
+      date: string;
+      time: string;
+      availability: ConsultationAvailability;
+      label: string;
+    }
+  | { kind: "flexible" };
+
+export function availabilityFromSlotSelection(
+  selection: ConsultationSlotSelection,
+): ConsultationAvailability {
+  return selection.kind === "flexible" ? "flexible" : selection.availability;
+}
+
+export function slotLabelFromSelection(
+  selection: ConsultationSlotSelection,
+): string | undefined {
+  return selection.kind === "specific" ? selection.label : undefined;
+}
+
 export function isConsultationAvailability(
   value: unknown,
 ): value is ConsultationAvailability {

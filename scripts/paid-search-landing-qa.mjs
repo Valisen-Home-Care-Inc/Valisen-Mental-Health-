@@ -454,7 +454,7 @@ try {
     hasFullName: Boolean(document.querySelector('[id$="-full-name"]')),
     hasEmail: Boolean(document.querySelector('[id$="-email"]')),
     hasPhone: Boolean(document.querySelector('[id$="-phone"]')),
-    hasAvailability: Boolean(document.querySelector('[id$="-availability"]')),
+    hasAvailability: Boolean(document.querySelector('[id$="-slot"]')),
     hasTherapistPreference: Boolean(document.querySelector("#preferred-therapist")),
     path: window.location.pathname,
     hash: window.location.hash,

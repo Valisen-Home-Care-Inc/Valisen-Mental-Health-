@@ -124,6 +124,7 @@ const ALLOWED_KEYS = new Set([
   "reason",
   "preferredTherapist",
   "notes",
+  "preferredSlotLabel",
   "days",
   "timeOfDay",
   "consent",
@@ -229,6 +230,17 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const phone = cleanSingleLine(input.phone, 30);
   const reason = cleanSingleLine(input.reason, 80);
   const notes = cleanNotes(input.notes);
+  // The "/welcome" slot picker has no real scheduling system behind it yet —
+  // it produces a human-readable label for whatever day/time the visitor
+  // clicked, which rides along in the existing notes field rather than a new
+  // column, since it's coordination context for staff, not structured data.
+  const preferredSlotLabel = cleanSingleLine(input.preferredSlotLabel, 80);
+  if (input.preferredSlotLabel !== undefined && !preferredSlotLabel) {
+    return { error: "Invalid preferred time." };
+  }
+  const notesWithSlot = preferredSlotLabel
+    ? `Requested time: ${preferredSlotLabel}${notes ? `\n${notes}` : ""}`.slice(0, 1500)
+    : notes;
   const source = cleanSingleLine(input.source, 40).replace(/[^a-z0-9_-]/gi, "");
   if (input.source !== undefined && !isConsultationSourceDetail(source)) {
     return { error: "Invalid consultation source." };
@@ -342,7 +354,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       phone,
       reason,
       preferredTherapist: cleanSingleLine(input.preferredTherapist, 40),
-      notes: notes || undefined,
+      notes: notesWithSlot || undefined,
       days: [...expectedDays],
       timeOfDay,
       consent: true,
