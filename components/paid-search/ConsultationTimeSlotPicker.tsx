@@ -17,13 +17,17 @@ export default function ConsultationTimeSlotPicker({
   value,
   onChange,
   invalid,
+  allowFlexible = true,
+  calendarToday,
 }: {
   idPrefix: string;
   value: ConsultationSlotSelection | null;
   onChange: (selection: ConsultationSlotSelection | null) => void;
   invalid?: boolean;
+  allowFlexible?: boolean;
+  calendarToday?: Date;
 }) {
-  const today = useMemo(() => new Date(), []);
+  const today = useMemo(() => calendarToday ?? new Date(), [calendarToday]);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -103,7 +107,10 @@ export default function ConsultationTimeSlotPicker({
                     type="button"
                     disabled={!cell.selectable}
                     aria-pressed={isSelected}
-                    onClick={() => setSelectedDate(cell.date)}
+                    onClick={() => {
+                      setSelectedDate(cell.date);
+                      if (value?.kind === "specific" && value.date !== cell.date) onChange(null);
+                    }}
                     className={`aspect-square rounded-[8px] text-[12px] font-medium transition-all duration-200 ${
                       isSelected
                         ? "bg-teal text-white"
@@ -163,13 +170,13 @@ export default function ConsultationTimeSlotPicker({
             </div>
           ) : null}
 
-          <button
+          {allowFlexible ? <button
             type="button"
             onClick={() => onChange({ kind: "flexible" })}
             className="mt-2.5 text-[12px] font-medium text-ink-secondary underline underline-offset-2 transition-colors hover:text-teal"
           >
             Can&apos;t find a suitable time
-          </button>
+          </button> : null}
         </>
       ) : (
         <button

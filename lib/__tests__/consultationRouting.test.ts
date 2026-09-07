@@ -50,17 +50,15 @@ describe("consultation routing", () => {
     expect(url).not.toMatch(/submissionToken|resultToken|token=/i);
   });
 
-  it("marks both explicitly tracked quiz consultation anchors to prevent global double-counting", () => {
+  it("keeps quiz booking embedded instead of navigating to another contact form", () => {
     const source = readFileSync(
       resolve(process.cwd(), "components/quiz/ResultsReveal.tsx"),
       "utf8",
     );
 
-    expect(source).toMatch(
-      /href=\{bookingUrl\}\s+data-funnel-tracked="true"\s+onClick=\{onClick\}/,
-    );
-    expect(source).toMatch(
-      /href=\{bookingUrl\}\s+data-funnel-tracked="true"\s+onClick=\{\(\) => handleConsultationClick\("mobile_sticky"\)\}/,
-    );
+    expect(source).toContain("<QuizConsultationBooking");
+    expect(source).toContain("calendarRef.current?.scrollIntoView");
+    expect(source).not.toContain("href={bookingUrl}");
+    expect(source).not.toContain("stageConsultationPrefill");
   });
 });

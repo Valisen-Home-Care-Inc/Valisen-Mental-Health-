@@ -136,6 +136,8 @@ export type MatchResult =
       reasons: MatchReason[];
       /** Remaining eligible therapists, strongest first (for team ordering). */
       runnersUp: string[];
+      /** Strongest eligible therapist of the other roster-recorded gender. */
+      alternative?: { therapistSlug: string; reasons: MatchReason[] };
     }
   | { status: "no-clear-match"; reason: NoMatchReason };
 
@@ -237,6 +239,34 @@ export function matchTherapist(
     reasons: buildReasons(top, prefs),
     runnersUp: scored.slice(1).map((c) => c.therapist.slug),
   };
+}
+
+/** Preserve the primary match while offering an eligible alternative, never inventing availability. */
+export function withAlternativeTherapist(
+  match: MatchResult,
+  outcome: QuizOutcome,
+  prefs: MatchPreferences,
+  roster: Therapist[] = fullRoster,
+): MatchResult {
+  if (match.status !== "match") return match;
+  const primary = roster.find((therapist) => therapist.slug === match.therapistSlug);
+  if (!primary) return match;
+  const otherGender = primary.matching.gender === "woman" ? "man" : "woman";
+  const alternative = matchTherapist(outcome, { ...prefs, genderPreference: "no-preference" },
+    roster.filter((therapist) => therapist.matching.gender === otherGender));
+  const { alternative: _previous, ...original } = match;
+  return alternative.status === "match"
+    ? { ...original, alternative: { therapistSlug: alternative.therapistSlug, reasons: alternative.reasons } }
+    : original;
+}
+
+export function matchTherapistPair(
+  outcome: QuizOutcome,
+  prefs: MatchPreferences,
+  roster: Therapist[] = fullRoster,
+): MatchResult {
+  const currentPreferences = { ...prefs, genderPreference: "no-preference" as const };
+  return withAlternativeTherapist(matchTherapist(outcome, currentPreferences, roster), outcome, currentPreferences, roster);
 }
 
 /** Every reason pairs something the visitor said with a verified attribute. */

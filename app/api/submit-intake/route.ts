@@ -60,6 +60,8 @@ import { googleAdsSessionIdIsValid } from "@/lib/googleAdsJourney";
 import { prepareGoogleAdsConsultationConversion } from "@/lib/server/googleAdsConsultationConversion";
 import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 import { buildConsultationConfirmationEmail } from "@/lib/server/consultationConfirmationEmail";
+import { parseQuizConsultationSlot, QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION, type QuizConsultationSlot } from "@/lib/quizConsultation";
+import { buildQuizConsultationBookingEmail } from "@/lib/server/quizConsultationEmail";
 
 export const runtime = "nodejs";
 
@@ -115,6 +117,8 @@ const HEADER_ROW = [
 
 const ALLOWED_KEYS = new Set([
   "formVariant",
+  "consultationDate",
+  "consultationTime",
   "clientSubmissionId",
   "formStartedAt",
   "firstName",
@@ -142,7 +146,8 @@ const ALLOWED_KEYS = new Set([
 ]);
 
 type IntakePayload = {
-  formVariant?: "welcome";
+  formVariant?: "welcome" | "quiz_calendar";
+  bookedSlot?: QuizConsultationSlot;
   clientSubmissionId: string;
   formStartedAt: number;
   firstName: string;
@@ -217,9 +222,17 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   if (Object.keys(input).some((key) => !ALLOWED_KEYS.has(key))) {
     return { error: "Invalid request fields." };
   }
-  if (input.formVariant !== undefined && input.formVariant !== "welcome") {
+  if (input.formVariant !== undefined && input.formVariant !== "welcome" && input.formVariant !== "quiz_calendar") {
     return { error: "Invalid consultation form." };
   }
+  const isQuizBooking = input.formVariant === "quiz_calendar";
+  const bookedSlot = isQuizBooking ? parseQuizConsultationSlot(input.consultationDate, input.consultationTime) : null;
+  if (isQuizBooking && (!bookedSlot || !isValidSubmissionToken(input.quizSubmissionToken) || input.source !== "quiz_result")) {
+    return { error: "Please choose a valid consultation date and time from your quiz results." };
+  }
+  if (!isQuizBooking && (input.consultationDate !== undefined || input.consultationTime !== undefined)) return { error: "Invalid consultation fields." };
+  const consentText = isQuizBooking ? QUIZ_BOOKING_CONSENT_TEXT : CONSENT_TEXT;
+  const consentVersion = isQuizBooking ? QUIZ_BOOKING_CONSENT_VERSION : CONSENT_VERSION;
   if (!validSubmissionId(input.clientSubmissionId)) {
     return { error: "Invalid submission identifier." };
   }
@@ -311,7 +324,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
 
   // Only the /welcome form accepts a first name without a surname.
   // The marker also selects the welcome receipt email; it is not stored in the CRM.
-  if (!firstName || (!lastName && input.formVariant !== "welcome") || !validEmail(email)) {
+  if (!firstName || (!lastName && input.formVariant !== "welcome" && !isQuizBooking) || !validEmail(email)) {
     return { error: "Please provide a valid name and email address." };
   }
   if (!isValidConsultationPhone(phone)) {
@@ -330,8 +343,8 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   }
   if (
     input.consent !== true ||
-    input.consentLanguage !== CONSENT_TEXT ||
-    input.consentVersion !== CONSENT_VERSION
+    input.consentLanguage !== consentText ||
+    input.consentVersion !== consentVersion
   ) {
     return { error: "Please provide the consultation coordination consent." };
   }
@@ -347,19 +360,20 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
     payload: {
       clientSubmissionId: input.clientSubmissionId,
       formStartedAt: input.formStartedAt,
-      formVariant: input.formVariant === "welcome" ? "welcome" : undefined,
+      formVariant: isQuizBooking ? "quiz_calendar" : input.formVariant === "welcome" ? "welcome" : undefined,
+      bookedSlot: bookedSlot || undefined,
       firstName,
       lastName,
       email,
       phone,
       reason,
       preferredTherapist: cleanSingleLine(input.preferredTherapist, 40),
-      notes: notesWithSlot || undefined,
+      notes: bookedSlot ? `Quiz 20-minute phone consultation (staff-managed): ${bookedSlot.label}` : notesWithSlot || undefined,
       days: [...expectedDays],
-      timeOfDay,
+      timeOfDay: bookedSlot?.availability || timeOfDay,
       consent: true,
-      consentLanguage: CONSENT_TEXT,
-      consentVersion: CONSENT_VERSION,
+      consentLanguage: consentText,
+      consentVersion,
       source: source || "direct",
       quizSubmissionToken:
         typeof quizSubmissionToken === "string"
@@ -758,6 +772,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (payload.formVariant === "quiz_calendar" && quizAttribution.lead) {
+    // The saved result, not the browser, is authoritative for contact and routing.
+    payload.firstName = quizAttribution.lead.firstName;
+    payload.lastName = "";
+    payload.email = quizAttribution.lead.email;
+    payload.phone = quizAttribution.lead.phone;
+    payload.reason = "Not Sure";
+    payload.preferredTherapist = "flexible";
+  }
+
   const preferredTherapist = payload.preferredTherapist
     ? normalizePreferredTherapist(payload.preferredTherapist)
     : null;
@@ -779,7 +803,7 @@ export async function POST(request: NextRequest) {
     0,
     Math.round((Date.now() - payload.formStartedAt) / 1000),
   );
-  const availabilityLabel =
+  const availabilityLabel = payload.bookedSlot?.label ||
     CONSULTATION_AVAILABILITY_WINDOWS[payload.timeOfDay].submissionLabel;
   const checkpoint = await recordCheckpointAttribution(
     payload.checkpointAttribution,
@@ -905,16 +929,16 @@ Additional notes:        ${payload.notes || "None"}
 
 CONSULTATION COORDINATION CONSENT
 Recorded: Yes
-Version: ${CONSENT_VERSION}
-Language: ${CONSENT_TEXT}
+Version: ${payload.consentVersion}
+Language: ${payload.consentLanguage}
 
-This is a consultation request, not a confirmed appointment. Please coordinate and confirm directly with the client.`;
+${payload.bookedSlot ? "QUIZ BOOKING: The visitor was given this 20-minute phone consultation time. Please manually schedule and fulfil this appointment; no Jane reservation has been created." : "This is a consultation request, not a confirmed appointment. Please coordinate and confirm directly with the client."}`;
 
   try {
     await transporter.sendMail({
       from: `"Valisen Mental Health" <${process.env.GMAIL_USER}>`,
       to: CLINIC_EMAIL,
-      subject: `Consultation Request - ${payload.firstName} ${payload.lastName}`,
+      subject: `${payload.bookedSlot ? "Quiz Consultation Booking" : "Consultation Request"} - ${payload.firstName} ${payload.lastName}`,
       text: clinicEmailBody,
       messageId: `<consultation-${payload.clientSubmissionId}@valisenmentalhealth.com>`,
     });
@@ -934,10 +958,10 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     return badRequest("We couldn't send your request. Please try again or call us.", 503);
   }
 
-  if (payload.formVariant === "welcome") {
+  if (payload.formVariant === "welcome" || payload.bookedSlot) {
     // Only the durable notification-claim owner sends the visitor receipt.
     // Keep intake successful if SMTP fails after the clinic has been notified.
-    const confirmation = buildConsultationConfirmationEmail({
+    const confirmation = payload.bookedSlot ? buildQuizConsultationBookingEmail(payload.firstName, payload.bookedSlot) : buildConsultationConfirmationEmail({
       firstName: payload.firstName,
       referenceId,
     });
@@ -1014,8 +1038,8 @@ This is a consultation request, not a confirmed appointment. Please coordinate a
     availabilityLabel,
     payload.notes || "",
     referenceId,
-    CONSENT_VERSION,
-    CONSENT_TEXT,
+    payload.consentVersion,
+    payload.consentLanguage,
     payload.source || "direct",
     "Turnstile verified",
     String(durationSeconds),

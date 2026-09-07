@@ -66,10 +66,10 @@ describe("quiz analytics export", () => {
     expect(exported.kpis.quizVisitors).toBe(10);
     expect(exported.kpis.quizQuestionsFinished).toBe(4);
     expect(exported.kpis.completedSubmissions).toBe(3);
-    expect(exported.schemaVersion).toBe("1.1");
-    expect(exported.questionnaire.totalQuestions).toBe(19);
-    expect(exported.questionnaire.quizVersion).toBe("5.0.0");
-    expect(exported.questionnaire.questions).toHaveLength(19);
+    expect(exported.schemaVersion).toBe("1.2");
+    expect(exported.questionnaire.totalQuestions).toBe(18);
+    expect(exported.questionnaire.quizVersion).toBe("5.1.0");
+    expect(exported.questionnaire.questions).toHaveLength(18);
     expect(exported.questionnaire.questions[0]).toMatchObject({
       questionNumber: 1,
       id: "intro",
@@ -86,16 +86,16 @@ describe("quiz analytics export", () => {
       kind: "scored",
       dimensions: ["worry"],
     });
-    expect(exported.questionnaire.questions[17]).toMatchObject({
+    expect(exported.questionnaire.questions[16]).toMatchObject({
       id: "safety",
       kind: "safety",
     });
-    expect(exported.questionnaire.questions[17].analyticsHandling).toContain(
+    expect(exported.questionnaire.questions[16].analyticsHandling).toContain(
       "never stored",
     );
-    expect(exported.questionnaire.questions[18]).toMatchObject({
+    expect(exported.questionnaire.questions[17]).toMatchObject({
       id: "intent",
-      questionNumber: 19,
+      questionNumber: 18,
     });
     expect(exported.questionFriction[0].label).toContain("What brought you here");
     expect(exported.questionFriction[0].questionText).toBe(

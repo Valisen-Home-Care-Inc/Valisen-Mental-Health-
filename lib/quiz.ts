@@ -27,7 +27,7 @@ import {
  * produced it. Bump QUIZ_VERSION when questions change; bump
  * SCORING_VERSION when thresholds, weights, or bands change.
  */
-export const QUIZ_VERSION = "5.0.0";
+export const QUIZ_VERSION = "5.1.0";
 export const SCORING_VERSION = "1.0.0";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -199,17 +199,6 @@ export const QUESTIONS: Question[] = [
       { label: "Cultural adjustment or immigration stress", value: "cultural-adjustment" },
       { label: "A major life change or transition", value: "life-transitions" },
       { label: "Grief or loss", value: "grief" },
-    ],
-  },
-  {
-    id: "gender_preference",
-    kind: "preference",
-    text: "Do you have a preference for your therapist?",
-    helper: "Totally optional — many people don't",
-    options: [
-      { label: "I'd prefer to work with a woman", value: "woman" },
-      { label: "I'd prefer to work with a man", value: "man" },
-      { label: "No preference", value: "no-preference" },
     ],
   },
   /* 🔬 Safety check — reviewed handling, never scored, never sent to analytics. */

@@ -20,6 +20,7 @@ import {
   hashSubmissionToken,
 } from "@/lib/server/quizLeadStore";
 import { isRateLimited } from "@/lib/server/rateLimit";
+import { extractPreferences, withAlternativeTherapist } from "@/lib/matching";
 import {
   hasJsonContentType,
   isSameOriginRequest,
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
       phone: lead.phone,
       referenceId: lead.referenceId,
       outcome: lead.outcome,
-      match: lead.match,
+      match: withAlternativeTherapist(lead.match, lead.outcome, extractPreferences(lead.answers)),
       intent: lead.intent,
       contactHelpSent: lead.notificationStatus === "sent",
       attribution: lead.attribution,

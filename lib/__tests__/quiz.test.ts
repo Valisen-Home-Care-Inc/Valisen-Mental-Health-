@@ -28,8 +28,9 @@ describe("versioning", () => {
     expect(SCORING_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  it("bumped the quiz version after adding the intent question", () => {
-    expect(QUIZ_VERSION).toBe("5.0.0");
+  it("bumped the quiz version after removing gender preference", () => {
+    expect(QUIZ_VERSION).toBe("5.1.0");
+    expect(QUESTIONS.some((question) => question.id === "gender_preference")).toBe(false);
   });
 });
 
@@ -47,8 +48,8 @@ describe("removed language preference", () => {
     }
   });
 
-  it("keeps 19 screens contiguous with safety immediately before intent", () => {
-    expect(TOTAL_QUESTIONS).toBe(19);
+  it("keeps 18 screens contiguous with safety immediately before intent", () => {
+    expect(TOTAL_QUESTIONS).toBe(18);
     expect(TOTAL_QUESTIONS).toBe(QUESTIONS.length);
     expect(QUESTIONS.at(-2)).toMatchObject({ id: "safety", kind: "safety" });
     expect(QUESTIONS.at(-1)).toMatchObject({

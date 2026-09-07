@@ -58,6 +58,7 @@ import {
   verifyCheckpointAttributionRepairToken,
 } from "@/lib/server/checkpointAttributionRepair";
 import { createGoogleAdsJourney } from "@/lib/server/googleAdsJourneySession";
+import { QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION } from "@/lib/quizConsultation";
 
 const consentLanguage =
   "I consent to Valisen Mental Health using the name, email address, and phone number I have provided to contact me regarding my consultation request and to coordinate a consultation within my preferred availability.";
@@ -168,6 +169,33 @@ afterEach(() => {
 });
 
 describe("consultation submission boundary", () => {
+  function quizBooking(overrides: Record<string, unknown> = {}) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
+    flowMocks.findBySubmissionTokenHash.mockResolvedValue({
+      referenceId: "VQ-CALENDAR1", firstName: "Alex", email: "alex@example.com", phone: "416-555-0100", attribution: {},
+    });
+    return payload({ formVariant: "quiz_calendar", source: "quiz_result", lastName: "", quizSubmissionToken: "quiz-calendar-verified-token-1234567890", consultationDate: "2026-09-08", consultationTime: "9:00 AM", consentLanguage: QUIZ_BOOKING_CONSENT_TEXT, consentVersion: QUIZ_BOOKING_CONSENT_VERSION, ...overrides });
+  }
+
+  it("books a quiz slot using verified saved contact details and sends the appointment email once", async () => {
+    const input = quizBooking();
+    const response = await POST(request(input));
+    expect(response.status).toBe(200);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ quizReferenceId: "VQ-CALENDAR1", preferredTime: "Tuesday, September 8 at 9:00 AM, 2026 (Toronto time)", consentVersion: QUIZ_BOOKING_CONSENT_VERSION }));
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
+    expect(flowMocks.sendMail).toHaveBeenLastCalledWith(expect.objectContaining({ to: "alex@example.com", subject: "Your 20-minute consultation is booked | Valisen", text: expect.stringContaining("Tuesday, September 8 at 9:00 AM, 2026 (Toronto time)") }));
+    expect(flowMocks.sendMail.mock.calls[0][0].text).toContain("Please manually schedule and fulfil this appointment");
+    await POST(request(input));
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([{ quizSubmissionToken: undefined }, { email: "attacker@example.com" }, { consentVersion: "consultation-coordination-v1" }, { consultationDate: "2026-09-12" }, { consultationTime: "9:20 AM" }])("rejects unverified or invalid quiz bookings before notification %j", async (overrides) => {
+    const response = await POST(request(quizBooking(overrides)));
+    expect(response.status).toBe(400);
+    expect(flowMocks.sendMail).not.toHaveBeenCalled();
+    expect(flowMocks.upsertConsultationLead).not.toHaveBeenCalled();
+  });
   it("rejects cross-origin requests before processing a form", async () => {
     const response = await POST(request(payload(), "https://attacker.example"));
     expect(response.status).toBe(403);

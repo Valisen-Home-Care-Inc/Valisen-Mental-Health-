@@ -23,7 +23,7 @@ import {
   scoreBandFor,
   scoreQuiz,
 } from "@/lib/quiz";
-import { extractPreferences, matchTherapist } from "@/lib/matching";
+import { extractPreferences, matchTherapistPair } from "@/lib/matching";
 import { getTherapistBySlug } from "@/lib/therapists";
 import {
   MAX_PAYLOAD_BYTES,
@@ -848,7 +848,7 @@ export async function POST(req: NextRequest) {
         // Intent changes presentation only; it is deliberately excluded from
         // both score and therapist matching.
         const outcome = scoreQuiz(payload.answers);
-        const match = matchTherapist(
+        const match = matchTherapistPair(
           outcome,
           extractPreferences(payload.answers),
         );

@@ -1,6 +1,7 @@
 import {
   formatGrowthStage,
   quizQuestionLabel,
+  quizQuestionPositionLabel,
   type GrowthDashboardData,
 } from "@/lib/growth/dashboard";
 import {
@@ -8,9 +9,10 @@ import {
   QUIZ_VERSION,
   SCORING_VERSION,
 } from "@/lib/quiz";
+import type { ResultEngagementReport } from "@/lib/quizResultEngagement";
 import { getQuizIntentLabel, isQuizIntent } from "@/lib/quizIntent";
 
-const EXPORT_SCHEMA_VERSION = "1.1";
+const EXPORT_SCHEMA_VERSION = "1.2";
 
 function datePart(value: string): string {
   const parsed = new Date(value);
@@ -53,6 +55,7 @@ function questionDefinition(question: (typeof QUESTIONS)[number], index: number)
 export function buildQuizAnalyticsExport(
   data: GrowthDashboardData,
   exportedAt = new Date().toISOString(),
+  resultEngagement: ResultEngagementReport | null = null,
 ) {
   const {
     quizAttemptCompletions,
@@ -66,6 +69,13 @@ export function buildQuizAnalyticsExport(
     exportedAt,
     analyticsGeneratedAt: data.generatedAt,
     selectedDateRange: data.range,
+    resultPageEngagement: resultEngagement ? {
+      views: resultEngagement.views,
+      visitors: resultEngagement.visitors,
+      averageActiveSeconds: resultEngagement.averageActiveSeconds,
+      averageScrollDepth: resultEngagement.averageScrollDepth,
+      recentResultJourneys: resultEngagement.records.map(({ referenceId: _reference, ...metrics }, index) => ({ resultNumber: index + 1, ...metrics })),
+    } : null,
     suggestedPrompt:
       "Analyze this quiz funnel using the included current questionnaire wording and answer choices. Identify the biggest conversion leaks, question-level friction, wording or answer-option issues, source quality differences, and the highest-impact experiments Valisen should run next. Separate observations from hypotheses, do not infer clinical outcomes from aggregate behavior, and rank recommendations by likely impact and confidence.",
     privacy: {
@@ -89,7 +99,7 @@ export function buildQuizAnalyticsExport(
     },
     metricNotes: {
       questionsFinished:
-        "The visitor answered all 19 questions and reached the final contact form; this does not mean they submitted it.",
+        "The visitor answered all questions for their quiz version and reached the final contact form; this does not mean they submitted it.",
       completedSubmissions:
         "The final contact form was successfully saved and has a durable quiz lead reference.",
       consultationRequests:
@@ -110,7 +120,7 @@ export function buildQuizAnalyticsExport(
       ...stage,
       label:
         stage.key === "quiz_completions"
-          ? "19 questions finished — final form reached"
+          ? "Questions finished — final form reached"
           : stage.label,
     })),
     intentMix: data.quizIntentMix.map((item) => ({
@@ -124,7 +134,7 @@ export function buildQuizAnalyticsExport(
         questionId: definition?.id ?? null,
         questionKind: definition?.kind ?? null,
         questionText: definition?.text ?? quizQuestionLabel(question.questionNumber),
-        label: quizQuestionLabel(question.questionNumber),
+        label: quizQuestionPositionLabel(question.questionNumber),
       };
     }),
     acquisitionSources: data.sources.map((source) => {
@@ -135,7 +145,7 @@ export function buildQuizAnalyticsExport(
       journeyNumber: index + 1,
       startedAt: session.startedAt,
       lastSeenAt: session.lastSeenAt,
-      lastStage: formatGrowthStage(session.lastStage),
+      lastStage: formatGrowthStage(session.lastStage, session.quizVersion),
       lastQuizQuestion: session.lastQuizQuestion ?? null,
       maxQuizQuestion: session.maxQuizQuestion,
       quizVersion: session.quizVersion ?? null,

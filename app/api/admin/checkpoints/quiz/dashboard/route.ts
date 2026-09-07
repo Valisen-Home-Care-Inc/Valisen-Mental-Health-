@@ -11,7 +11,8 @@ import {
   fetchQuizTestCandidates,
   setQuizTestFlag,
 } from "@/lib/server/growthRepository";
-import { SupabaseServerError } from "@/lib/server/supabaseServer";
+import { SupabaseServerError, callSupabaseRpc } from "@/lib/server/supabaseServer";
+import type { ResultEngagementReport } from "@/lib/quizResultEngagement";
 import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 
 export const runtime = "nodejs";
@@ -35,13 +36,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const reporting = await resolveCrmReportingRange("quiz", range);
-    const [data, recovery, testData] = await Promise.all([
+    const [data, recovery, testData, resultEngagement] = await Promise.all([
       fetchGrowthDashboard(reporting.range.from, reporting.range.to),
       fetchQuizSubmissionRecoveryQueue(),
       fetchQuizTestCandidates(),
+      callSupabaseRpc<ResultEngagementReport>("get_quiz_result_engagement", { p_from: reporting.range.from, p_to: reporting.range.to }).catch(() => null),
     ]);
     return NextResponse.json(
-      { data, recovery, testData },
+      { data, recovery, testData, resultEngagement },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
     );
   } catch (error) {

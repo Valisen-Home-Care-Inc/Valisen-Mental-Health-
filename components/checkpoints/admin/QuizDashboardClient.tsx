@@ -33,13 +33,15 @@ import type {
 } from "@/lib/growth/quizTestData";
 import {
   formatGrowthStage,
-  quizQuestionLabel,
+  quizQuestionPositionLabel,
   type GrowthDashboardData,
   type GrowthSessionSummary,
 } from "@/lib/growth/dashboard";
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import { getQuizIntentLabel, isQuizIntent } from "@/lib/quizIntent";
 import { getTherapistBySlug } from "@/lib/therapists";
+import QuizResultEngagementPanel from "@/components/checkpoints/admin/QuizResultEngagementPanel";
+import type { ResultEngagementReport } from "@/lib/quizResultEngagement";
 
 const RANGE_OPTIONS: Array<{ value: Exclude<CheckpointDatePreset, "custom">; label: string }> = [
   { value: "today", label: "Today" },
@@ -81,7 +83,7 @@ function kpiCards(data: GrowthDashboardData) {
 }
 
 function funnelStageLabel(key: string, label: string) {
-  return key === "quiz_completions" ? "19 questions finished" : label;
+  return key === "quiz_completions" ? "Questions finished" : label;
 }
 
 type EnrichedGrowthSession = GrowthSessionSummary & {
@@ -116,15 +118,18 @@ export default function QuizDashboardClient({
   initialRecovery,
   initialTestData,
   initialError,
+  initialResultEngagement = null,
 }: {
   initialData: GrowthDashboardData | null;
   initialRecovery: QuizSubmissionRecoveryData | null;
   initialTestData: QuizTestData | null;
   initialError: string | null;
+  initialResultEngagement?: ResultEngagementReport | null;
 }) {
   const [data, setData] = useState(initialData);
   const [recovery, setRecovery] = useState(initialRecovery);
   const [testData, setTestData] = useState(initialTestData);
+  const [resultEngagement, setResultEngagement] = useState(initialResultEngagement);
   const [error, setError] = useState(initialError);
   const [range, setRange] = useState<CheckpointDatePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
@@ -151,6 +156,7 @@ export default function QuizDashboardClient({
             data?: GrowthDashboardData;
             recovery?: QuizSubmissionRecoveryData;
             testData?: QuizTestData;
+            resultEngagement?: ResultEngagementReport | null;
             error?: string;
           }
         | null;
@@ -160,6 +166,7 @@ export default function QuizDashboardClient({
       setData(body.data);
       setRecovery(body.recovery);
       setTestData(body.testData);
+      setResultEngagement(body.resultEngagement ?? null);
       setLastUpdated(body.data.generatedAt);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Quiz analytics could not be loaded.");
@@ -171,7 +178,7 @@ export default function QuizDashboardClient({
   function exportAnalytics() {
     if (!data) return;
     const blob = new Blob(
-      [JSON.stringify(buildQuizAnalyticsExport(data), null, 2)],
+      [JSON.stringify(buildQuizAnalyticsExport(data, new Date().toISOString(), resultEngagement), null, 2)],
       { type: "application/json;charset=utf-8" },
     );
     const url = URL.createObjectURL(blob);
@@ -383,7 +390,7 @@ export default function QuizDashboardClient({
                   <tbody className="divide-y divide-black/[0.055]">
                     {data.quizQuestions.map((question) => (
                       <tr key={question.questionNumber} className="text-[11.5px] text-[#53615e] hover:bg-[#fafbfa]">
-                        <td className="max-w-[480px] px-4 py-3.5"><p className="font-medium text-[#31413e]">{quizQuestionLabel(question.questionNumber)}</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7ebe8]"><div className="h-full rounded-full bg-gradient-to-r from-[#76a79c] to-[#276e68]" style={{ width: `${Math.min(100, (question.reached / maxReached) * 100)}%` }} /></div></td>
+                        <td className="max-w-[480px] px-4 py-3.5"><p className="font-medium text-[#31413e]">{quizQuestionPositionLabel(question.questionNumber)}</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7ebe8]"><div className="h-full rounded-full bg-gradient-to-r from-[#76a79c] to-[#276e68]" style={{ width: `${Math.min(100, (question.reached / maxReached) * 100)}%` }} /></div></td>
                         <td className="px-4 py-3.5 font-semibold tabular-nums">{formatCount(question.reached)}</td>
                         <td className="px-4 py-3.5 tabular-nums">{formatCount(question.answered)}</td>
                         <td className="px-4 py-3.5 font-semibold tabular-nums text-[#376c66]">{formatPercent(question.answerRate)}</td>
@@ -455,7 +462,7 @@ export default function QuizDashboardClient({
                             {session.sessionId.slice(0, 18)}…
                           </td>
                           <td className="max-w-[240px] px-4 py-3.5 font-medium text-[#34423f]">
-                            {formatGrowthStage(session.lastStage)}
+                            {formatGrowthStage(session.lastStage, session.quizVersion)}
                           </td>
                           <td className="px-4 py-3.5 tabular-nums">{session.lastQuizQuestion || "—"} / {session.maxQuizQuestion || "—"}</td>
                           <td className="px-4 py-3.5">
@@ -496,6 +503,8 @@ export default function QuizDashboardClient({
               </div>
             ) : <EmptyState title="No recent journeys" detail="New anonymous quiz sessions will appear after the tracking migration is deployed." />}
           </section>
+
+          <QuizResultEngagementPanel data={resultEngagement} />
 
           <QuizTestDataManager
             data={testData}

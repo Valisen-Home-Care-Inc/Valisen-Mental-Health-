@@ -1,38 +1,24 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
-  type RefObject,
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight,
-  CalendarDays,
   Check,
-  CheckCircle2,
   ChevronDown,
-  Clock3,
   Download,
-  ExternalLink,
-  HelpCircle,
   Languages as LanguagesIcon,
-  Mail,
-  MessageSquareText,
   Phone,
-  Plus,
   RotateCcw,
-  Sparkles,
-  Trash2,
   Video,
-  X,
 } from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
-import TurnstileWidget from "@/components/TurnstileWidget";
+import QuizConsultationBooking from "@/components/quiz/QuizConsultationBooking";
+import { useQuizResultEngagement } from "@/components/quiz/useQuizResultEngagement";
 import {
   DIMENSION_LABELS,
   SCORE_MAX,
@@ -46,59 +32,24 @@ import {
 } from "@/lib/quiz";
 import type { MatchReason, MatchResult } from "@/lib/matching";
 import {
-  getActiveTherapists,
   getTherapistBySlug,
   type Therapist,
 } from "@/lib/therapists";
 import {
-  CLINIC_JANE_BOOKING_URL,
   getTherapistBookingConfig,
   type TherapistBookingConfig,
 } from "@/lib/therapistBooking";
 import {
   getResultMatchReasons,
-  getIntentRoutePresentation,
   type QuizIntent,
 } from "@/lib/quizIntent";
 import type { CampaignAttribution } from "@/lib/campaignAttribution";
-import { stageConsultationPrefill } from "@/lib/consultation";
-import { getConsultationRequestUrl } from "@/lib/intake";
 import {
   getDeviceCategory,
   trackQuizEvent,
-  type JaneCtaPlacement,
+  trackFunnelEvent,
 } from "@/lib/analytics";
-import {
-  CONTACT_CONSENT_TEXT,
-  MAX_CONTACT_MESSAGE_LENGTH,
-  MAX_PHONE_LENGTH,
-  MAX_PREFERRED_CONTACT_TIMES,
-  MAX_PREFERRED_TIME_FUTURE_DAYS,
-  MIN_PREFERRED_CONTACT_TIMES,
-  QUIZ_CONTACT_HELP_TURNSTILE_ACTION,
-  isStrictLocalDateTime,
-  isValidContactTimeZone,
-  isValidPhone,
-  type ContactMethod,
-} from "@/lib/quizLead";
-
-type ContactStatus = "idle" | "sending" | "sent" | "failed";
 type DownloadStatus = "idle" | "loading" | "complete" | "failed";
-
-function toLocalDateTimeInputValue(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return [
-    date.getFullYear(),
-    "-",
-    pad(date.getMonth() + 1),
-    "-",
-    pad(date.getDate()),
-    "T",
-    pad(date.getHours()),
-    ":",
-    pad(date.getMinutes()),
-  ].join("");
-}
 
 function safeResultsFilename(referenceId: string | null): string {
   const reference = (referenceId ?? "personalized")
@@ -328,36 +279,6 @@ function ResultSnapshot({
   );
 }
 
-function ConsultationFact({
-  booking,
-}: {
-  booking?: TherapistBookingConfig;
-}) {
-  if (
-    !booking?.consultationIsFree &&
-    !booking?.consultationDuration &&
-    !booking?.consultationFormat
-  ) {
-    return null;
-  }
-  const duration = booking.consultationDuration?.replace(
-    /^(\d+)\s+minutes?$/i,
-    "$1-minute",
-  );
-  const parts = [
-    booking.consultationIsFree ? "Free" : null,
-    duration,
-    booking.consultationFormat?.toLowerCase(),
-    "consultation",
-  ].filter(Boolean);
-  return (
-    <p className="inline-flex items-center gap-1.5 rounded-pill bg-gold-light px-3 py-1.5 text-[12px] font-semibold text-[#76591F]">
-      <Clock3 size={13} aria-hidden="true" />
-      {parts.join(" ")}
-    </p>
-  );
-}
-
 function TherapistDetails({
   therapist,
   booking,
@@ -453,224 +374,6 @@ function TherapistDetails({
         ) : null}
       </div>
     </article>
-  );
-}
-
-function BookingAction({
-  bookingUrl,
-  booking,
-  label,
-  helper,
-  therapistName,
-  onClick,
-  ctaRef,
-}: {
-  bookingUrl: string;
-  booking?: TherapistBookingConfig;
-  label: string;
-  helper: string;
-  therapistName?: string;
-  onClick: () => void;
-  ctaRef?: RefObject<HTMLAnchorElement>;
-}) {
-  return (
-    <div className="rounded-[18px] border border-teal/25 bg-white p-5 shadow-[0_8px_28px_rgba(42,127,127,0.10)]">
-      <ConsultationFact booking={booking} />
-      <a
-        ref={ctaRef}
-        href={bookingUrl}
-        data-funnel-tracked="true"
-        onClick={onClick}
-        className="btn-primary mt-4 min-h-[58px] w-full justify-center px-5 text-center text-[15px] leading-[1.3]"
-        aria-label={`${label}${therapistName ? ` for ${therapistName}` : ""}`}
-      >
-        <CalendarDays size={18} className="mr-2 shrink-0" aria-hidden="true" />
-        {label}
-        <ArrowRight size={15} className="ml-2 shrink-0" aria-hidden="true" />
-      </a>
-      <p className="mt-3 text-center text-[12.5px] leading-[1.55] text-ink-secondary">
-        {helper}
-      </p>
-      <p className="mt-1.5 text-center text-[11.5px] leading-[1.5] text-ink-hint">
-        Valisen will use your availability to coordinate the consultation. Your request is not a
-        confirmed appointment until our team follows up.
-      </p>
-    </div>
-  );
-}
-
-function IntentJourney({
-  intent,
-  outcome,
-  therapist,
-  booking,
-  reasons,
-  bookingUrl,
-  topConcerns,
-  primaryCtaRef,
-  onPrimaryBooking,
-  onTherapistProfileClick,
-}: {
-  intent: QuizIntent;
-  outcome: QuizOutcome;
-  therapist?: Therapist;
-  booking?: TherapistBookingConfig;
-  reasons: MatchReason[];
-  bookingUrl: string;
-  topConcerns: Array<{ dimension: Dimension; bandLabel: string }>;
-  primaryCtaRef: RefObject<HTMLAnchorElement>;
-  onPrimaryBooking: () => void;
-  onTherapistProfileClick: () => void;
-}) {
-  const firstName = therapist?.name.split(" ")[0];
-  const presentation = getIntentRoutePresentation(intent, firstName, {
-    usesClinicBookingFallback: booking?.usesClinicFallback,
-  });
-  const displayedReasons =
-    intent === "see_recommended_therapist" && therapist
-      ? getResultMatchReasons(outcome, therapist, reasons)
-      : reasons;
-
-  return (
-    <section
-      aria-labelledby="intent-result-heading"
-      className="overflow-hidden rounded-card border-[0.5px] border-hairline bg-white shadow-card"
-    >
-      <div className="p-6 md:p-8 lg:p-9">
-        <p className="text-[12px] font-semibold uppercase tracking-[1.4px] text-teal-dark">
-          {presentation.eyebrow}
-        </p>
-        <h1
-          id="intent-result-heading"
-          tabIndex={-1}
-          className="mt-2 max-w-[800px] font-serif text-[30px] font-medium leading-[1.08] tracking-[-0.7px] text-ink outline-none md:text-[39px]"
-        >
-          {presentation.heading}
-        </h1>
-        <p className="mt-3 max-w-[760px] text-[15px] leading-[1.65] text-ink-secondary">
-          {presentation.supportingCopy}
-        </p>
-
-        {intent === "exploring" ? (
-          <div className="mt-6">
-            <ResultSnapshot outcome={outcome} topConcerns={topConcerns} prominent />
-          </div>
-        ) : (
-          <div className="mt-5">
-            <ResultSnapshot outcome={outcome} topConcerns={topConcerns} />
-          </div>
-        )}
-      </div>
-
-      {intent === "brief_consultation" ? (
-        <div className="border-t border-hairline bg-canvas/65 px-6 py-6 md:px-8 lg:px-9">
-          <p className="text-[12px] font-semibold uppercase tracking-[1px] text-teal-dark">
-            During the consultation, you can
-          </p>
-          <ul className="mt-3 grid gap-2.5 text-[13.5px] text-ink-secondary md:grid-cols-3">
-            {[
-              "Discuss what brought you here",
-              "Ask about approach, availability and fees",
-              "Decide whether the fit feels right",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2 rounded-[14px] bg-white p-3.5">
-                <Check size={16} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div
-        className={`grid gap-6 border-t border-gold/30 bg-gold-light/25 p-6 md:p-8 lg:p-9 ${
-          intent === "see_recommended_therapist"
-            ? "lg:grid-cols-[1.35fr_0.8fr]"
-            : "lg:grid-cols-[1fr_0.9fr] lg:items-center"
-        }`}
-      >
-        {intent === "exploring" ? (
-          <div className="lg:col-span-2">
-            <h2 className="font-serif text-[25px] font-medium leading-[1.15] text-ink md:text-[30px]">
-              {presentation.bookingHeading}
-            </h2>
-            <p className="mt-3 max-w-[620px] text-[14px] leading-[1.65] text-ink-secondary">
-              {therapist
-                ? `We matched you with ${therapist.name}, who works with concerns reflected in your answers. A consultation can help you ask questions and decide whether therapy is something you want to explore.`
-                : "Your answers did not point to one clear automated match. A consultation with the Valisen team can still help you ask questions and decide what you want to explore."}
-            </p>
-          </div>
-        ) : null}
-
-        <div
-          className={
-            intent === "see_recommended_therapist"
-              ? ""
-              : "order-2 lg:order-1"
-          }
-        >
-          {therapist ? (
-            <div>
-              {intent !== "exploring" ? (
-                <span className="mb-4 inline-flex items-center gap-1.5 rounded-pill border border-gold/50 bg-gold-light px-3 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.9px] text-[#76591F]">
-                  <Sparkles size={13} aria-hidden="true" />
-                  Recommended for you
-                </span>
-              ) : null}
-              <TherapistDetails
-                therapist={therapist}
-                booking={booking}
-                reasons={displayedReasons}
-                large={intent === "see_recommended_therapist"}
-              />
-              {intent === "exploring" && booking?.profileUrl ? (
-                <Link
-                  href={booking.profileUrl}
-                  onClick={onTherapistProfileClick}
-                  className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 text-[13.5px] font-semibold text-teal underline-offset-4 hover:underline"
-                >
-                  Learn more about {firstName} first
-                  <ArrowRight size={14} aria-hidden="true" />
-                </Link>
-              ) : null}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-[16px] border border-gold/30 bg-white/70 p-5">
-              <h2 className="font-serif text-[23px] font-medium text-ink">
-                Choose from the Valisen therapist team
-              </h2>
-              <p className="mt-2 text-[14px] leading-[1.6] text-ink-secondary">
-                We could not responsibly identify one clear match from your answers. Jane will
-                show the clinic&apos;s verified consultation options so you can choose a therapist.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div
-          className={
-            intent === "see_recommended_therapist"
-              ? ""
-              : "order-1 lg:order-2"
-          }
-        >
-          <BookingAction
-            bookingUrl={bookingUrl}
-            booking={booking}
-            label={presentation.ctaLabel}
-            helper={presentation.ctaHelper}
-            therapistName={therapist?.name}
-            onClick={onPrimaryBooking}
-            ctaRef={primaryCtaRef}
-          />
-        </div>
-      </div>
-
-      <p className="border-t border-hairline bg-white px-6 py-4 text-[11.5px] leading-[1.55] text-ink-hint md:px-8">
-        This match is a starting point based on your answers and verified therapist practice
-        information. It is not a clinical recommendation, diagnosis, or guaranteed fit.
-      </p>
-    </section>
   );
 }
 
@@ -810,694 +513,6 @@ function DetailedResults({
   );
 }
 
-function ContactHelp({
-  submissionToken,
-  bookingUrl,
-  bookingLabel,
-  initialPhone,
-  initialSent,
-  onOpenedChange,
-  onAnalytics,
-  onEngagement,
-  onJaneClick,
-}: {
-  submissionToken: string;
-  bookingUrl: string;
-  bookingLabel: string;
-  initialPhone: string;
-  initialSent: boolean;
-  onOpenedChange: (open: boolean) => void;
-  onAnalytics: (event: "contact_help_opened" | "contact_help_submitted") => void;
-  onEngagement: (event: "contact_help_opened") => void;
-  onJaneClick: () => void;
-}) {
-  const prefix = useId();
-  const [open, setOpen] = useState(false);
-  const [method, setMethod] = useState<ContactMethod | "">("");
-  const [phone, setPhone] = useState(initialPhone);
-  const [preferredTimes, setPreferredTimes] = useState<string[]>(["", ""]);
-  const [timeZone, setTimeZone] = useState("");
-  const [minimumDateTime, setMinimumDateTime] = useState("");
-  const [maximumDateTime, setMaximumDateTime] = useState("");
-  const [message, setMessage] = useState("");
-  const [website, setWebsite] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [status, setStatus] = useState<ContactStatus>(initialSent ? "sent" : "idle");
-  const [verifying, setVerifying] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-  const [turnstileExecuteKey, setTurnstileExecuteKey] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const inFlight = useRef(false);
-  const openedTracked = useRef(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const janeDialogLinkRef = useRef<HTMLAnchorElement>(null);
-  const submitButtonRef = useRef<HTMLButtonElement>(null);
-  const secureSubmissionHandlerRef = useRef<() => void>(() => undefined);
-  const pendingSecureSubmitRef = useRef(false);
-  const turnstileTokenRef = useRef<string | null>(null);
-
-  const handleTurnstileToken = useCallback((token: string | null) => {
-    turnstileTokenRef.current = token;
-    setTurnstileToken(token);
-    if (token) {
-      setError(null);
-      if (pendingSecureSubmitRef.current) {
-        pendingSecureSubmitRef.current = false;
-        setVerifying(false);
-        secureSubmissionHandlerRef.current();
-      }
-    }
-  }, []);
-
-  const handleTurnstileError = useCallback(() => {
-    pendingSecureSubmitRef.current = false;
-    turnstileTokenRef.current = null;
-    setTurnstileToken(null);
-    setTurnstileResetKey((current) => current + 1);
-    setVerifying(false);
-    setStatus("failed");
-    setDialogOpen(false);
-    setError(
-      "Secure verification could not finish. Check your connection and try again.",
-    );
-    window.setTimeout(() => submitButtonRef.current?.focus(), 0);
-  }, []);
-
-  const needsPhone = method === "phone" || method === "text";
-  const requestBusy = verifying || status === "sending";
-
-  useEffect(() => {
-    try {
-      setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "");
-    } catch {
-      setTimeZone("");
-    }
-
-    const minimum = new Date(Date.now() + 60_000);
-    minimum.setSeconds(0, 0);
-    const maximum = new Date();
-    maximum.setDate(
-      maximum.getDate() + MAX_PREFERRED_TIME_FUTURE_DAYS,
-    );
-    maximum.setSeconds(0, 0);
-    setMinimumDateTime(toLocalDateTimeInputValue(minimum));
-    setMaximumDateTime(toLocalDateTimeInputValue(maximum));
-  }, []);
-
-  function toggleOpen() {
-    const next = !open;
-    setOpen(next);
-    onOpenedChange(next);
-    if (next && !openedTracked.current) {
-      openedTracked.current = true;
-      onAnalytics("contact_help_opened");
-      onEngagement("contact_help_opened");
-    }
-  }
-
-  function validate(): string | null {
-    if (!method) return "Choose how you would prefer to be contacted.";
-    if (needsPhone && phone.trim() && !isValidPhone(phone.trim())) {
-      return "Enter a valid phone number for phone or text contact.";
-    }
-    if (!isValidContactTimeZone(timeZone)) {
-      return "We couldn’t detect your time zone. Refresh the page and try again.";
-    }
-
-    const requestedTimes = preferredTimes.map((value) => value.trim());
-    if (requestedTimes.some((value) => !value)) {
-      return requestedTimes.length === MIN_PREFERRED_CONTACT_TIMES
-        ? "Choose two proposed dates and times."
-        : "Enter a date and time for each option, or remove the empty option.";
-    }
-    if (
-      requestedTimes.length < MIN_PREFERRED_CONTACT_TIMES ||
-      requestedTimes.length > MAX_PREFERRED_CONTACT_TIMES
-    ) {
-      return "Choose two to four proposed dates and times.";
-    }
-    if (requestedTimes.some((value) => !isStrictLocalDateTime(value))) {
-      return "Enter each proposed time as a valid date and time.";
-    }
-
-    const now = Date.now();
-    const latestAllowed =
-      now + MAX_PREFERRED_TIME_FUTURE_DAYS * 24 * 60 * 60 * 1_000;
-    const timestamps = requestedTimes.map((value) => new Date(value).getTime());
-    if (timestamps.some((value) => !Number.isFinite(value) || value <= now)) {
-      return "Each proposed time must be in the future.";
-    }
-    if (timestamps.some((value) => value > latestAllowed)) {
-      return "Choose proposed times within the next 365 days.";
-    }
-    if (new Set(timestamps).size !== timestamps.length) {
-      return "Choose distinct dates and times for each option.";
-    }
-    if (!consent) {
-      return "Please provide the separate scheduling acknowledgement to continue.";
-    }
-    return null;
-  }
-
-  function updateProposedTime(index: number, value: string) {
-    setPreferredTimes((current) =>
-      current.map((currentValue, currentIndex) =>
-        currentIndex === index ? value : currentValue,
-      ),
-    );
-    setError(null);
-  }
-
-  function addProposedTime() {
-    setPreferredTimes((current) =>
-      current.length < MAX_PREFERRED_CONTACT_TIMES
-        ? [...current, ""]
-        : current,
-    );
-    setError(null);
-  }
-
-  function removeProposedTime(index: number) {
-    setPreferredTimes((current) =>
-      current.length > MIN_PREFERRED_CONTACT_TIMES
-        ? current.filter((_, currentIndex) => currentIndex !== index)
-        : current,
-    );
-    setError(null);
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const validationError = validate();
-    setError(validationError);
-    if (validationError || inFlight.current) return;
-    setDialogOpen(true);
-  }
-
-  useEffect(() => {
-    if (!dialogOpen) return;
-    janeDialogLinkRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (requestBusy) return;
-        setDialogOpen(false);
-        submitButtonRef.current?.focus();
-        return;
-      }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [dialogOpen, requestBusy]);
-
-  async function continueHelpRequest() {
-    const validationError = validate();
-    if (inFlight.current || status === "sent" || !method || validationError) {
-      setError(validationError);
-      if (validationError) {
-        setDialogOpen(false);
-        window.setTimeout(() => submitButtonRef.current?.focus(), 0);
-      }
-      return;
-    }
-
-    const secureToken = turnstileTokenRef.current;
-    if (!secureToken) {
-      if (verifying || pendingSecureSubmitRef.current) return;
-      pendingSecureSubmitRef.current = true;
-      setVerifying(true);
-      setError(null);
-      setTurnstileExecuteKey((current) => current + 1);
-      return;
-    }
-
-    inFlight.current = true;
-    setStatus("sending");
-    setError(null);
-    try {
-      const response = await fetch("/api/quiz-lead/contact-consent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionToken,
-          contactMethod: method,
-          phone: needsPhone && phone.trim() ? phone.trim() : undefined,
-          preferredTimes: preferredTimes.map((value) => value.trim()),
-          timeZone,
-          message: message.trim() || undefined,
-          consentGranted: true,
-          consentLanguage: CONTACT_CONSENT_TEXT,
-          website,
-          turnstileToken: secureToken,
-        }),
-        credentials: "same-origin",
-      });
-      const body = (await response.json().catch(() => null)) as
-        | { ok?: boolean; emailSent?: boolean; pending?: boolean; error?: string }
-        | null;
-      if (!response.ok || !body?.ok || (!body.emailSent && !body.pending)) {
-        throw new Error(body?.error || "We couldn’t send your request.");
-      }
-      setStatus("sent");
-      setDialogOpen(false);
-      setOpen(false);
-      onOpenedChange(false);
-      onAnalytics("contact_help_submitted");
-    } catch (requestError) {
-      setStatus("failed");
-      setDialogOpen(false);
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "We couldn’t send your request. Please try again.",
-      );
-      turnstileTokenRef.current = null;
-      pendingSecureSubmitRef.current = false;
-      setTurnstileToken(null);
-      setTurnstileResetKey((current) => current + 1);
-      window.setTimeout(() => submitButtonRef.current?.focus(), 0);
-    } finally {
-      inFlight.current = false;
-      setVerifying(false);
-    }
-  }
-
-  useEffect(() => {
-    secureSubmissionHandlerRef.current = () => {
-      void continueHelpRequest();
-    };
-  });
-
-  if (status === "sent") {
-    return (
-      <section
-        role="status"
-        aria-live="polite"
-        className="mt-6 rounded-[18px] border border-teal/25 bg-teal-xlight/45 p-5"
-      >
-        <div className="flex items-start gap-3">
-          <CheckCircle2 size={21} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
-          <div>
-            <h2 className="font-serif text-[21px] font-medium text-ink">
-              Scheduling request received
-            </h2>
-            <p className="mt-1.5 text-[13.5px] leading-[1.6] text-ink-secondary">
-              Valisen received your time options and contact preference. Your appointment is not
-              booked until a time is confirmed with you.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="mt-6 rounded-[18px] border border-hairline bg-white">
-      <button
-        type="button"
-        onClick={toggleOpen}
-        aria-expanded={open}
-        aria-controls={`${prefix}-contact-help-form`}
-        className="flex min-h-[58px] w-full items-center justify-between gap-4 px-5 py-4 text-left"
-      >
-        <span className="flex items-center gap-3">
-          <HelpCircle size={18} className="shrink-0 text-teal" aria-hidden="true" />
-          <span>
-            <span className="block text-[14px] font-semibold text-ink">
-              Can&apos;t find a suitable time? Share your time options
-            </span>
-            <span className="mt-0.5 block text-[12.5px] text-ink-secondary">
-              Scheduling fallback after checking Jane
-            </span>
-          </span>
-        </span>
-        <ChevronDown
-          size={18}
-          className={`shrink-0 text-ink-secondary transition-transform ${open ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        />
-      </button>
-
-      {open ? (
-        <form
-          id={`${prefix}-contact-help-form`}
-          onSubmit={handleSubmit}
-          noValidate
-          className="border-t border-hairline px-5 py-5 md:px-6"
-        >
-          <p className="mb-5 text-[13.5px] leading-[1.65] text-ink-secondary">
-            We already have the name, email address, and phone number you provided for your
-            results. Choose how you would like Valisen to follow up and share at least two times
-            that could work. This is a scheduling request, not a booked appointment.
-          </p>
-
-          <fieldset>
-            <legend className="text-[13px] font-semibold text-ink">Preferred contact method</legend>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {(
-                [
-                  ["phone", "Phone", Phone],
-                  ["text", "Text", MessageSquareText],
-                  ["email", "Email", Mail],
-                ] as const
-              ).map(([value, label, Icon]) => (
-                <label
-                  key={value}
-                  className={`flex min-h-[48px] cursor-pointer items-center gap-2 rounded-[12px] border px-3 py-2.5 focus-within:ring-4 focus-within:ring-teal/20 ${
-                    method === value ? "border-teal bg-teal/5" : "border-black/12"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="contactMethod"
-                    value={value}
-                    checked={method === value}
-                    onChange={() => {
-                      setMethod(value);
-                      setError(null);
-                    }}
-                    className="accent-teal"
-                  />
-                  <Icon size={15} className="text-teal" aria-hidden="true" />
-                  <span className="text-[13.5px] font-medium text-ink">{label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          {needsPhone ? (
-            <div className="mt-5">
-              <label
-                htmlFor={`${prefix}-help-phone`}
-                className="mb-2 block text-[12px] font-semibold text-ink"
-              >
-                Phone number <span className="font-normal text-ink-hint">(optional update)</span>
-              </label>
-              <input
-                id={`${prefix}-help-phone`}
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                maxLength={MAX_PHONE_LENGTH}
-                value={phone}
-                onChange={(event) => {
-                  setPhone(event.target.value);
-                  setError(null);
-                }}
-                className="form-input"
-                aria-describedby={`${prefix}-help-phone-note`}
-              />
-              <p
-                id={`${prefix}-help-phone-note`}
-                className="mt-1.5 text-[11.5px] leading-[1.5] text-ink-hint"
-              >
-                Leave blank to use the phone number already saved with your results.
-              </p>
-            </div>
-          ) : null}
-
-          <fieldset className="mt-5">
-            <legend className="text-[13px] font-semibold text-ink">
-              Proposed consultation times
-            </legend>
-            <p
-              id={`${prefix}-help-times-note`}
-              className="mt-1.5 text-[12px] leading-[1.55] text-ink-secondary"
-            >
-              Choose 2–4 distinct future dates and times. Valisen will confirm availability
-              before anything is booked.
-            </p>
-            <div className="mt-3 space-y-3">
-              {preferredTimes.map((value, index) => (
-                <div
-                  key={index}
-                  className="rounded-[14px] border border-black/10 bg-canvas/55 p-3.5"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <label
-                      htmlFor={`${prefix}-help-time-${index}`}
-                      className="text-[12px] font-semibold text-ink"
-                    >
-                      Proposed time {index + 1} <span aria-hidden="true">*</span>
-                    </label>
-                    {preferredTimes.length > MIN_PREFERRED_CONTACT_TIMES ? (
-                      <button
-                        type="button"
-                        onClick={() => removeProposedTime(index)}
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[10px] px-2.5 text-[12px] font-medium text-ink-secondary hover:bg-black/[0.04] hover:text-ink"
-                        aria-label={`Remove proposed time ${index + 1}`}
-                      >
-                        <Trash2 size={14} aria-hidden="true" />
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                  <input
-                    id={`${prefix}-help-time-${index}`}
-                    name={`preferredTimes[${index}]`}
-                    type="datetime-local"
-                    required
-                    min={minimumDateTime || undefined}
-                    max={maximumDateTime || undefined}
-                    value={value}
-                    onChange={(event) => updateProposedTime(index, event.target.value)}
-                    aria-describedby={`${prefix}-help-times-note ${prefix}-help-time-zone`}
-                    className="form-input mt-2 min-h-[48px]"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              {preferredTimes.length < MAX_PREFERRED_CONTACT_TIMES ? (
-                <button
-                  type="button"
-                  onClick={addProposedTime}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[11px] border border-black/12 px-3.5 text-[12.5px] font-semibold text-teal hover:border-teal"
-                >
-                  <Plus size={15} aria-hidden="true" />
-                  Add another time
-                </button>
-              ) : (
-                <span className="text-[11.5px] text-ink-hint">
-                  Maximum of four time options reached.
-                </span>
-              )}
-              <span
-                id={`${prefix}-help-time-zone`}
-                className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-hint"
-                aria-live="polite"
-              >
-                <Clock3 size={13} aria-hidden="true" />
-                {timeZone ? `Times shown in ${timeZone}` : "Detecting your time zone…"}
-              </span>
-            </div>
-          </fieldset>
-
-          <div className="mt-5">
-            <label
-              htmlFor={`${prefix}-help-message`}
-              className="mb-2 block text-[13px] font-semibold text-ink"
-            >
-              Optional message
-            </label>
-            <textarea
-              id={`${prefix}-help-message`}
-              rows={3}
-              maxLength={MAX_CONTACT_MESSAGE_LENGTH}
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              className="form-input resize-y"
-              placeholder="Anything you would like Valisen to know about scheduling"
-            />
-          </div>
-
-          <div
-            aria-hidden="true"
-            className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden"
-          >
-            <label>
-              Website
-              <input
-                type="text"
-                name="website"
-                tabIndex={-1}
-                autoComplete="off"
-                value={website}
-                onChange={(event) => setWebsite(event.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className="mt-5 rounded-[14px] border border-teal/20 bg-teal-xlight/35 p-4">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={consent}
-                onChange={(event) => {
-                  setConsent(event.target.checked);
-                  setError(null);
-                }}
-                required
-                className="mt-0.5 h-5 w-5 shrink-0 accent-teal"
-                aria-describedby={`${prefix}-help-consent-note`}
-              />
-              <span className="text-[13px] leading-[1.6] text-ink-secondary">
-                {CONTACT_CONSENT_TEXT}
-              </span>
-            </label>
-            <p
-              id={`${prefix}-help-consent-note`}
-              className="ml-8 mt-2 text-[11.5px] leading-[1.5] text-ink-hint"
-            >
-              This scheduling acknowledgement is separate from receiving your results and is not
-              pre-selected. Your request is not a confirmed appointment.
-            </p>
-          </div>
-
-          <div className="mt-4">
-            <TurnstileWidget
-              action={QUIZ_CONTACT_HELP_TURNSTILE_ACTION}
-              execution="execute"
-              executeKey={turnstileExecuteKey}
-              onError={handleTurnstileError}
-              onToken={handleTurnstileToken}
-              resetKey={turnstileResetKey}
-            />
-            {!turnstileToken && !error ? (
-              <p className="mt-2 text-center text-[11.5px] text-ink-hint">
-                Protected by Cloudflare Turnstile. Verification runs only when you send.
-              </p>
-            ) : null}
-            <span className="sr-only" role="status" aria-live="polite">
-              {verifying ? "Completing secure verification." : ""}
-            </span>
-          </div>
-
-          {error ? (
-            <p
-              role="alert"
-              className="mt-4 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          <button
-            ref={submitButtonRef}
-            type="submit"
-            disabled={status === "sending" || verifying}
-            aria-busy={status === "sending" || verifying}
-            className="btn-outline mt-5 min-h-[54px] w-full justify-center text-[14px]"
-          >
-            Review My Time Options
-            <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-          </button>
-        </form>
-      ) : null}
-
-      {dialogOpen ? (
-        <div
-          className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-black/45 px-4 py-8"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (!requestBusy && event.currentTarget === event.target) {
-              setDialogOpen(false);
-              submitButtonRef.current?.focus();
-            }
-          }}
-        >
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`${prefix}-help-dialog-heading`}
-            aria-describedby={`${prefix}-help-dialog-copy`}
-            className="w-full max-w-[520px] rounded-card bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.25)] md:p-8"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11.5px] font-semibold uppercase tracking-[1px] text-teal-dark">
-                  You have a choice
-                </p>
-                <h2
-                  id={`${prefix}-help-dialog-heading`}
-                  className="mt-2 font-serif text-[27px] font-medium leading-[1.15] text-ink"
-                >
-                  You can still choose a time now
-                </h2>
-              </div>
-              <button
-                type="button"
-                aria-label="Close"
-                disabled={requestBusy}
-                onClick={() => {
-                  setDialogOpen(false);
-                  submitButtonRef.current?.focus();
-                }}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/10 text-ink-secondary hover:text-ink disabled:cursor-wait disabled:opacity-50"
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
-            </div>
-            <p
-              id={`${prefix}-help-dialog-copy`}
-              className="mt-4 text-[14.5px] leading-[1.7] text-ink-secondary"
-            >
-              If a Jane time works for you, you can choose it securely now. If none of the
-              available times fit, send your proposed times and Valisen will follow up. A proposed
-              time is not booked until it is confirmed with you.
-            </p>
-            <a
-              ref={janeDialogLinkRef}
-              href={bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onJaneClick}
-              className="btn-primary mt-6 min-h-[56px] w-full justify-center text-center"
-              aria-label={`${bookingLabel}; opens Jane in a new tab`}
-            >
-              <CalendarDays size={17} className="mr-2" aria-hidden="true" />
-              Choose a Time in Jane Now
-              <ExternalLink size={14} className="ml-2" aria-hidden="true" />
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>
-            <button
-              type="button"
-              disabled={status === "sending" || verifying}
-              aria-busy={status === "sending" || verifying}
-              onClick={() => void continueHelpRequest()}
-              className="btn-outline mt-3 min-h-[52px] w-full justify-center"
-            >
-              {status === "sending"
-                ? "Sending Time Options…"
-                : verifying
-                  ? "Securing Request…"
-                  : "Send My Time Options"}
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function ResultsPdfDownload({
   submissionToken,
   referenceId,
@@ -1592,349 +607,92 @@ function ResultsPdfDownload({
   );
 }
 
-function OtherTherapists({
-  therapists,
-  onDirectoryClick,
-}: {
-  therapists: Therapist[];
-  onDirectoryClick: () => void;
-}) {
-  if (therapists.length === 0) return null;
-  return (
-    <details className="group mt-7 rounded-[18px] border border-hairline bg-white">
-      <summary className="flex min-h-[58px] cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left">
-        <span className="text-[14px] font-medium text-ink-secondary">
-          Not sure about this match?{" "}
-          <span className="font-semibold text-teal">See other therapist options</span>
-        </span>
-        <ChevronDown
-          size={17}
-          className="shrink-0 text-ink-secondary transition-transform group-open:rotate-180"
-          aria-hidden="true"
-        />
-      </summary>
-      <div className="grid gap-2 border-t border-hairline p-4 sm:grid-cols-2 lg:grid-cols-3">
-        {therapists.map((therapist) => (
-          <Link
-            key={therapist.slug}
-            href={`/therapists/${therapist.slug}`}
-            onClick={onDirectoryClick}
-            className="flex min-h-[56px] items-center gap-3 rounded-[12px] border border-black/[0.07] bg-canvas/55 p-3 no-underline hover:border-teal/35"
-          >
-            <TherapistHeadshot
-              therapist={therapist}
-              className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"
-              sizes="40px"
-            />
-            <span className="min-w-0">
-              <span className="block truncate font-serif text-[15px] font-medium text-ink">
-                {therapist.name}
-              </span>
-              <span className="block truncate text-[11.5px] text-ink-secondary">
-                {therapist.credentialSummary}
-              </span>
-            </span>
-          </Link>
-        ))}
-      </div>
-    </details>
-  );
-}
-
 export default function ResultsReveal({
-  outcome,
-  match,
-  safetyFlagged,
-  referenceId,
-  submissionToken,
-  firstName,
-  initialEmail,
-  initialPhone,
-  intent,
-  attribution,
-  initialContactHelpSent = false,
-  userEmailDeliveryFailed = false,
-  onRestart,
+  outcome, match, safetyFlagged, referenceId, submissionToken, firstName,
+  initialEmail, initialPhone, intent, attribution, userEmailDeliveryFailed = false, onRestart,
 }: {
-  outcome: QuizOutcome;
-  match: MatchResult;
-  safetyFlagged: boolean;
-  referenceId: string | null;
-  submissionToken: string;
-  firstName: string;
-  initialEmail: string;
-  initialPhone: string;
-  intent: QuizIntent;
-  attribution: CampaignAttribution;
-  initialContactHelpSent?: boolean;
-  userEmailDeliveryFailed?: boolean;
-  onRestart: () => void;
+  outcome: QuizOutcome; match: MatchResult; safetyFlagged: boolean;
+  referenceId: string | null; submissionToken: string; firstName: string;
+  initialEmail: string; initialPhone: string; intent: QuizIntent;
+  attribution: CampaignAttribution; initialContactHelpSent?: boolean;
+  userEmailDeliveryFailed?: boolean; onRestart: () => void;
 }) {
   const reducedMotion = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
-  const primaryCtaRef = useRef<HTMLAnchorElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const recordAction = useQuizResultEngagement(rootRef, submissionToken);
   const trackedViewRef = useRef(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [stickyVisible, setStickyVisible] = useState(false);
-
-  const suggested =
-    match.status === "match" ? getTherapistBySlug(match.therapistSlug) : undefined;
-  const booking = suggested
-    ? getTherapistBookingConfig(suggested.slug)
-    : undefined;
-  const consultationBooking =
-    booking ?? getTherapistBookingConfig("dayong-quan");
-  const janeBookingUrl =
-    consultationBooking?.consultationBookingUrl ?? CLINIC_JANE_BOOKING_URL;
-  const bookingUrl = getConsultationRequestUrl(suggested?.slug, "quiz_result");
-  const therapistId = booking?.therapistId ?? "clinic";
-  const reasons = match.status === "match" ? match.reasons : [];
-  const presentation = getIntentRoutePresentation(
-    intent,
-    suggested?.name.split(" ")[0],
-    { usesClinicBookingFallback: consultationBooking?.usesClinicFallback },
-  );
-
-  const rows = [...outcome.scores].sort(
-    (left, right) => (right.average ?? -1) - (left.average ?? -1),
-  );
-  const topConcerns = rows
-    .filter((row) => row.average !== null)
-    .slice(0, 3)
-    .map((row) => ({
-      dimension: row.dimension,
-      bandLabel: bandFor(row.average).label,
-    }));
-  const otherTherapists = getActiveTherapists().filter(
-    (therapist) => therapist.slug !== suggested?.slug,
-  );
-
-  function analyticsProperties(placement?: JaneCtaPlacement) {
-    return {
-      intent,
-      therapistId,
-      ctaPlacement: placement,
-      submissionReference: referenceId ?? undefined,
-      campaignSource: attribution.source,
-      campaignMedium: attribution.medium,
-      campaignName: attribution.campaign,
-      campaignContent: attribution.content,
-      deviceCategory: getDeviceCategory(),
-    };
-  }
-
-  function recordEngagement(
-    event:
-      | "results_viewed"
-      | "therapist_match_viewed"
-      | "jane_booking_clicked"
-      | "contact_help_opened",
-    ctaPlacement?: JaneCtaPlacement,
-  ) {
-    const payload: {
-      submissionToken: string;
-      event: typeof event;
-      ctaPlacement?: JaneCtaPlacement;
-    } = { submissionToken, event };
-    if (event === "jane_booking_clicked" && ctaPlacement) {
-      payload.ctaPlacement = ctaPlacement;
-    }
-    void fetch("/api/quiz-lead/engagement", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    }).catch(() => {
-      // Engagement persistence is best-effort and never blocks booking.
-    });
-  }
-
-  function handleJaneClick(placement: JaneCtaPlacement) {
-    trackQuizEvent("jane_booking_clicked", analyticsProperties(placement));
-    recordEngagement("jane_booking_clicked", placement);
-  }
-
-  function handleConsultationClick(placement: JaneCtaPlacement) {
-    try {
-      stageConsultationPrefill(window.sessionStorage, {
-        firstName,
-        email: initialEmail,
-        phone: initialPhone,
-        submissionToken,
-      });
-    } catch {
-      // Autofill is a convenience; navigation must still work in hardened browsers.
-    }
-    trackQuizEvent(
-      "consultation_request_clicked",
-      analyticsProperties(placement),
-    );
-  }
-
-  function handleTherapistProfileClick() {
-    trackQuizEvent("therapist_profile_clicked", {
-      ...analyticsProperties(),
-      profileLinkPlacement: "exploring_match_card",
-    });
-  }
+  const [booked, setBooked] = useState(false);
+  const suggested = match.status === "match" ? getTherapistBySlug(match.therapistSlug) : undefined;
+  const alternative = match.status === "match" && match.alternative ? getTherapistBySlug(match.alternative.therapistSlug) : undefined;
+  const candidates = match.status === "match" ? [
+    ...(suggested ? [{ therapist: suggested, reasons: match.reasons }] : []),
+    ...(alternative && match.alternative ? [{ therapist: alternative, reasons: match.alternative.reasons }] : []),
+  ] : [];
+  const topConcerns = [...outcome.scores].sort((a, b) => (b.average ?? -1) - (a.average ?? -1))
+    .filter((row) => row.average !== null).slice(0, 3)
+    .map((row) => ({ dimension: row.dimension, bandLabel: bandFor(row.average).label }));
+  const properties = {
+    intent, therapistId: suggested?.slug ?? "clinic", submissionReference: referenceId ?? undefined,
+    campaignSource: attribution.source, campaignMedium: attribution.medium,
+    campaignName: attribution.campaign, campaignContent: attribution.content, deviceCategory: getDeviceCategory(),
+  };
 
   useEffect(() => {
     if (trackedViewRef.current) return;
     trackedViewRef.current = true;
-    trackQuizEvent("results_viewed", analyticsProperties());
-    recordEngagement("results_viewed");
-    if (suggested) {
-      trackQuizEvent("therapist_match_viewed", analyticsProperties());
-      recordEngagement("therapist_match_viewed");
+    for (const event of ["results_viewed", ...(suggested ? ["therapist_match_viewed"] : [])] as const) {
+      trackQuizEvent(event as "results_viewed" | "therapist_match_viewed", properties);
+      void fetch("/api/quiz-lead/engagement", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ submissionToken, event }), keepalive: true }).catch(() => {});
     }
-
-    const timer = window.setTimeout(
-      () => headingRef.current?.focus({ preventScroll: true }),
-      reducedMotion ? 0 : 350,
-    );
-    headingRef.current?.scrollIntoView({
-      behavior: reducedMotion ? "auto" : "smooth",
-      block: "start",
-    });
-    return () => window.clearTimeout(timer);
-    // These values describe one immutable persisted result.
+    headingRef.current?.focus({ preventScroll: true });
+    headingRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    // One immutable saved result, not a new view on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    function updateSticky() {
-      const cta = primaryCtaRef.current;
-      const root = rootRef.current;
-      if (!cta || !root) {
-        setStickyVisible(false);
-        return;
-      }
-      const ctaRect = cta.getBoundingClientRect();
-      const rootRect = root.getBoundingClientRect();
-      setStickyVisible(
-        ctaRect.bottom < 0 && rootRect.bottom > window.innerHeight * 0.45,
-      );
-    }
-    updateSticky();
-    window.addEventListener("scroll", updateSticky, { passive: true });
-    window.addEventListener("resize", updateSticky);
-    return () => {
-      window.removeEventListener("scroll", updateSticky);
-      window.removeEventListener("resize", updateSticky);
+    const update = () => {
+      const rect = calendarRef.current?.getBoundingClientRect();
+      setStickyVisible(Boolean(rect && rect.bottom < 0 && (rootRef.current?.getBoundingClientRect().bottom ?? 0) > innerHeight * 0.45));
     };
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, []);
 
-  return (
-    <div
-      ref={rootRef}
-      data-quiz-results=""
-      className={`scroll-mt-24 ${stickyVisible ? "pb-24 md:pb-0" : ""}`}
-    >
-      <p role="status" className="sr-only">
-        {firstName ? `${firstName}, your` : "Your"} personalized results and booking options are
-        ready.
-      </p>
-
-      {safetyFlagged ? <CrisisSupportBlock /> : null}
-
-      <div ref={headingRef} tabIndex={-1} className="scroll-mt-24 outline-none">
-        <IntentJourney
-          intent={intent}
-          outcome={outcome}
-          therapist={suggested}
-          booking={consultationBooking}
-          reasons={reasons}
-          bookingUrl={bookingUrl}
-          topConcerns={topConcerns}
-          primaryCtaRef={primaryCtaRef}
-          onPrimaryBooking={() => handleConsultationClick("results_primary")}
-          onTherapistProfileClick={handleTherapistProfileClick}
-        />
-      </div>
-
-      {userEmailDeliveryFailed ? (
-        <div
-          role="status"
-          className="mt-4 rounded-[14px] border border-gold/35 bg-gold-light/45 px-4 py-3 text-[12.5px] leading-[1.55] text-ink-secondary"
-        >
-          <strong className="font-semibold text-ink">Your result is saved.</strong>{" "}
-          We couldn&apos;t send the requested email yet, but you can continue here and use the
-          consultation request above.
-        </div>
-      ) : null}
-
-      <ContactHelp
-        submissionToken={submissionToken}
-        bookingUrl={janeBookingUrl}
-        bookingLabel={presentation.ctaLabel}
-        initialPhone={initialPhone}
-        initialSent={initialContactHelpSent}
-        onOpenedChange={setHelpOpen}
-        onAnalytics={(event) =>
-          trackQuizEvent(event, analyticsProperties())
-        }
-        onEngagement={(event) => recordEngagement(event)}
-        onJaneClick={() => handleJaneClick("contact_help_dialog")}
-      />
-
-      <DetailedResults outcome={outcome} reducedMotion={reducedMotion} />
-
-      <OtherTherapists
-        therapists={otherTherapists}
-        onDirectoryClick={() =>
-          trackQuizEvent("therapist_directory_clicked", analyticsProperties())
-        }
-      />
-
-      <div className="mt-7 text-center">
-        <p className="mx-auto max-w-[660px] text-[11.5px] leading-[1.6] text-ink-hint">
-          Consultation requests are coordinated by Valisen and are not confirmed appointments.
-          Returning clients and visitors who prefer immediate self-scheduling can still use Jane.
-          {referenceId ? (
-            <>
-              {" "}
-              Submission reference:{" "}
-              <span className="font-medium text-ink-secondary">{referenceId}</span>.
-            </>
-          ) : null}
-        </p>
-        <button
-          type="button"
-          onClick={onRestart}
-          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 text-[13px] font-medium text-ink-secondary hover:text-teal"
-        >
-          <RotateCcw size={14} aria-hidden="true" />
-          Retake the quiz
-        </button>
-      </div>
-
-      <CrisisNote className="mt-5 text-center" />
-
-      <ResultsPdfDownload
-        submissionToken={submissionToken}
-        referenceId={referenceId}
-      />
-
-      {stickyVisible && !helpOpen ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 px-4 pt-3 shadow-[0_-8px_30px_rgba(0,0,0,0.10)] backdrop-blur-md md:hidden">
-          <div
-            className="mx-auto max-w-[520px]"
-            style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
-          >
-            <a
-              href={bookingUrl}
-              data-funnel-tracked="true"
-              onClick={() => handleConsultationClick("mobile_sticky")}
-              className="btn-primary min-h-[54px] w-full justify-center text-center text-[15px]"
-              aria-label="Request a free consultation"
-            >
-              <CalendarDays size={17} className="mr-2" aria-hidden="true" />
-              Request a Free Consultation
-            </a>
-          </div>
-        </div>
-      ) : null}
+  return <div ref={rootRef} data-quiz-results="" className="scroll-mt-24 pb-20 md:pb-0">
+    <p role="status" className="sr-only">Your personalized results and booking options are ready.</p>
+    {safetyFlagged ? <CrisisSupportBlock /> : null}
+    <div ref={headingRef} tabIndex={-1} className="scroll-mt-24 rounded-card border border-hairline bg-white p-6 shadow-card outline-none md:p-8" data-result-section="summary">
+      <h1 className="font-serif text-3xl text-ink md:text-4xl">Your results and therapist matches</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-secondary">A starting point based on your answers. Meet the therapists below, then book a free consultation with our team.</p>
+      <div className="mt-5"><ResultSnapshot outcome={outcome} topConcerns={topConcerns} prominent={intent === "exploring"} /></div>
     </div>
-  );
+    <section className="mt-6 grid gap-5 lg:grid-cols-2" aria-label="Your therapist matches" data-result-section="therapists">
+      {candidates.map(({ therapist, reasons }, index) => <div key={therapist.slug} className="rounded-card border border-gold/30 bg-gold-light/25 p-5 md:p-6">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-teal-dark">{index === 0 ? "Your strongest match" : "Another match for you"}</p>
+        <TherapistDetails therapist={therapist} booking={getTherapistBookingConfig(therapist.slug)} reasons={index === 0 ? getResultMatchReasons(outcome, therapist, reasons) : reasons} />
+        <Link href={getTherapistBookingConfig(therapist.slug)?.profileUrl || "/therapists"} onClick={() => { recordAction("profile_clicked"); trackQuizEvent("therapist_profile_clicked", { ...properties, therapistId: therapist.slug, profileLinkPlacement: "exploring_match_card" }); }} className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-teal underline">Learn more about {therapist.name.split(" ")[0]}</Link>
+      </div>)}
+      {!candidates.length ? <p className="rounded-card bg-white p-6">Our team can help you choose a therapist during your free consultation.</p> : null}
+    </section>
+    <p className="mt-3 text-xs leading-5 text-ink-secondary">These matches are a starting point, not a diagnosis, clinical recommendation, or guaranteed fit.</p>
+    <div ref={calendarRef} id="quiz-consultation-booking" tabIndex={-1} className="mx-auto mt-7 max-w-[600px] scroll-mt-24 outline-none">
+      <QuizConsultationBooking submissionToken={submissionToken} firstName={firstName} email={initialEmail} phone={initialPhone}
+        onInteraction={(action) => { recordAction(action); if (action === "booking_clicked") trackQuizEvent("consultation_request_clicked", { ...properties, ctaPlacement: "results_primary" }); }}
+        onBooked={(reference) => { setBooked(true); trackFunnelEvent("consultation_request_submitted", { page: "quiz", submissionReference: reference }); }} />
+    </div>
+    {userEmailDeliveryFailed ? <p role="status" className="mt-4 rounded-xl bg-gold-light p-4 text-sm">Your result is saved. We couldn&apos;t send the results email yet, but you can continue here.</p> : null}
+    <div data-result-section="details" onClick={(event) => { const summary = (event.target as HTMLElement).closest("summary"); if (summary && !summary.closest("details")?.open) recordAction("details_opened"); }}><DetailedResults outcome={outcome} reducedMotion={reducedMotion} /></div>
+    <div className="mt-7 text-center">
+      {referenceId ? <p className="text-xs text-ink-secondary">Submission reference: {referenceId}</p> : null}
+      <button type="button" onClick={() => { recordAction("restart_clicked"); onRestart(); }} className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm text-ink-secondary"><RotateCcw size={14} aria-hidden="true" />Retake the quiz</button>
+    </div>
+    <CrisisNote className="mt-5 text-center" />
+    <div data-result-section="download" onClick={(event) => { if ((event.target as HTMLElement).closest("button")) recordAction("pdf_clicked"); }}><ResultsPdfDownload submissionToken={submissionToken} referenceId={referenceId} /></div>
+    {stickyVisible && !booked ? <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 p-4 md:hidden"><button type="button" className="btn-primary min-h-12 w-full justify-center" onClick={() => { calendarRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" }); calendarRef.current?.focus({ preventScroll: true }); }}>Book free consultation</button></div> : null}
+  </div>;
 }

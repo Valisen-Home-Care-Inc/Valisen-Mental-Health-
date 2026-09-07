@@ -83,7 +83,7 @@ export type GrowthSessionSummary = {
   maxQuizQuestion: number;
   lastQuizQuestion?: number;
   quizVersion?: string;
-  /** All 19 questions were answered; the final contact form may still be unsubmitted. */
+  /** All questions in this visit's quiz version were answered; the final form may still be unsubmitted. */
   quizCompleted: boolean;
   consultationClicked: boolean;
   consultationSubmitted: boolean;
@@ -128,24 +128,29 @@ export const QUIZ_QUESTION_LABELS = QUESTIONS.map((question, index) => {
   return `Q${index + 1} · ${concise}`;
 });
 
-export function quizQuestionLabel(questionNumber: number): string {
+export function quizQuestionLabel(questionNumber: number, version?: string): string {
+  if (version === "5.0.0") {
+    if (questionNumber === 17) return "Q17 · Therapist preference";
+    if (questionNumber === 18) return "Q18 · Safety check";
+    if (questionNumber === 19) return "Q19 · Preferred next step";
+  }
   return (
     QUIZ_QUESTION_LABELS[questionNumber - 1] ||
     `Question ${questionNumber}`
   );
 }
 
-export function formatGrowthStage(stage: string): string {
+export function formatGrowthStage(stage: string, version?: string): string {
   const match = /^quiz_question_(\d+)(?:_(viewed|answered))?$/.exec(stage);
   if (match) {
-    return `${quizQuestionLabel(Number(match[1]))}${
+    return `${quizQuestionLabel(Number(match[1]), version)}${
       match[2] === "answered" ? " · answered" : ""
     }`;
   }
   const labels: Record<string, string> = {
     quiz_page_viewed: "Quiz landing",
     quiz_back_clicked: "Quiz back navigation",
-    quiz_intent_selected: "Q19 intent selected",
+    quiz_intent_selected: "Next-step intent selected",
     quiz_access_form_viewed: "Results access form",
     lead_details_submitted: "Contact details submitted",
     results_viewed: "Results viewed",
@@ -158,4 +163,12 @@ export function formatGrowthStage(stage: string): string {
     jane_booking_clicked: "Jane booking clicked",
   };
   return labels[stage] || stage.replaceAll("_", " ");
+}
+
+/** Aggregated reports can contain both questionnaire versions; don't relabel historical positions. */
+export function quizQuestionPositionLabel(questionNumber: number): string {
+  if (questionNumber === 17) return "Q17 · Safety (v5.1) / Therapist preference (v5.0)";
+  if (questionNumber === 18) return "Q18 · Preferred next step (v5.1) / Safety (v5.0)";
+  if (questionNumber === 19) return "Q19 · Preferred next step (v5.0 only)";
+  return quizQuestionLabel(questionNumber);
 }

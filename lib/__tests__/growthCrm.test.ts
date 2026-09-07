@@ -43,11 +43,11 @@ describe("growth CRM contracts", () => {
     expect(isConsultationSourceKind("meta")).toBe(false);
   });
 
-  it("labels all 19 quiz screens and preserves answered exit detail", () => {
-    expect(QUIZ_QUESTION_LABELS).toHaveLength(19);
+  it("labels all 18 quiz screens and preserves answered exit detail", () => {
+    expect(QUIZ_QUESTION_LABELS).toHaveLength(18);
     expect(quizQuestionLabel(1)).toContain("What brought you here");
-    expect(quizQuestionLabel(18)).toBe("Q18 · Safety check");
-    expect(quizQuestionLabel(19)).toContain("Preferred next step");
+    expect(quizQuestionLabel(17)).toBe("Q17 · Safety check");
+    expect(quizQuestionLabel(18)).toContain("Preferred next step");
     expect(formatGrowthStage("quiz_question_8_answered")).toContain(
       "answered",
     );
