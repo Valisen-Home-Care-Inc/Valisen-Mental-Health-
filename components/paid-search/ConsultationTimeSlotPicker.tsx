@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./ConsultationTimeSlotPicker.module.css";
 import {
   CONSULTATION_MONTH_NAMES,
@@ -20,6 +20,7 @@ export default function ConsultationTimeSlotPicker({
   invalid,
   allowFlexible = true,
   calendarToday,
+  availabilityRefreshKey = 0,
 }: {
   idPrefix: string;
   value: ConsultationSlotSelection | null;
@@ -27,11 +28,56 @@ export default function ConsultationTimeSlotPicker({
   invalid?: boolean;
   allowFlexible?: boolean;
   calendarToday?: Date;
+  availabilityRefreshKey?: number;
 }) {
   const today = useMemo(() => calendarToday ?? new Date(), [calendarToday]);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
+  const [availabilityStatus, setAvailabilityStatus] = useState<
+    "checking" | "ready" | "unavailable"
+  >("checking");
+
+  const refreshAvailability = useCallback(async () => {
+    try {
+      const response = await fetch("/api/consultation-slots", {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { booked?: unknown }
+        | null;
+      if (!response.ok || !Array.isArray(body?.booked)) throw new Error("unavailable");
+      setBookedSlots(
+        new Set(body.booked.filter((slot): slot is string => typeof slot === "string")),
+      );
+      setAvailabilityStatus("ready");
+    } catch {
+      setAvailabilityStatus("unavailable");
+    }
+  }, []);
+
+  useEffect(() => {
+    setAvailabilityStatus("checking");
+    void refreshAvailability();
+    const interval = window.setInterval(() => void refreshAvailability(), 30_000);
+    const onFocus = () => void refreshAvailability();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [availabilityRefreshKey, refreshAvailability]);
+
+  useEffect(() => {
+    if (
+      value?.kind === "specific" &&
+      bookedSlots.has(`${value.date}|${value.time}`)
+    ) {
+      onChange(null);
+    }
+  }, [bookedSlots, onChange, value]);
 
   const cells = useMemo(
     () => getConsultationCalendarMonth(viewYear, viewMonth, today),
@@ -118,12 +164,17 @@ export default function ConsultationTimeSlotPicker({
                 <div role="group" aria-label={"Choose a time on " + formatConsultationDateLabel(selectedDate)} className={styles.times}>
                   {dayTimeSlots.map(({ time, availability }) => {
                     const selected = value?.kind === "specific" && value.date === selectedDate && value.time === time;
-                    return <button key={time} type="button" aria-pressed={selected}
+                    const booked = bookedSlots.has(`${selectedDate}|${time}`);
+                    const disabled = booked || availabilityStatus !== "ready";
+                    return <button key={time} type="button" aria-pressed={selected} disabled={disabled}
+                      aria-label={`${time}${booked ? ", booked" : ""}`}
                       onClick={() => onChange({ kind: "specific", date: selectedDate, time, availability, label: formatPreferredSlotLabel(selectedDate, time) })}
-                      className={styles.time + (selected ? " " + styles.selectedTime : "")}
-                    >{time}{selected ? <Check size={12} aria-hidden="true" /> : null}</button>;
+                      className={styles.time + (selected ? " " + styles.selectedTime : "") + (booked ? " " + styles.bookedTime : "")}
+                    ><span>{time}</span>{booked ? <small>Booked</small> : selected ? <Check size={12} aria-hidden="true" /> : null}</button>;
                   })}
                 </div>
+                {availabilityStatus === "checking" ? <p className={styles.availabilityMessage}>Checking live availability…</p> : null}
+                {availabilityStatus === "unavailable" ? <p role="alert" className={styles.availabilityError}>Live availability is temporarily unavailable. Please try again shortly.</p> : null}
                 {dayTimeSlots.length > 9 ? <p className={styles.scrollHint}>Scroll to see all times <ChevronDown size={12} aria-hidden="true" /></p> : null}
               </>
             ) : (

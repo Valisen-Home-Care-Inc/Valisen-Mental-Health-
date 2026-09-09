@@ -25,7 +25,7 @@ function MatchCard({ candidate, outcome, onProfile }: {
     <p className={styles.matchEyebrow}>{isPrimary ? "Your strongest match" : "Another match for you"}</p>
     <div className={styles.person}>
       <div className={styles.portrait}>
-        {therapist.photo && !failedImage ? <Image src={therapist.photo} alt={therapist.name} fill sizes="80px" className="object-cover object-top" onError={() => setFailedImage(true)} /> : <span>{therapist.initials}</span>}
+        {therapist.photo && !failedImage ? <Image src={therapist.photo} alt={therapist.name} fill sizes="80px" className="scale-[1.025] object-cover object-top" onError={() => setFailedImage(true)} /> : <span>{therapist.initials}</span>}
       </div>
       <div className="min-w-0">
         <h3 className={styles.personName}>{therapist.name}</h3>
@@ -64,7 +64,7 @@ export default function TherapistMatchCarousel({ candidates, outcome, reducedMot
   }
 
   return <section className={styles.matches} id="quiz-therapist-matches" aria-label="Your therapist matches" data-result-section="therapists">
-    <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>A connection that feels right</p><h2>Your therapist matches</h2></div><span className={styles.matchCount}>{candidates.length} matches</span></div>
+    <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>A connection that feels right</p><h2>Recommended for you</h2></div><span className={styles.matchCount}>{candidates.length} recommendations</span></div>
     {candidates.length > 1 ? <div className={styles.carouselNav}>
       <p>Swipe to meet both therapists</p>
       <div>
@@ -83,6 +83,6 @@ export default function TherapistMatchCarousel({ candidates, outcome, reducedMot
       {candidates.map((candidate) => <MatchCard key={candidate.therapist.slug} candidate={candidate} outcome={outcome} onProfile={onProfile} />)}
     </div>
     {!candidates.length ? <p className={styles.noMatch}>Our team can help you choose a therapist during your free consultation.</p> : null}
-    <p className={styles.matchDisclaimer}>A starting point, not a diagnosis, clinical recommendation, or guaranteed fit.</p>
+    <p className={styles.matchDisclaimer}>These are your recommended matches from our broader therapist team. Your free consultation can help confirm or refine the fit.</p>
   </section>;
 }

@@ -36,6 +36,12 @@
 .time { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 40px; min-width: 0; padding: 6px 2px; border: 1px solid #dce5db; border-radius: 10px; background: #fafbf8; color: #395b4e; font-size: 12px; font-weight: 600; white-space: nowrap; transition: background .15s, border-color .15s; }
 .time:hover { border-color: #81a891; background: #ecf4ed; }
 .time.selectedTime { color: #fff; background: var(--picker-teal); border-color: var(--picker-teal); }
+.time:disabled { cursor: not-allowed; }
+.time.bookedTime { flex-direction: column; gap: 0; border-color: #e1e3df; background: #eeefec; color: #8a908b; }
+.time.bookedTime small { font-size: 8px; font-weight: 700; line-height: 1.15; letter-spacing: .45px; text-transform: uppercase; }
+.availabilityMessage, .availabilityError { margin-top: 9px; font-size: 10px; line-height: 1.45; text-align: center; }
+.availabilityMessage { color: #69776d; }
+.availabilityError { color: #9a4e3a; }
 .scrollHint { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 9px; color: #69776d; font-size: 10px; }
 .emptyTimes { display: flex; align-items: center; gap: 9px; padding: 13px 0 1px; color: #718174; font-size: 12px; }
 .emptyTimes svg { flex-shrink: 0; color: #93ac9d; }

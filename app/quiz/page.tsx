@@ -4,9 +4,9 @@ import Footer from "@/components/Footer";
 import QuizFlow from "@/components/quiz/QuizFlow";
 
 export const metadata: Metadata = {
-  title: "Why haven't I been feeling like myself? | Self-Reflection Quiz",
+  title: "Find Your Therapist | Valisen Mental Health",
   description:
-    "A short self-reflection on worry, mood, stress, and connection, followed by a personalized snapshot and therapist recommendation. Educational only — not a diagnosis.",
+    "Tell us what you are looking for and Valisen will help match you with a therapist based on your needs, preferences, language, and availability.",
   alternates: {
     canonical: "https://valisenmentalhealth.com/quiz",
   },
@@ -35,22 +35,21 @@ export default function QuizPage() {
       <section id="quiz-shell" className="bg-canvas py-8 md:py-12">
         <div className="container-v max-w-[1080px]">
           <div id="quiz-intro" className="mx-auto mb-8 max-w-[600px] text-center">
-            <span className="badge-outline-teal mb-5">TAKE THE 3-MINUTE QUIZ</span>
+            <span className="badge-outline-teal mb-5">GET MATCHED IN ABOUT 2 MINUTES</span>
             <h1 className="font-serif text-[34px] font-medium leading-[1.08] tracking-[-1px] text-ink md:text-[46px]">
-              How have you{" "}
-              <span className="italic text-teal">really been feeling</span> lately?
+              Find a therapist who{" "}
+              <span className="italic text-teal">fits what you need</span>
             </h1>
             <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-[1.7] text-ink-secondary">
-              Worry, low mood, stress, and strained relationships can feel surprisingly similar from
-              the inside. Answer a few honest questions and get your personal well-being snapshot —
-              plus what might actually help.
+              Answer a few quick questions about what you&apos;re looking for. We&apos;ll use your answers
+              to help identify the right fit and make starting therapy feel simpler.
             </p>
             <p className="mx-auto mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12.5px] font-medium text-ink-hint">
-              <span>Educational only · Not a diagnosis</span>
+              <span>Private and personalized</span>
               <span aria-hidden="true">·</span>
-              <span>Personalized snapshot</span>
+              <span>Free 20-minute consultation</span>
               <span aria-hidden="true">·</span>
-              <span>~3 minutes</span>
+              <span>About 2 minutes</span>
             </p>
           </div>
 

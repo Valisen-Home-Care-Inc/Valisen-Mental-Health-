@@ -162,7 +162,7 @@ describe("matchTherapist — real roster", () => {
     if (result.status === "match") {
       // Factual-only reasons: nothing about dimensions that weren't present.
       expect(result.reasons).toHaveLength(1);
-      expect(result.reasons[0].chip).toBe("ADHD or focus");
+      expect(result.reasons[0].chip).toBe("ADHD-related challenges");
     }
   });
 

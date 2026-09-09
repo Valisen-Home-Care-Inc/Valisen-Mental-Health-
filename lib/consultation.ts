@@ -103,7 +103,7 @@ const MONTH_LONG = [
 
 export { WEEKDAY_SHORT_SUN_FIRST, MONTH_LONG as CONSULTATION_MONTH_NAMES };
 
-function toIsoDate(value: Date): string {
+export function consultationDateKey(value: Date): string {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");
   const day = String(value.getDate()).padStart(2, "0");
@@ -160,7 +160,7 @@ export function getConsultationCalendarMonth(
     const isStrictlyFuture = cellDate.getTime() > today.getTime();
     const withinWindow = cellDate.getTime() <= windowEnd.getTime();
     cells.push({
-      date: toIsoDate(cellDate),
+      date: consultationDateKey(cellDate),
       dayOfMonth: cellDate.getDate(),
       inDisplayedMonth: true,
       selectable: isWeekday && isStrictlyFuture && withinWindow,

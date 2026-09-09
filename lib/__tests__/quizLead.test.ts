@@ -50,9 +50,9 @@ function localDateTimeAt(epochMs: number, timeZone: string): string {
 function completedAnswers(): Answers {
   const answers: Answers = {};
   for (const question of QUESTIONS) {
-    if (question.kind === "safety" || question.id === "language") continue;
+    if (question.kind === "safety" || question.kind === "intent") continue;
     if (question.kind === "multi") {
-      answers[question.id] = [];
+      answers[question.id] = question.required ? [question.options[0].value] : [];
     } else {
       answers[question.id] = question.options[0].value;
     }
@@ -148,7 +148,7 @@ describe("results-access validation", () => {
 
   it("requires a complete quiz", () => {
     const incomplete = completedAnswers();
-    delete incomplete[QUESTIONS.find((question) => question.kind === "scored")!.id];
+    delete incomplete.support_type;
     expect(validateQuizLeadAccessPayload(validAccessPayload({ answers: incomplete })).ok).toBe(
       false,
     );
@@ -203,9 +203,9 @@ describe("results-access validation", () => {
     ).toBe(false);
   });
 
-  it("requires the intent answer and rejects unknown attribution fields", () => {
+  it("requires the start-timing answer and rejects unknown attribution fields", () => {
     const noIntent = completedAnswers();
-    delete noIntent.intent;
+    delete noIntent.start_timing;
     expect(
       validateQuizLeadAccessPayload(validAccessPayload({ answers: noIntent })).ok,
     ).toBe(false);
@@ -255,29 +255,33 @@ describe("results-access validation", () => {
 });
 
 describe("answer allow-listing", () => {
-  it("strips the safety answer even if a tampered client sends it", () => {
-    const result = cleanAnswers({ ...completedAnswers(), safety: "often" });
-    expect(result).not.toBeNull();
-    expect(result && "safety" in result).toBe(false);
+  it("strips retired safety answers from stale or tampered clients", () => {
+    const cleaned = cleanAnswers({ ...completedAnswers(), safety: "often" });
+    expect(cleaned).not.toBeNull();
+    expect(cleaned).not.toHaveProperty("safety");
   });
 
-  it("rejects the removed language answer", () => {
-    expect(cleanAnswers({ ...completedAnswers(), language: "english" })).toBeNull();
+  it("accepts a current roster language preference", () => {
+    expect(cleanAnswers({ ...completedAnswers(), language: "arabic" })?.language).toBe("arabic");
   });
 
   it("rejects unknown ids and out-of-range values", () => {
     expect(cleanAnswers({ ...completedAnswers(), hacked_field: 1 })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), worry_1: 99 })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), worry_1: "3" })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), language: "klingon" })).toBeNull();
   });
 
-  it("accepts scored nulls and de-duplicates valid multi-select values", () => {
+  it("de-duplicates valid multi-select values", () => {
     const answers = completedAnswers();
-    answers.worry_1 = null;
     answers.concerns = ["anxiety", "anxiety"];
     const cleaned = cleanAnswers(answers);
-    expect(cleaned?.worry_1).toBeNull();
     expect(cleaned?.concerns).toEqual(["anxiety"]);
+  });
+
+  it("enforces selection limits, exclusive choices, and primary-concern consistency", () => {
+    expect(cleanAnswers({ ...completedAnswers(), concerns: [] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety", "depression", "trauma", "grief"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety", "not-sure"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety"], primary_concern: "depression" })).toBeNull();
   });
 
   it("rejects invalid multi-select values", () => {

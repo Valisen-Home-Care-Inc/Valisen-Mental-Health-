@@ -59,6 +59,22 @@ describe("idempotency records", () => {
     });
   });
 
+  it("retains the opaque booked slot for safe idempotent retries", () => {
+    const now = 1_000_000;
+    markSubmissionCompleted(
+      "client-booking",
+      "VC-111111111111111111111111",
+      now,
+      undefined,
+      { date: "2026-09-10", time: "9:00 AM" },
+    );
+
+    expect(getCompletedSubmissionRecord("client-booking", now)).toMatchObject({
+      referenceId: "VC-111111111111111111111111",
+      bookedSlot: { date: "2026-09-10", time: "9:00 AM" },
+    });
+  });
+
   it("expires records after the TTL", () => {
     const now = 1_000_000;
     markSubmissionCompleted("client-abc", "VQ-11111111", now);

@@ -39,6 +39,14 @@ const UNTOUCHED: TouchedFields = {
   privacy: false,
 };
 
+function formatPhoneDigits(digits: string): string {
+  const value = digits.slice(0, 10);
+  if (value.length === 0) return "";
+  if (value.length < 4) return value;
+  if (value.length < 7) return `(${value.slice(0, 3)}) ${value.slice(3)}`;
+  return `(${value.slice(0, 3)}) ${value.slice(3, 6)}-${value.slice(6)}`;
+}
+
 export default function ResultsAccessForm({
   onSubmit,
 }: {
@@ -128,6 +136,31 @@ export default function ResultsAccessForm({
     setTouched((current) => ({ ...current, [field]: true }));
   }
 
+  function handlePhoneChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const caret = input.selectionStart ?? input.value.length;
+    const digitsBeforeCaret = input.value.slice(0, caret).replace(/\D/g, "").length;
+    const formatted = formatPhoneDigits(input.value.replace(/\D/g, ""));
+    setPhone(formatted);
+    setSubmitError(null);
+
+    requestAnimationFrame(() => {
+      let seen = 0;
+      let nextCaret = formatted.length;
+      for (let index = 0; index < formatted.length; index++) {
+        if (/\d/.test(formatted[index])) {
+          seen++;
+          if (seen === digitsBeforeCaret) {
+            nextCaret = index + 1;
+            break;
+          }
+        }
+      }
+      if (digitsBeforeCaret === 0) nextCaret = 0;
+      input.setSelectionRange(nextCaret, nextCaret);
+    });
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTouched({ firstName: true, email: true, phone: true, privacy: true });
@@ -189,17 +222,17 @@ export default function ResultsAccessForm({
       >
         <div className="flex items-center gap-2 text-[12.5px] font-semibold uppercase tracking-[1px] text-teal-dark">
           <LockKeyhole size={15} aria-hidden="true" />
-          One secure step
+          Your matches are ready
         </div>
         <h2
           ref={headingRef}
           tabIndex={-1}
           className="mt-3 font-serif text-[27px] font-medium leading-[1.16] tracking-[-0.5px] text-ink outline-none md:text-[32px]"
         >
-          Your personalized results are ready
+          Meet your recommended therapists
         </h2>
         <p className="mt-3 text-[14.5px] leading-[1.65] text-ink-secondary">
-          Enter your information below to view your results and recommended therapist.
+          Enter your information below to see your two therapist recommendations and book a free consultation.
         </p>
 
         <div className="mt-7 space-y-5">
@@ -291,10 +324,7 @@ export default function ResultsAccessForm({
                 required
                 maxLength={MAX_PHONE_LENGTH}
                 value={phone}
-                onChange={(event) => {
-                  setPhone(event.target.value);
-                  setSubmitError(null);
-                }}
+                onChange={handlePhoneChange}
                 onBlur={() => markTouched("phone")}
                 aria-invalid={Boolean(errors.phone)}
                 aria-describedby={errors.phone ? `${idPrefix}-phone-error` : undefined}

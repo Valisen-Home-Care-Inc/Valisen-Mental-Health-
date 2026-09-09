@@ -149,6 +149,7 @@ export default function PaidSearchConsultationForm({
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileExecuteKey, setTurnstileExecuteKey] = useState(0);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
 
   const formRef = useRef<HTMLFormElement>(null);
   const startedRef = useRef(false);
@@ -356,6 +357,12 @@ export default function PaidSearchConsultationForm({
           days: CONSULTATION_DAYS,
           timeOfDay: availabilityFromSlotSelection(data.slot),
           preferredSlotLabel: slotLabelFromSelection(data.slot),
+          ...(data.slot.kind === "specific"
+            ? {
+                consultationDate: data.slot.date,
+                consultationTime: data.slot.time,
+              }
+            : {}),
           consent: data.consent,
           consentLanguage: CONSENT_TEXT,
           consentVersion: CONSENT_VERSION,
@@ -375,11 +382,20 @@ export default function PaidSearchConsultationForm({
             referenceId?: string;
             googleAdsThankYouReady?: boolean;
             googleAdsConversionReceipt?: string;
+            slotUnavailable?: boolean;
           }
         | null;
+      if (response.status === 409 && body?.slotUnavailable) {
+        setData((current) => ({ ...current, slot: null }));
+        setAvailabilityRefreshKey((current) => current + 1);
+      }
       if (!response.ok || !body?.ok) throw new Error(body?.error || "Something went wrong. Please try again.");
       const reference = confirmedConsultationReferenceFromResponse(body);
       if (!reference) throw new Error("We could not confirm your request. Please try again.");
+      stageWelcomeThankYou(
+        reference,
+        data.slot.kind === "specific" ? slotLabelFromSelection(data.slot) : undefined,
+      );
 
       const shouldTrack = shouldTrackConsultationSubmission(reference, trackedReferenceRef.current);
       if (shouldTrack) {
@@ -422,7 +438,6 @@ export default function PaidSearchConsultationForm({
       // state briefly so the signed receipt can still land and send them to
       // /thank-you, which is what actually records the conversion.
       if (!canRetryConversion) {
-        stageWelcomeThankYou(reference, data.slot ? slotLabelFromSelection(data.slot) : undefined);
         void flushGoogleAdsEvents(true);
         window.location.assign(WELCOME_THANK_YOU_PATH);
         return;
@@ -443,7 +458,6 @@ export default function PaidSearchConsultationForm({
         }
         // The conversion receipt never arrived; still finish on a thank-you
         // screen rather than leaving the visitor on the form.
-        stageWelcomeThankYou(reference, data.slot ? slotLabelFromSelection(data.slot) : undefined);
         void flushGoogleAdsEvents(true);
         window.location.assign(WELCOME_THANK_YOU_PATH);
       });
@@ -462,8 +476,14 @@ export default function PaidSearchConsultationForm({
     return (
       <div data-consultation-submitted="true" className="rounded-[24px] bg-white p-6 text-ink shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-8">
         <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Check size={24} strokeWidth={2.5} aria-hidden="true" /></span>
-        <h3 className="mt-5 font-serif text-[30px] font-medium leading-tight">Your request is in.</h3>
-        <p className="mt-3 text-[14px] leading-6 text-ink-secondary">Thank you. A member of the Valisen team will contact you within 24 hours to arrange your free consultation.</p>
+        <h3 className="mt-5 font-serif text-[30px] font-medium leading-tight">
+          {data.slot?.kind === "specific" ? "Your consultation is booked." : "Your request is in."}
+        </h3>
+        <p className="mt-3 text-[14px] leading-6 text-ink-secondary">
+          {data.slot?.kind === "specific"
+            ? `Your free 20-minute phone consultation is booked for ${data.slot.label}. We sent the details by email.`
+            : "Thank you. A member of the Valisen team will contact you within 24 hours to arrange your free consultation."}
+        </p>
         <p className="mt-4 rounded-xl bg-canvas px-4 py-3 text-[12px] text-ink-secondary">Reference: <strong className="text-ink">{submittedReference}</strong></p>
       </div>
     );
@@ -550,7 +570,7 @@ export default function PaidSearchConsultationForm({
             <ShieldCheck size={20} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
           </div>
           <p className="mt-2 text-[12.5px] leading-5 text-ink-secondary">
-            We&apos;ll call to confirm this time within 24 hours &mdash; it&apos;s a preference, not a booked appointment.
+            Choose a specific time to book it instantly, or ask us to help find another time.
           </p>
 
           <div className="mt-3.5">
@@ -559,6 +579,7 @@ export default function PaidSearchConsultationForm({
                 idPrefix={`${instanceId}-slot`}
                 value={data.slot}
                 invalid={Boolean(errors.slot)}
+                availabilityRefreshKey={availabilityRefreshKey}
                 onChange={(slot) => update("slot", slot)}
               />
             </Field>

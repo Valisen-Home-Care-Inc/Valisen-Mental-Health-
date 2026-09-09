@@ -5,7 +5,7 @@
  */
 
 import crypto from "crypto";
-import { scoreQuiz, type Answers, type QuizOutcome } from "@/lib/quiz";
+import type { Answers, QuizOutcome } from "@/lib/quiz";
 import type { MatchResult } from "@/lib/matching";
 import {
   cleanCampaignAttribution,
@@ -518,7 +518,15 @@ export function rowToQuizLead(row: unknown[], rowNumber: number): StoredQuizLead
       ? parsedOutcome
       : {
           ...parsedOutcome,
-          answeredCount: scoreQuiz(answers).answeredCount,
+          // Historical v1–v5 records used numeric scored answers that are no
+          // longer part of the active matching questionnaire.
+          answeredCount: Object.values(answers).filter(
+            (value) =>
+              typeof value === "number" &&
+              Number.isInteger(value) &&
+              value >= 0 &&
+              value <= 3,
+          ).length,
         };
 
   return {

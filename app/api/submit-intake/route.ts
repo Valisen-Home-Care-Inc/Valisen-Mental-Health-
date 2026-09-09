@@ -62,6 +62,10 @@ import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 import { buildConsultationConfirmationEmail } from "@/lib/server/consultationConfirmationEmail";
 import { parseQuizConsultationSlot, QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION, type QuizConsultationSlot } from "@/lib/quizConsultation";
 import { buildQuizConsultationBookingEmail } from "@/lib/server/quizConsultationEmail";
+import {
+  claimConsultationSlot,
+  markConsultationSlotBooked,
+} from "@/lib/server/consultationBookingRepository";
 
 export const runtime = "nodejs";
 
@@ -226,11 +230,25 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
     return { error: "Invalid consultation form." };
   }
   const isQuizBooking = input.formVariant === "quiz_calendar";
-  const bookedSlot = isQuizBooking ? parseQuizConsultationSlot(input.consultationDate, input.consultationTime) : null;
+  const isWelcomeBooking = input.formVariant === "welcome";
+  const hasConsultationDate = input.consultationDate !== undefined;
+  const hasConsultationTime = input.consultationTime !== undefined;
+  if (hasConsultationDate !== hasConsultationTime) {
+    return { error: "Please choose both a consultation date and time." };
+  }
+  const bookedSlot =
+    (isQuizBooking || isWelcomeBooking) && hasConsultationDate
+      ? parseQuizConsultationSlot(input.consultationDate, input.consultationTime)
+      : null;
   if (isQuizBooking && (!bookedSlot || !isValidSubmissionToken(input.quizSubmissionToken) || input.source !== "quiz_result")) {
     return { error: "Please choose a valid consultation date and time from your quiz results." };
   }
-  if (!isQuizBooking && (input.consultationDate !== undefined || input.consultationTime !== undefined)) return { error: "Invalid consultation fields." };
+  if (isWelcomeBooking && hasConsultationDate && !bookedSlot) {
+    return { error: "Please choose an available consultation date and time." };
+  }
+  if (!isQuizBooking && !isWelcomeBooking && hasConsultationDate) {
+    return { error: "Invalid consultation fields." };
+  }
   const consentText = isQuizBooking ? QUIZ_BOOKING_CONSENT_TEXT : CONSENT_TEXT;
   const consentVersion = isQuizBooking ? QUIZ_BOOKING_CONSENT_VERSION : CONSENT_VERSION;
   if (!validSubmissionId(input.clientSubmissionId)) {
@@ -243,10 +261,8 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const phone = cleanSingleLine(input.phone, 30);
   const reason = cleanSingleLine(input.reason, 80);
   const notes = cleanNotes(input.notes);
-  // The "/welcome" slot picker has no real scheduling system behind it yet —
-  // it produces a human-readable label for whatever day/time the visitor
-  // clicked, which rides along in the existing notes field rather than a new
-  // column, since it's coordination context for staff, not structured data.
+  // Keep the legacy preferred-slot label for flexible /welcome requests.
+  // Confirmed appointments use the validated structured date/time above.
   const preferredSlotLabel = cleanSingleLine(input.preferredSlotLabel, 80);
   if (input.preferredSlotLabel !== undefined && !preferredSlotLabel) {
     return { error: "Invalid preferred time." };
@@ -368,7 +384,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       phone,
       reason,
       preferredTherapist: cleanSingleLine(input.preferredTherapist, 40),
-      notes: bookedSlot ? `Quiz 20-minute phone consultation (staff-managed): ${bookedSlot.label}` : notesWithSlot || undefined,
+      notes: bookedSlot
+        ? `20-minute phone consultation booked through ${isQuizBooking ? "/quiz" : "/welcome"}: ${bookedSlot.label}${notes ? `\n${notes}` : ""}`.slice(0, 1500)
+        : notesWithSlot || undefined,
       days: [...expectedDays],
       timeOfDay: bookedSlot?.availability || timeOfDay,
       consent: true,
@@ -636,6 +654,14 @@ function sameCheckpointAttribution(
   );
 }
 
+function sameBookedSlot(
+  left: { date: string; time: string } | undefined,
+  right: QuizConsultationSlot | undefined,
+): boolean {
+  if (!left || !right) return !left && !right;
+  return left.date === right.date && left.time === right.time;
+}
+
 export async function POST(request: NextRequest) {
   if (!hasJsonContentType(request)) {
     return badRequest("Content-Type must be application/json.", 415);
@@ -701,7 +727,7 @@ export async function POST(request: NextRequest) {
       !sameCheckpointAttribution(
         completedSubmission.checkpointAttribution,
         payload.checkpointAttribution,
-      )
+      ) || !sameBookedSlot(completedSubmission.bookedSlot, payload.bookedSlot)
     ) {
       return badRequest("Submission identifier is already in use.", 409);
     }
@@ -799,6 +825,41 @@ export async function POST(request: NextRequest) {
     .digest("hex")
     .slice(0, 24)
     .toUpperCase()}`;
+  if (payload.bookedSlot) {
+    try {
+      const claim = await claimConsultationSlot({
+        date: payload.bookedSlot.date,
+        time: payload.bookedSlot.time,
+        clientSubmissionId: payload.clientSubmissionId,
+        consultationReferenceId: referenceId,
+        source: payload.formVariant === "quiz_calendar" ? "quiz_calendar" : "welcome",
+      });
+      if (!claim.accepted) {
+        return NextResponse.json(
+          {
+            error:
+              claim.reason === "slot_unavailable"
+                ? "That consultation time was just booked. Please choose another time."
+                : "This booking could not be completed. Please refresh and try again.",
+            slotUnavailable: claim.reason === "slot_unavailable",
+          },
+          {
+            status: 409,
+            headers: { "Cache-Control": "no-store" },
+          },
+        );
+      }
+    } catch (error) {
+      console.error(
+        `submit-intake: slot claim failed ${referenceId}`,
+        error instanceof Error ? error.name : "unknown",
+      );
+      return badRequest(
+        "Live calendar availability is temporarily unavailable. Please try again.",
+        503,
+      );
+    }
+  }
   const durationSeconds = Math.max(
     0,
     Math.round((Date.now() - payload.formStartedAt) / 1000),
@@ -827,6 +888,9 @@ export async function POST(request: NextRequest) {
       notificationStatus: "pending",
       googleAdsRequest,
     });
+    if (payload.bookedSlot) {
+      await markConsultationSlotBooked(referenceId);
+    }
   } catch (error) {
     console.error(
       `submit-intake: authoritative CRM persistence failed ${referenceId}`,
@@ -876,6 +940,9 @@ export async function POST(request: NextRequest) {
             checkpointCode: payload.checkpointAttribution.checkpointCode,
             sessionId: payload.checkpointAttribution.sessionId,
           }
+        : undefined,
+      payload.bookedSlot
+        ? { date: payload.bookedSlot.date, time: payload.bookedSlot.time }
         : undefined,
     );
     return consultationSuccessResponse({
@@ -932,15 +999,23 @@ Recorded: Yes
 Version: ${payload.consentVersion}
 Language: ${payload.consentLanguage}
 
-${payload.bookedSlot ? "QUIZ BOOKING: The visitor was given this 20-minute phone consultation time. Please manually schedule and fulfil this appointment; no Jane reservation has been created." : "This is a consultation request, not a confirmed appointment. Please coordinate and confirm directly with the client."}`;
+${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is confirmed and has been blocked in the shared website calendar. Add it to the clinic's operational calendar and ensure the 20-minute phone consultation is fulfilled." : "This is a consultation request, not a confirmed appointment. Please coordinate and confirm directly with the client."}`;
 
   try {
     await transporter.sendMail({
       from: `"Valisen Mental Health" <${process.env.GMAIL_USER}>`,
       to: CLINIC_EMAIL,
-      subject: `${payload.bookedSlot ? "Quiz Consultation Booking" : "Consultation Request"} - ${payload.firstName} ${payload.lastName}`,
+      subject: payload.bookedSlot
+        ? `ACTION REQUIRED: Consultation Booked - ${payload.bookedSlot.label} - ${payload.firstName} ${payload.lastName}`.trim()
+        : `Consultation Request - ${payload.firstName} ${payload.lastName}`,
       text: clinicEmailBody,
       messageId: `<consultation-${payload.clientSubmissionId}@valisenmentalhealth.com>`,
+      ...(payload.bookedSlot
+        ? {
+            priority: "high" as const,
+            headers: { Importance: "high", "X-Priority": "1" },
+          }
+        : {}),
     });
   } catch (error) {
     await completeConsultationNotificationClaim(
@@ -1062,6 +1137,9 @@ ${payload.bookedSlot ? "QUIZ BOOKING: The visitor was given this 20-minute phone
           checkpointCode: payload.checkpointAttribution.checkpointCode,
           sessionId: payload.checkpointAttribution.sessionId,
         }
+      : undefined,
+    payload.bookedSlot
+      ? { date: payload.bookedSlot.date, time: payload.bookedSlot.time }
       : undefined,
   );
   return consultationSuccessResponse({

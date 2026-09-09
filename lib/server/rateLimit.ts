@@ -39,6 +39,7 @@ export type CompletedSubmissionRecord = {
     checkpointCode: string;
     sessionId: string;
   };
+  bookedSlot?: { date: string; time: string };
 };
 
 const completed = new Map<string, CompletedSubmissionRecord>();
@@ -64,6 +65,7 @@ export function getCompletedSubmissionRecord(
     ...(record.checkpointAttribution
       ? { checkpointAttribution: { ...record.checkpointAttribution } }
       : {}),
+    ...(record.bookedSlot ? { bookedSlot: { ...record.bookedSlot } } : {}),
   };
 }
 
@@ -75,6 +77,7 @@ export function markSubmissionCompleted(
     checkpointCode: string;
     sessionId: string;
   },
+  bookedSlot?: { date: string; time: string },
 ): void {
   if (completed.size > 5000) pruneExpired(completed, now);
   completed.set(clientSubmissionId, {
@@ -83,6 +86,7 @@ export function markSubmissionCompleted(
     ...(checkpointAttribution
       ? { checkpointAttribution: { ...checkpointAttribution } }
       : {}),
+    ...(bookedSlot ? { bookedSlot: { ...bookedSlot } } : {}),
   });
 }
 

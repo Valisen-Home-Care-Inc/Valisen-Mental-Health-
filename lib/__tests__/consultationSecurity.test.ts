@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const persistCheckpointConsultation = vi.hoisted(() => vi.fn());
 const flowMocks = vi.hoisted(() => ({
   claimConsultationNotification: vi.fn(),
+  claimConsultationSlot: vi.fn(),
   completeConsultationNotificationClaim: vi.fn(),
   findBySubmissionTokenHash: vi.fn(),
   sendMail: vi.fn(),
   linkGoogleAdsConsultation: vi.fn(),
+  markConsultationSlotBooked: vi.fn(),
   upsertConsultationLead: vi.fn(),
   verifyTurnstile: vi.fn(),
 }));
@@ -40,6 +42,11 @@ vi.mock("@/lib/server/growthRepository", () => ({
 
 vi.mock("@/lib/server/googleAdsRepository", () => ({
   linkGoogleAdsConsultation: flowMocks.linkGoogleAdsConsultation,
+}));
+
+vi.mock("@/lib/server/consultationBookingRepository", () => ({
+  claimConsultationSlot: flowMocks.claimConsultationSlot,
+  markConsultationSlotBooked: flowMocks.markConsultationSlotBooked,
 }));
 
 vi.mock("nodemailer", () => ({
@@ -136,6 +143,11 @@ beforeEach(() => {
     attemptCount: 1,
     rowVersion: 1,
   });
+  flowMocks.claimConsultationSlot.mockReset().mockResolvedValue({
+    accepted: true,
+    replayed: false,
+  });
+  flowMocks.markConsultationSlotBooked.mockReset().mockResolvedValue(undefined);
   flowMocks.completeConsultationNotificationClaim.mockReset().mockResolvedValue({
     accepted: true,
     staleClaim: false,
@@ -183,11 +195,56 @@ describe("consultation submission boundary", () => {
     const response = await POST(request(input));
     expect(response.status).toBe(200);
     expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ quizReferenceId: "VQ-CALENDAR1", preferredTime: "Tuesday, September 8 at 9:00 AM, 2026 (Toronto time)", consentVersion: QUIZ_BOOKING_CONSENT_VERSION }));
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ date: "2026-09-08", time: "9:00 AM", source: "quiz_calendar" }));
+    expect(flowMocks.markConsultationSlotBooked).toHaveBeenCalledOnce();
     expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
     expect(flowMocks.sendMail).toHaveBeenLastCalledWith(expect.objectContaining({ to: "alex@example.com", subject: "Your 20-minute consultation is booked | Valisen", text: expect.stringContaining("Tuesday, September 8 at 9:00 AM, 2026 (Toronto time)") }));
-    expect(flowMocks.sendMail.mock.calls[0][0].text).toContain("Please manually schedule and fulfil this appointment");
+    expect(flowMocks.sendMail.mock.calls[0][0]).toEqual(expect.objectContaining({
+      priority: "high",
+      headers: { Importance: "high", "X-Priority": "1" },
+      subject: expect.stringContaining("ACTION REQUIRED: Consultation Booked"),
+      text: expect.stringContaining("OFFICIAL CONSULTATION BOOKING"),
+    }));
     await POST(request(input));
     expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
+  });
+
+  it("books a /welcome slot through the same claim and high-priority notification path", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
+    const response = await POST(request(payload({
+      formVariant: "welcome",
+      source: "google_ads",
+      consultationDate: "2026-09-08",
+      consultationTime: "9:40 AM",
+      preferredSlotLabel: "Tuesday, September 8 at 9:40 AM",
+    })));
+
+    expect(response.status).toBe(200);
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({
+      date: "2026-09-08",
+      time: "9:40 AM",
+      source: "welcome",
+    }));
+    expect(flowMocks.markConsultationSlotBooked).toHaveBeenCalledOnce();
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
+    expect(flowMocks.sendMail.mock.calls[0][0]).toEqual(expect.objectContaining({
+      priority: "high",
+      subject: expect.stringContaining("ACTION REQUIRED: Consultation Booked"),
+    }));
+  });
+
+  it("rejects a slot claimed by another user before CRM or email side effects", async () => {
+    flowMocks.claimConsultationSlot.mockResolvedValue({
+      accepted: false,
+      reason: "slot_unavailable",
+    });
+    const response = await POST(request(quizBooking()));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ slotUnavailable: true });
+    expect(flowMocks.upsertConsultationLead).not.toHaveBeenCalled();
+    expect(flowMocks.sendMail).not.toHaveBeenCalled();
   });
 
   it.each([{ quizSubmissionToken: undefined }, { email: "attacker@example.com" }, { consentVersion: "consultation-coordination-v1" }, { consultationDate: "2026-09-12" }, { consultationTime: "9:20 AM" }])("rejects unverified or invalid quiz bookings before notification %j", async (overrides) => {

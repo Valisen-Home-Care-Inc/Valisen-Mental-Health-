@@ -14,6 +14,7 @@ import {
   QUESTIONS,
   QUIZ_VERSION,
   TOTAL_QUESTIONS,
+  quizIntentForAnswers,
   type Answers,
   type Question,
   type QuizOutcome,
@@ -249,8 +250,8 @@ export default function QuizFlow() {
 
   function finish(finalAnswers: Answers) {
     setAnswers(finalAnswers);
-    const selectedIntent = finalAnswers.intent;
-    if (isQuizIntent(selectedIntent)) setIntent(selectedIntent);
+    const selectedIntent = quizIntentForAnswers(finalAnswers);
+    setIntent(selectedIntent);
     setPhase("access");
     // Historical analytics name: this event means all questions were
     // answered and the final contact form was reached. It does not mean that
@@ -326,14 +327,23 @@ export default function QuizFlow() {
     markStarted();
     setAnswers((current) => {
       const existing = Array.isArray(current[q.id]) ? (current[q.id] as string[]) : [];
-      const next = existing.includes(value)
-        ? existing.filter((item) => item !== value)
-        : [...existing, value];
+      const exclusive = new Set(q.exclusiveValues ?? []);
+      let next: string[];
+      if (existing.includes(value)) {
+        next = existing.filter((item) => item !== value);
+      } else if (exclusive.has(value)) {
+        next = [value];
+      } else {
+        const withoutExclusive = existing.filter((item) => !exclusive.has(item));
+        if (q.maxSelections && withoutExclusive.length >= q.maxSelections) return current;
+        next = [...withoutExclusive, value];
+      }
       return { ...current, [q.id]: next };
     });
   }
 
   function continueFromMulti() {
+    if (question.kind !== "multi" || (question.required && multiSelected.length === 0)) return;
     trackQuizEvent("quiz_question_answered", {
       quizStep: index,
       campaignSource: attribution.source,
@@ -541,6 +551,16 @@ export default function QuizFlow() {
   const selected = question.id in answers ? answers[question.id] : undefined;
   const multiSelected =
     question.kind === "multi" && Array.isArray(selected) ? (selected as string[]) : [];
+  const visibleOptions =
+    "filterFromAnswer" in question && question.filterFromAnswer
+      ? question.options.filter((option) => {
+          const source = answers[question.filterFromAnswer!.questionId];
+          return (
+            (Array.isArray(source) && source.includes(String(option.value))) ||
+            question.filterFromAnswer!.alwaysInclude.includes(String(option.value))
+          );
+        })
+      : question.options;
 
   return (
     <div ref={quizTopRef} className="mx-auto max-w-[640px] scroll-mt-28">
@@ -584,16 +604,25 @@ export default function QuizFlow() {
             <div className="mt-6 flex flex-wrap gap-2.5">
               {question.options.map((option) => {
                 const active = multiSelected.includes(String(option.value));
+                const atLimit = Boolean(
+                  question.maxSelections &&
+                  multiSelected.length >= question.maxSelections &&
+                  !active &&
+                  !question.exclusiveValues?.includes(String(option.value)),
+                );
                 return (
                   <button
                     key={String(option.value)}
                     type="button"
                     onClick={() => toggleMultiValue(question, String(option.value))}
                     aria-pressed={active}
+                    disabled={atLimit}
                     className={`inline-flex min-h-[44px] items-center gap-2 rounded-pill border px-4 py-2.5 text-left text-[14px] transition-all duration-150 ${
                       active
                         ? "border-teal bg-teal text-white"
-                        : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
+                        : atLimit
+                          ? "cursor-not-allowed border-black/8 text-ink-hint opacity-45"
+                          : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
                     }`}
                   >
                     {active ? <Check size={14} aria-hidden="true" /> : null}
@@ -605,9 +634,14 @@ export default function QuizFlow() {
             <button
               type="button"
               onClick={continueFromMulti}
+              disabled={question.required && multiSelected.length === 0}
               className="btn-primary mt-7 w-full justify-center"
             >
-              {multiSelected.length > 0 ? "Continue" : "Skip — nothing specific"}
+              {multiSelected.length > 0
+                ? "Continue"
+                : question.required
+                  ? "Choose at least one"
+                  : "Skip — nothing specific"}
               <ArrowRight size={16} className="ml-2" aria-hidden="true" />
             </button>
           </>
@@ -649,7 +683,7 @@ export default function QuizFlow() {
           </div>
         ) : (
           <div className="mt-6 flex flex-col gap-2.5">
-            {question.options.map((option) => {
+            {visibleOptions.map((option) => {
               const active = selected === option.value;
               return (
                 <button
@@ -691,7 +725,7 @@ export default function QuizFlow() {
             <span />
           )}
           <span className="text-right text-[12px] text-ink-hint">
-            Educational only · Not a diagnosis
+            Private · used to help find your fit
           </span>
         </div>
       </div>

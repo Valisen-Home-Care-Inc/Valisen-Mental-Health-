@@ -41,6 +41,7 @@ try {
       const url = new URL(request.url());
       if (url.hostname === "challenges.cloudflare.com") return void request.respond({ status: 200, contentType: "application/javascript", body: 'window.turnstile={render:function(el,options){setTimeout(function(){options.callback("test-turnstile-token")},0);return "qa"},remove:function(){},execute:function(){}};' });
       if (url.origin !== origin) return void request.abort();
+      if (url.pathname === "/api/consultation-slots") return void request.respond({ status: 200, contentType: "application/json", body: '{"booked":[]}' });
       if (url.pathname === "/api/quiz-lead/result") return void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, referenceId: "VQ-CALENDARQA", firstName: "Alex", email: "qa@example.invalid", phone: "613-555-0100", outcome, match: savedMatch, intent: "see_recommended_therapist", attribution: {} }) });
       if (url.pathname === "/api/submit-intake") {
         requests.push(JSON.parse(request.postData()));
@@ -55,26 +56,40 @@ try {
   if (!process.argv.includes('--welcome-only')) {
   const fresh = await pageFor(390, false);
   await fresh.page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
+  await fresh.page.screenshot({ path: path.join(output, "quiz-question-1-390.png"), fullPage: true });
   for (let index = 0; index < QUESTIONS.length; index++) {
-    console.log(`Checking question ${index + 1} of 18`);
+    console.log(`Checking question ${index + 1} of ${QUESTIONS.length}`);
     try {
-      await fresh.page.waitForFunction((counter) => document.body.textContent.includes(counter), { timeout: 20000 }, `Question ${index + 1} of 18`);
+      await fresh.page.waitForFunction((counter) => document.body.textContent.includes(counter), { timeout: 20000 }, `Question ${index + 1} of ${QUESTIONS.length}`);
     } catch (error) {
       console.log(await fresh.page.evaluate(() => document.body.innerText));
       console.log(fresh.errors);
       throw error;
     }
     const q = QUESTIONS[index];
-    assert(!q.id.includes("gender"));
+    assert(!["age", "eligibility", "residency"].includes(q.id));
+    if (q.id === "concerns" || q.id === "payment_readiness") {
+      await fresh.page.screenshot({ path: path.join(output, `quiz-${q.id}-390.png`), fullPage: true });
+    }
     if (q.kind === "multi") {
-      await fresh.page.click('button[aria-pressed="false"]');
+      if (q.id === "concerns") {
+        const choices = await fresh.page.$$('button[aria-pressed="false"]');
+        for (const choice of choices.slice(0, 3)) await choice.click();
+        assert.equal(await fresh.page.$eval('button[aria-pressed="false"]', (button) => button.disabled), true, "Concern choices must stop at three");
+        await fresh.page.evaluate(() => [...document.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent.trim() === "I'm not sure yet").click());
+        assert.equal(await fresh.page.$$eval('button[aria-pressed="true"]', (items) => items.length), 1, "Not sure must be exclusive");
+        await fresh.page.click('button[aria-pressed="false"]');
+        assert.equal(await fresh.page.$$eval('button[aria-pressed="true"]', (items) => items.length), 1, "A specific concern must replace Not sure");
+      } else {
+        await fresh.page.click('button[aria-pressed="false"]');
+      }
       await fresh.page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Continue").click());
     } else await fresh.page.click('button[aria-pressed="false"]');
   }
-  await fresh.page.waitForFunction(() => document.body.innerText.includes("Your personalized results are ready"));
+  await fresh.page.waitForFunction(() => document.body.innerText.includes("Your therapist matches are ready"));
   assert.equal(fresh.metrics.length, 0, "Result metrics must not run before submission");
   await fresh.page.close();
-  console.log("PASS all 18 quiz screens; no result analytics before saved results");
+  console.log(`PASS all ${QUESTIONS.length} quiz screens; no result analytics before saved results`);
 
   // A male strongest match must still DISPLAY the woman first, without relabeling the strongest match.
   const malePrimary = { ...match, therapistSlug: "tim-kahtava", reasons: match.alternative.reasons, alternative: { therapistSlug: "meryem-ibrahim", reasons: match.reasons } };
@@ -85,7 +100,8 @@ try {
     const cards = await page.$$eval('#quiz-therapist-cards article', (items) => items.map((item) => ({ name: item.querySelector('h3').textContent, text: item.textContent })));
     assert.equal(cards[0].name, "Meryem Ibrahim");
     assert(cards[1].text.includes("Your strongest match"));
-    assert.equal(await page.$eval('#quiz-result-details details', (el) => el.open), false);
+    assert.equal(await page.$('#quiz-result-details'), null, 'The retired score breakdown must stay removed');
+    assert.equal((await page.$eval('[data-quiz-results]', (el) => el.textContent)).includes('Download My Results PDF'), false);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.$eval('[data-quiz-results]', (el) => el.scrollIntoView());
     await page.screenshot({ path: path.join(output, `results-viewport-${width}.png`) });
@@ -110,10 +126,6 @@ try {
     }
     await page.click('#quiz-therapist-cards article:first-child summary');
     await page.waitForFunction(() => document.querySelector('#quiz-therapist-cards article:first-child details').open);
-    await page.click('#quiz-result-details summary');
-    await page.waitForFunction(() => document.querySelector('#quiz-result-details details').open);
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Expanded content must also fit');
-    await page.click('#quiz-result-details summary');
     await page.click('#quiz-therapist-cards article:first-child summary');
     await page.click('#quiz-consultation-booking [aria-label="Next month"]');
     await page.click('#quiz-consultation-booking [aria-label="Previous month"]');
@@ -131,7 +143,7 @@ try {
     assert.equal(await page.$$eval('[aria-label^="Choose a time"] button[aria-pressed="true"]', (items) => items.length), 0, 'Changing the date must clear the old time');
     assert.equal(requests.length, 0);
     assert.deepEqual(errors, []);
-    console.log(`PASS design ${width}px: female first, swipe/keyboard, details, overflow, month navigation, all time slots, date reset`);
+    console.log(`PASS design ${width}px: female first, swipe/keyboard, score removed, overflow, month navigation, all time slots, date reset`);
     await page.close();
   }
 

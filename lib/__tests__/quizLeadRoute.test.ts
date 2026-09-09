@@ -384,20 +384,19 @@ import { POST as downloadQuizPdf } from "@/app/api/quiz-lead/pdf/route";
 function completedAnswers(intent = "ready_to_speak"): Answers {
   const answers: Answers = {};
   for (const question of QUESTIONS) {
-    if (question.kind === "safety" || question.id === "language") continue;
+    if (question.kind === "safety" || question.kind === "intent") continue;
     if (question.kind === "scored") {
       answers[question.id] = 2;
     } else if (question.kind === "multi") {
       answers[question.id] =
-        question.id === "concerns" ? ["anxiety"] : [];
+        question.required ? [question.options[0].value] : [];
     } else if (question.id === "gender_preference") {
       answers[question.id] = "no-preference";
-    } else if (question.id === "intent") {
-      answers[question.id] = intent;
     } else {
       answers[question.id] = question.options[0].value;
     }
   }
+  answers.start_timing = intent === "ready_to_speak" ? "asap" : intent === "brief_consultation" ? "this-month" : "exploring";
   return answers;
 }
 
@@ -589,7 +588,7 @@ describe("POST /api/quiz-lead", () => {
     });
     expect(body.referenceId).toMatch(/^VQ-[0-9A-F]{12}$/);
     expect(body.submissionToken).toMatch(/^v1\.VQ-/);
-    expect(body.outcome.score).toBeGreaterThanOrEqual(0);
+    expect(body.outcome.score).toBeNull();
 
     const stored = mocks.records[0];
     expect(stored.intent).toBe("brief_consultation");
@@ -620,7 +619,7 @@ describe("POST /api/quiz-lead", () => {
     );
     expect(userResultsMessages()[0].to).toBe("alex@example.com");
     expect(userResultsMessages()[0].text).toContain(
-      "valisenmentalhealth.com/consultation?therapist=meryem-ibrahim",
+      `valisenmentalhealth.com/consultation?therapist=${stored.match.status === "match" ? stored.match.therapistSlug : ""}`,
     );
     expect(userResultsMessages()[0].text).toContain("#result=");
     expect(userResultsMessages()[0].text).toContain(
@@ -923,7 +922,7 @@ describe("POST /api/quiz-lead", () => {
     ).toBe(400);
 
     const missingIntentAnswers = completedAnswers();
-    delete missingIntentAnswers.intent;
+    delete missingIntentAnswers.start_timing;
     const missingIntent = await postAccess(
       accessPayload({ answers: missingIntentAnswers }),
     );

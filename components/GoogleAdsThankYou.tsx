@@ -2,10 +2,14 @@
 
 import { Check, LoaderCircle } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import NavBar from "@/components/NavBar";
 import ConsultationJaneBookingCard from "@/components/ConsultationJaneBookingCard";
+import {
+  consumeWelcomeThankYou,
+  type WelcomeThankYouHandoff,
+} from "@/components/paid-search/thankYouHandoff";
 import { stageGoogleAdsClickAttributionForConversion } from "@/lib/campaignAttribution";
 import {
   captureGoogleAdsJourneyFromUrl,
@@ -26,6 +30,14 @@ type ConfirmationState = "checking" | "confirmed";
 
 export default function GoogleAdsThankYou() {
   const [state, setState] = useState<ConfirmationState>("checking");
+  const [handoff, setHandoff] = useState<WelcomeThankYouHandoff | null>(null);
+  const consumedHandoffRef = useRef(false);
+
+  useEffect(() => {
+    if (consumedHandoffRef.current) return;
+    consumedHandoffRef.current = true;
+    setHandoff(consumeWelcomeThankYou());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,15 +261,24 @@ export default function GoogleAdsThankYou() {
               <Check size={32} strokeWidth={2.5} aria-hidden="true" />
             </div>
             <p className="mt-6 text-[11px] font-semibold uppercase tracking-[1.5px] text-teal-dark">
-              Request received
+              {handoff?.slotLabel ? "Consultation booked" : "Request received"}
             </p>
             <h1 className="mt-3 font-serif text-[38px] font-medium leading-[1.08] tracking-[-1.3px] text-ink sm:text-[48px]">
-              Thank you. Your request is in.
+              {handoff?.slotLabel ? "Your consultation is booked." : "Thank you. Your request is in."}
             </h1>
             <p className="mx-auto mt-5 max-w-[570px] text-[15px] leading-7 text-ink-secondary sm:text-base">
-              A member of the Valisen team will contact you within 24 hours
-              to coordinate your free consultation. Your requested time is
-              a preference until our team confirms it with you.
+              {handoff?.slotLabel ? (
+                <>
+                  Your free 20-minute phone consultation is booked for{" "}
+                  <strong className="text-ink">{handoff.slotLabel}</strong>. We&apos;ll call the
+                  phone number you provided and have sent the details by email.
+                </>
+              ) : (
+                <>
+                  A member of the Valisen team will contact you within 24 hours to coordinate your
+                  free consultation.
+                </>
+              )}
             </p>
             <div className="mx-auto mt-8 max-w-[540px] rounded-2xl border border-[#cfe0da] bg-[#f3f8f5] px-5 py-5 text-left">
               <p className="text-sm font-semibold text-ink">What happens next</p>

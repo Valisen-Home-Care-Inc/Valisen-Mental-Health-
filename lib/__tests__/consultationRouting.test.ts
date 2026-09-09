@@ -61,4 +61,22 @@ describe("consultation routing", () => {
     expect(source).not.toContain("href={bookingUrl}");
     expect(source).not.toContain("stageConsultationPrefill");
   });
+
+  it("keeps the matching results focused on recommendations and booking", () => {
+    const results = readFileSync(
+      resolve(process.cwd(), "components/quiz/ResultsReveal.tsx"),
+      "utf8",
+    );
+    const cards = readFileSync(
+      resolve(process.cwd(), "components/quiz/TherapistMatchCarousel.tsx"),
+      "utf8",
+    );
+
+    expect(results).toContain("We found two therapists who may fit.");
+    expect(results).toContain("<TherapistMatchCarousel");
+    expect(results).toContain("<QuizConsultationBooking");
+    expect(results).not.toMatch(/ScoreRing|DetailedResults|ResultsPdfDownload/);
+    expect(cards).toContain("our broader therapist team");
+    expect(cards).toContain("scale-[1.025]");
+  });
 });

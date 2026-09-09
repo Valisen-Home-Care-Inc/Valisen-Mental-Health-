@@ -105,6 +105,9 @@ export function extractPreferences(answers: Answers): MatchPreferences {
         new Set(rawConcerns.filter((c) => typeof c === "string" && VALID_CONCERNS.has(c))),
       ) as ConcernTag[])
     : [];
+  if (answers.support_type === "couples" && !concerns.includes("couples-therapy")) {
+    concerns.push("couples-therapy");
+  }
 
   const rawGender = answers["gender_preference"];
   const genderPreference: GenderPreference =

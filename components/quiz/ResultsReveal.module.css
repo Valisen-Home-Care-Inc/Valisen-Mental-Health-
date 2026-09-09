@@ -11,7 +11,7 @@
 .jumpLinks { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 17px; padding-top: 12px; border-top: 1px solid #dce4d6; }
 .jumpLinks a { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; font-size: 12px; font-weight: 600; color: #286e62; text-decoration: none; }
 .jumpLinks a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.workspace { display: grid; gap: 22px; grid-template-areas: "matches" "booking" "details"; margin-top: 26px; min-width: 0; align-items: start; }
+.workspace { display: grid; gap: 22px; grid-template-areas: "matches" "booking"; margin-top: 26px; min-width: 0; align-items: start; }
 .matches { grid-area: matches; min-width: 0; scroll-margin-top: 100px; }
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .sectionHeading h2 { margin-top: 5px; font: 400 25px/1.15 Georgia, serif; letter-spacing: -.5px; }
@@ -24,7 +24,8 @@
 .carouselNav span { color: #586a5d; font-size: 11px; font-variant-numeric: tabular-nums; }
 .therapistTrack { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 94%; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 2px 2px 5px; scroll-padding-left: 2px; align-items: start; }
 .therapistTrack::-webkit-scrollbar { display: none; }
-.matchCard { min-width: 0; padding: 19px; border: 1px solid #e1e4d6; border-radius: 21px; background: linear-gradient(155deg,#fff 25%,#f8f5ec); scroll-snap-align: start; scroll-snap-stop: always; }
+.matchCard { position: relative; min-width: 0; overflow: hidden; padding: 19px; border: 1px solid #dce4d7; border-radius: 21px; background: linear-gradient(155deg,#fff 20%,#f7f8f1 68%,#f5f0e6); box-shadow: 0 12px 32px rgba(40,71,51,.07); scroll-snap-align: start; scroll-snap-stop: always; }
+.matchCard::before { position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg,#39776b,#9bb59a 58%,#d3bd8a); content: ""; }
 .matchEyebrow { font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #76603a; }
 .person { display: flex; align-items: flex-start; gap: 13px; margin-top: 15px; }
 .portrait { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 65px; height: 78px; overflow: hidden; border-radius: 14px; background: #e6eee3; color: #357263; font: 24px Georgia, serif; }
@@ -76,7 +77,7 @@
   .sticky { display: none; }
 }
 @media (min-width: 1180px) {
-  .workspace { grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); grid-template-areas: "matches booking" "details booking"; grid-template-rows: auto 1fr; gap: 20px 24px; }
+  .workspace { grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); grid-template-areas: "matches booking"; gap: 24px; }
   .matchCard { padding: 17px; }
   .person { gap: 10px; }
   .portrait { width: 56px; height: 72px; }

@@ -21,6 +21,7 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
   const [consent, setConsent] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<string | null>(null);
@@ -53,6 +54,10 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
         }),
       });
       const body = await response.json().catch(() => null);
+      if (response.status === 409 && body?.slotUnavailable) {
+        setSelection(null);
+        setAvailabilityRefreshKey((value) => value + 1);
+      }
       const reference = confirmedConsultationReferenceFromResponse(body);
       if (!response.ok || !reference) throw new Error(body?.error || "We couldn't book your consultation. Please try again.");
       setBooked(reference);
@@ -87,7 +92,7 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
       const button = (event.target as HTMLElement).closest('button[aria-pressed]');
       if (button?.closest('[aria-label^="Choose a date"]')) onInteraction("date_selected");
     }}>
-      <ConsultationTimeSlotPicker idPrefix="quiz-consultation-slot" value={selection} calendarToday={today} allowFlexible={false} invalid={Boolean(error && !selection)} onChange={(value) => { setSelection(value); if (value?.kind === "specific") onInteraction("time_selected"); }} />
+      <ConsultationTimeSlotPicker idPrefix="quiz-consultation-slot" value={selection} calendarToday={today} allowFlexible={false} invalid={Boolean(error && !selection)} availabilityRefreshKey={availabilityRefreshKey} onChange={(value) => { setSelection(value); if (value?.kind === "specific") onInteraction("time_selected"); }} />
       <label className={styles.bookingConsent}>
         <input type="checkbox" checked={consent} onChange={(event) => { setConsent(event.target.checked); onInteraction("consent_changed"); }} />
         <span>{QUIZ_BOOKING_CONSENT_TEXT}</span>

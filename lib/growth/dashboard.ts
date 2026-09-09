@@ -110,21 +110,21 @@ export type GrowthDashboardData = {
 };
 
 export const QUIZ_QUESTION_LABELS = QUESTIONS.map((question, index) => {
-  if (question.id === "safety") return `Q${index + 1} · Safety check`;
-  const concise =
-    question.id === "intro"
-      ? "What brought you here"
-      : question.id === "duration"
-        ? "How long this has been present"
-        : question.id === "impact"
-          ? "Impact on daily life"
-          : question.id === "concerns"
-            ? "Support concerns"
-            : question.id === "gender_preference"
-              ? "Therapist preference"
-              : question.id === "intent"
-                ? "Preferred next step"
-                : question.text;
+  const conciseById: Record<string, string> = {
+    support_type: "Type of support",
+    concerns: "Support concerns",
+    primary_concern: "First priority",
+    therapy_goals: "Therapy goals",
+    therapy_history: "Therapy history",
+    therapist_style: "Preferred therapist style",
+    gender_preference: "Therapist gender preference",
+    matching_considerations: "Matching considerations",
+    language: "Preferred language",
+    availability: "Appointment availability",
+    start_timing: "Desired start timing",
+    payment_readiness: "Payment and insurance readiness",
+  };
+  const concise = conciseById[question.id] ?? question.text;
   return `Q${index + 1} · ${concise}`;
 });
 

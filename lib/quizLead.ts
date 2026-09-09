@@ -12,7 +12,7 @@
  * by the browser and the API routes.
  */
 
-import { QUESTIONS, QUIZ_VERSION } from "@/lib/quiz";
+import { QUESTIONS, QUIZ_VERSION, quizIntentForAnswers } from "@/lib/quiz";
 import type { Answers } from "@/lib/quiz";
 import {
   CAMPAIGN_ATTRIBUTION_KEYS,
@@ -410,19 +410,18 @@ export function isValidCtaPlacement(value: unknown): value is string {
 
 /**
  * Strict answer allow-list. The safety response is always removed and the
- * retired language answer is explicitly rejected even while stale clients
- * are still in circulation.
+ * every submitted value is checked against the active, versioned questionnaire.
  */
 export function cleanAnswers(raw: unknown): Answers | null {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
 
   const entries = Object.entries(raw as Record<string, unknown>);
-  if (entries.length > QUESTIONS.length) return null;
+  if (entries.length > QUESTIONS.length + 1) return null;
 
   const cleaned: Answers = {};
   for (const [id, value] of entries) {
-    if (id === "language") return null;
-
+    // Never persist a safety response from a stale client or tampered request.
+    if (id === "safety") continue;
     const question = QUESTION_BY_ID.get(id);
     if (!question) return null;
     if (question.kind === "safety") continue;
@@ -442,7 +441,14 @@ export function cleanAnswers(raw: unknown): Answers | null {
       if (!Array.isArray(value) || value.length > question.options.length) return null;
       const allowed = new Set(question.options.map((option) => String(option.value)));
       if (!value.every((item) => typeof item === "string" && allowed.has(item))) return null;
-      cleaned[id] = Array.from(new Set(value as string[]));
+      const unique = Array.from(new Set(value as string[]));
+      if (question.required && unique.length === 0) return null;
+      if (question.maxSelections && unique.length > question.maxSelections) return null;
+      if (
+        unique.length > 1 &&
+        question.exclusiveValues?.some((exclusive) => unique.includes(exclusive))
+      ) return null;
+      cleaned[id] = unique;
     } else if (question.kind === "intent") {
       if (!isQuizIntent(value)) return null;
       cleaned[id] = value;
@@ -457,17 +463,30 @@ export function cleanAnswers(raw: unknown): Answers | null {
     }
   }
 
-  // A server request must represent a completed visible quiz. Multi-select
-  // questions are optional and safety deliberately never leaves the browser.
+  // A server request must represent a completed visible quiz. Only explicitly
+  // optional multi-select questions may be omitted.
   const requiredQuestionIds = QUESTIONS.filter(
     (question) =>
-      question.kind !== "multi" &&
+      (question.kind !== "multi" || question.required) &&
       question.kind !== "safety" &&
-      question.id !== "language",
+      question.kind !== "intent",
   ).map((question) => question.id);
   if (!requiredQuestionIds.every((id) => Object.prototype.hasOwnProperty.call(cleaned, id))) {
     return null;
   }
+
+  for (const question of QUESTIONS) {
+    if (!("filterFromAnswer" in question) || !question.filterFromAnswer) continue;
+    const selected = cleaned[question.id];
+    const source = cleaned[question.filterFromAnswer.questionId];
+    const allowed = new Set([
+      ...(Array.isArray(source) ? source : []),
+      ...question.filterFromAnswer.alwaysInclude,
+    ]);
+    if (typeof selected !== "string" || !allowed.has(selected)) return null;
+  }
+
+  cleaned.intent = quizIntentForAnswers(cleaned);
 
   return cleaned;
 }

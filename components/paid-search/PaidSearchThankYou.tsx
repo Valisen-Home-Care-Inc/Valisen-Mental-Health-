@@ -61,18 +61,17 @@ export default function PaidSearchThankYou() {
               <Check size={32} strokeWidth={2.5} aria-hidden="true" />
             </div>
             <p className="mt-6 text-[11px] font-semibold uppercase tracking-[1.5px] text-teal-dark">
-              Request received
+              {slotLabel ? "Consultation booked" : "Request received"}
             </p>
             <h1 className="mt-3 font-serif text-[32px] font-medium leading-[1.08] tracking-[-1.3px] text-ink sm:text-[46px]">
-              Thank you. Your request is in.
+              {slotLabel ? "Your consultation is booked." : "Thank you. Your request is in."}
             </h1>
             <p className="mx-auto mt-5 max-w-[570px] text-[15px] leading-7 text-ink-secondary sm:text-base">
               {slotLabel ? (
                 <>
-                  You requested <strong className="text-ink">{slotLabel}</strong>.
-                  A member of the Valisen team will call to confirm that time
-                  within 24 hours &mdash; it&apos;s a preference until then, not
-                  a booked appointment.
+                  Your free 20-minute phone consultation is booked for{" "}
+                  <strong className="text-ink">{slotLabel}</strong>. We&apos;ll call
+                  the phone number you provided and have sent the details by email.
                 </>
               ) : (
                 <>

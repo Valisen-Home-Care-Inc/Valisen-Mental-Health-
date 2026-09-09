@@ -67,39 +67,31 @@ describe("quiz analytics export", () => {
     expect(exported.kpis.quizQuestionsFinished).toBe(4);
     expect(exported.kpis.completedSubmissions).toBe(3);
     expect(exported.schemaVersion).toBe("1.2");
-    expect(exported.questionnaire.totalQuestions).toBe(18);
-    expect(exported.questionnaire.quizVersion).toBe("5.1.0");
-    expect(exported.questionnaire.questions).toHaveLength(18);
+    expect(exported.questionnaire.totalQuestions).toBe(12);
+    expect(exported.questionnaire.quizVersion).toBe("6.0.0");
+    expect(exported.questionnaire.questions).toHaveLength(12);
     expect(exported.questionnaire.questions[0]).toMatchObject({
       questionNumber: 1,
-      id: "intro",
-      text: "What brought you here today?",
+      id: "support_type",
+      text: "What type of support are you looking for?",
       answerMode: "single choice",
       scored: false,
     });
     expect(exported.questionnaire.questions[0].options).toContainEqual({
-      label: "I'm curious and just exploring",
-      value: "curious",
+      label: "Individual therapy",
+      value: "individual",
     });
     expect(exported.questionnaire.questions[1]).toMatchObject({
-      id: "worry_1",
-      kind: "scored",
-      dimensions: ["worry"],
+      id: "concerns",
+      kind: "multi",
     });
-    expect(exported.questionnaire.questions[16]).toMatchObject({
-      id: "safety",
-      kind: "safety",
+    expect(exported.questionnaire.questions[11]).toMatchObject({
+      id: "payment_readiness",
+      questionNumber: 12,
     });
-    expect(exported.questionnaire.questions[16].analyticsHandling).toContain(
-      "never stored",
-    );
-    expect(exported.questionnaire.questions[17]).toMatchObject({
-      id: "intent",
-      questionNumber: 18,
-    });
-    expect(exported.questionFriction[0].label).toContain("What brought you here");
+    expect(exported.questionFriction[0].label).toContain("Type of support");
     expect(exported.questionFriction[0].questionText).toBe(
-      "What brought you here today?",
+      "What type of support are you looking for?",
     );
     expect(exported.recentJourneys[0].lastStage).toContain("answered");
     expect(exported.recentJourneys[0].questionsFinished).toBe(true);

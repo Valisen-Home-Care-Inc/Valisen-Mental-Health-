@@ -89,6 +89,10 @@ async function configurePage(page, variant, index) {
   page.on("request", (request) => {
     void (async () => {
       const url = new URL(request.url());
+      if (url.pathname === "/api/consultation-slots") {
+        await request.respond(jsonResponse({ booked: [] }));
+        return;
+      }
       if (
         request.method() === "POST" &&
         url.pathname === "/api/quiz-lead/result"
