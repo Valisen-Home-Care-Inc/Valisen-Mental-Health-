@@ -86,7 +86,7 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
     <div className={styles.bookingHeader}>
       <p className={styles.eyebrow}>No cost. No commitment.</p>
       <h2>Book a free call</h2>
-      <p className={styles.bookingMeta}><Phone size={13} aria-hidden="true" />20-minute phone call · Toronto time</p>
+      <p className={styles.bookingMeta}><Phone size={13} aria-hidden="true" />20-minute phone call · Toronto time · We reply within 24 hours</p>
     </div>
     <fieldset disabled={sending} className="min-w-0" onClick={(event) => {
       const button = (event.target as HTMLElement).closest('button[aria-pressed]');
