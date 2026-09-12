@@ -1,6 +1,9 @@
 import type { CampaignAttribution } from "@/lib/campaignAttribution";
 import type { GoogleAdsValueTrackAttribution } from "@/lib/googleAdsEntry";
 import type { GoogleAdsEventRecord } from "@/lib/server/googleAdsEventContract";
+import { buildGoogleAdsLandingReport } from "@/lib/googleAdsLandingReport";
+import { GOOGLE_ADS_JOURNEY_MAX_AGE_MS } from "@/lib/googleAdsJourney";
+import { normalizeGoogleAdsEventExportRows, normalizeGoogleAdsJourneyExportRows } from "@/lib/googleAdsExport";
 import {
   callSupabaseRpc,
   SupabaseServerError,
@@ -41,6 +44,25 @@ export type GoogleAdsSessionSeedResult = {
   /** True when this call created the row (false when it already existed). */
   seeded: boolean;
 };
+
+export async function findGoogleAdsSessionIdentity(sessionId: string, landingPath: string) {
+  // Tables are deliberately inaccessible to the service role. Reuse the
+  // existing closed export RPC only after a duplicate seed needs recovery.
+  const from = new Date(Date.now() - GOOGLE_ADS_JOURNEY_MAX_AGE_MS).toISOString();
+  const to = new Date(Date.now() + 1_000).toISOString();
+  for (const test of [false, true]) {
+    for (let offset = 0; ; offset += 1_000) {
+      const page = await fetchGoogleAdsJourneyExportPage({ from, to, test, offset, limit: 1_000 });
+      if (!Array.isArray(page)) throw new SupabaseServerError("Invalid Google Ads identity page.", 503);
+      const row = normalizeGoogleAdsJourneyExportRows(page).find((row) => row.sessionId === sessionId && row.landingPath === landingPath);
+      if (row) return { sessionId, startedAt: row.startedAt, attribution: {
+        source: row.source, medium: row.medium, campaign: row.campaign, content: row.content,
+      } };
+      if (page.length < 1_000) break;
+    }
+  }
+  return null;
+}
 
 /**
  * Creates the CRM session row the moment a click is signed, so a click that
@@ -185,8 +207,14 @@ export async function consumeGoogleAdsConversion(input: {
 export async function fetchGoogleAdsDashboard(
   from: string,
   to: string,
+  landingPath?: string,
 ): Promise<unknown> {
   await maybePruneGoogleAdsAnalytics();
+  if (landingPath !== undefined) {
+    const { journeys, events } = await fetchGoogleAdsReportRows(from, to, false);
+    const opportunities = await fetchGoogleAdsOpportunityKeys(journeys.filter((row) => row.landingPath === landingPath));
+    return buildGoogleAdsLandingReport(journeys, events, { from, to }, landingPath, opportunities);
+  }
   return callSupabaseRpc<unknown>(
     "get_google_ads_dashboard",
     { p_from: from, p_to: to },
@@ -201,8 +229,14 @@ export async function fetchGoogleAdsDashboard(
 export async function fetchGoogleAdsTestDashboard(
   from: string,
   to: string,
+  landingPath?: string,
 ): Promise<unknown> {
   await maybePruneGoogleAdsAnalytics();
+  if (landingPath !== undefined) {
+    const { journeys, events } = await fetchGoogleAdsReportRows(from, to, true);
+    const opportunities = await fetchGoogleAdsOpportunityKeys(journeys.filter((row) => row.landingPath === landingPath));
+    return buildGoogleAdsLandingReport(journeys, events, { from, to }, landingPath, opportunities);
+  }
   return callSupabaseRpc<unknown>(
     "get_google_ads_test_dashboard",
     { p_from: from, p_to: to },
@@ -250,6 +284,45 @@ export async function fetchGoogleAdsEventExportPage(
     },
     20_000,
   );
+}
+
+/** Page the existing privacy-safe sources completely; never report a partial total. */
+export async function fetchGoogleAdsReportRows(from: string, to: string, test: boolean) {
+  async function collect(fetchPage: (input: GoogleAdsExportPageInput) => Promise<unknown>, limit: number) {
+    const rows: unknown[] = [];
+    for (let offset = 0; ; offset += limit) {
+      const page = await fetchPage({ from, to, test, limit, offset });
+      if (!Array.isArray(page)) throw new SupabaseServerError("Invalid Google Ads report page.", 503);
+      rows.push(...page);
+      if (page.length < limit) return rows;
+    }
+  }
+  const [journeys, events] = await Promise.all([
+    collect(fetchGoogleAdsJourneyExportPage, 1_000),
+    collect(fetchGoogleAdsEventExportPage, 5_000),
+  ]);
+  return { journeys: normalizeGoogleAdsJourneyExportRows(journeys), events: normalizeGoogleAdsEventExportRows(events) };
+}
+
+async function fetchGoogleAdsOpportunityKeys(journeys: ReturnType<typeof normalizeGoogleAdsJourneyExportRows>) {
+  const references = Array.from(new Set(journeys.filter((row) => row.consultationSubmitted)
+    .map((row) => row.consultationReferenceId).filter((reference): reference is string => Boolean(reference))));
+  const keys = new Map<string, string>();
+  for (let offset = 0; offset < references.length; offset += 4) {
+    await Promise.all(references.slice(offset, offset + 4).map(async (reference) => {
+      // This existing RPC returns immediately for Google Ads requests with
+      // their lead ID; only its checkpoint branch modifies attribution. The
+      // identifier stays on the server and preserves DISTINCT lead outcomes.
+      const result = await callSupabaseRpc<{ accepted?: boolean; leadId?: string; requestReference?: string }>(
+        "repair_consultation_request_attribution", { p_request_reference: reference }, 5_000,
+      );
+      if (!result?.accepted || result.requestReference !== reference || typeof result.leadId !== "string") {
+        throw new SupabaseServerError("Google Ads opportunity identity unavailable.", 503);
+      }
+      keys.set(reference, result.leadId);
+    }));
+  }
+  return keys;
 }
 
 let lastPruneAt = 0;

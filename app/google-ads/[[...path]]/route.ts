@@ -16,10 +16,15 @@ import {
 } from "@/lib/campaignAttribution";
 import {
   createGoogleAdsJourney,
+  GOOGLE_ADS_ENTRY_COOKIE,
+  GOOGLE_ADS_ENTRY_RETRY_SECONDS,
+  googleAdsEntryCookieValue,
+  googleAdsClickSessionId,
   hasQualifiedGoogleAdsEntry,
+  readGoogleAdsEntryRetry,
 } from "@/lib/server/googleAdsJourneySession";
 import { googleAdsEntryOrigin } from "@/lib/server/googleAdsOrigin";
-import { seedGoogleAdsSession } from "@/lib/server/googleAdsRepository";
+import { findGoogleAdsSessionIdentity, seedGoogleAdsSession } from "@/lib/server/googleAdsRepository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,41 +60,38 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const isCrawler = GOOGLE_CRAWLER_USER_AGENT.test(
     request.headers.get("user-agent") || "",
   );
+  const isPrefetch = request.method === "HEAD" ||
+    request.headers.has("next-router-prefetch") ||
+    /prefetch|prerender/i.test(`${request.headers.get("purpose") || ""} ${request.headers.get("sec-purpose") || ""}`);
   const publicEntry = googleAdsEntryOrigin(request);
   const qualified =
     publicEntry.canIssueJourney &&
     !isCrawler &&
+    !isPrefetch &&
     hasQualifiedGoogleAdsEntry(request.nextUrl.search);
   const safeSearch = qualified
     ? googleAdsLandingSearch(request.nextUrl.search)
     : "";
   const destination = new URL(`${landingPath}${safeSearch}`, publicEntry.origin);
+  let entryCookie: string | undefined;
   if (qualified) {
     const journeySearch = googleAdsJourneySearch(request.nextUrl.search);
     const valueTrack = googleAdsValueTrackAttributionFromSearch(
       request.nextUrl.search,
     );
-    const journey = createGoogleAdsJourney({
+    const identity = readGoogleAdsEntryRetry(
+      request.cookies.get(GOOGLE_ADS_ENTRY_COOKIE)?.value, journeySearch, landingPath,
+    );
+    const clickSessionId = googleAdsClickSessionId(journeySearch, landingPath);
+    let journey = createGoogleAdsJourney({
       landingPath,
       search: journeySearch,
       valueTrack,
+      identity: identity ?? undefined,
     });
     if (journey) {
-      const fragment = new URLSearchParams({
-        [GOOGLE_ADS_ENTRY_FRAGMENT_KEY]: journey.token,
-      });
-      const clicks = googleAdsClickAttributionFromSearch(journeySearch);
-      for (const key of GOOGLE_ADS_CLICK_KEYS) {
-        const value = clicks[key];
-        if (value) {
-          fragment.set(`${GOOGLE_ADS_CLICK_FRAGMENT_PREFIX}${key}`, value);
-        }
-      }
-      destination.hash = fragment.toString();
-
-      // Count the click the moment it is signed. A visitor who leaves before
-      // the page's JavaScript runs is still an ad session in the CRM. This is
-      // best-effort: the first event batch seeds the same row if it fails.
+      // Preserve the signed entry for retry recovery. Reporting only counts
+      // it as a session once browser activity or a confirmed request arrives.
       try {
         await seedGoogleAdsSession({
           sessionId: journey.claim.sessionId,
@@ -100,13 +102,33 @@ export async function GET(request: NextRequest, context: RouteContext) {
           valueTrack: journey.claim.valueTrack,
         });
       } catch (error) {
+        // Concurrent requests can race the first seed. The unique session key
+        // chooses one row; all signed tokens must use that row's original time.
+        if (clickSessionId) {
+          try {
+            const stored = await findGoogleAdsSessionIdentity(clickSessionId, landingPath);
+            if (stored) journey = createGoogleAdsJourney({ landingPath, search: journeySearch, valueTrack, identity: stored });
+          } catch {
+            // Keep the existing fail-open navigation during database outages.
+          }
+        }
         console.warn(
           "google-ads-entry: session seed deferred to first event batch",
           error instanceof Error ? error.name : "unknown",
         );
       }
+      if (journey) {
+        const fragment = new URLSearchParams({ [GOOGLE_ADS_ENTRY_FRAGMENT_KEY]: journey.token });
+        const clicks = googleAdsClickAttributionFromSearch(journeySearch);
+        for (const key of GOOGLE_ADS_CLICK_KEYS) {
+          const value = clicks[key];
+          if (value) fragment.set(`${GOOGLE_ADS_CLICK_FRAGMENT_PREFIX}${key}`, value);
+        }
+        destination.hash = fragment.toString();
+        entryCookie = googleAdsEntryCookieValue(journey.token, journeySearch);
+      }
     }
-  } else if (!isCrawler) {
+  } else if (!isCrawler && !isPrefetch) {
     destination.hash = new URLSearchParams({
       [GOOGLE_ADS_CLEAR_FRAGMENT_KEY]: "1",
     }).toString();
@@ -114,5 +136,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   // Signing/configuration failures deliberately fail open to usable content,
   // but without a marker: the visit then cannot enter the Google Ads CRM.
-  return redirectHeaders(NextResponse.redirect(destination, 302));
+  const response = redirectHeaders(NextResponse.redirect(destination, 302));
+  if (entryCookie) response.cookies.set(GOOGLE_ADS_ENTRY_COOKIE, entryCookie, {
+    httpOnly: true,
+    secure: destination.protocol === "https:",
+    sameSite: "lax",
+    path: "/google-ads",
+    maxAge: GOOGLE_ADS_ENTRY_RETRY_SECONDS,
+  });
+  return response;
 }

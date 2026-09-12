@@ -5,8 +5,9 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const seedGoogleAdsSession = vi.hoisted(() => vi.fn());
+const findGoogleAdsSessionIdentity = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/server/googleAdsRepository", () => ({ seedGoogleAdsSession }));
+vi.mock("@/lib/server/googleAdsRepository", () => ({ seedGoogleAdsSession, findGoogleAdsSessionIdentity }));
 
 import { GET } from "@/app/google-ads/[[...path]]/route";
 import { trackFunnelEvent, trackQuizEvent } from "@/lib/analytics";
@@ -83,6 +84,7 @@ function context(path?: string[]) {
 
 beforeEach(() => {
   vi.stubEnv("GOOGLE_ADS_CONVERSION_SECRET", SECRET);
+  findGoogleAdsSessionIdentity.mockReset().mockResolvedValue(null);
   seedGoogleAdsSession
     .mockReset()
     .mockResolvedValue({ accepted: true, seeded: true });
@@ -98,6 +100,73 @@ afterEach(() => {
 });
 
 describe("same-domain Google Ads entry boundary", () => {
+  function claimFromResponse(response: Response) {
+    const destination = new URL(response.headers.get("location") || "");
+    return verifyGoogleAdsJourneyToken(new URLSearchParams(destination.hash.slice(1)).get(GOOGLE_ADS_ENTRY_FRAGMENT_KEY));
+  }
+
+  it("reuses the durable session and start time when the same click returns seconds later", async () => {
+    const href = "https://valisenmentalhealth.com/google-ads/welcome?gclid=Repeated_Click_123";
+    const first = claimFromResponse(await GET(new NextRequest(href), context(["welcome"])));
+    expect(first).not.toBeNull();
+    const originalStart = new Date(Date.now() - 15_000).toISOString();
+    findGoogleAdsSessionIdentity.mockResolvedValue({ ...first, startedAt: originalStart });
+    seedGoogleAdsSession.mockRejectedValueOnce(new Error("seed collision"));
+    const repeated = claimFromResponse(await GET(new NextRequest(href), context(["welcome"])));
+    expect(repeated?.sessionId).toBe(first?.sessionId);
+    expect(repeated?.startedAt).toBe(new Date(Math.floor(Date.parse(originalStart) / 1000) * 1000).toISOString());
+    expect(findGoogleAdsSessionIdentity).toHaveBeenCalledWith(first?.sessionId, "/welcome");
+  });
+
+  it("recovers the winning session after concurrent seeds race across different seconds", async () => {
+    const href = "https://valisenmentalhealth.com/google-ads/welcome?gclid=Concurrent_Click_123";
+    const first = claimFromResponse(await GET(new NextRequest(href), context(["welcome"])));
+    const originalStart = new Date(Math.floor((Date.now() - 5_000) / 1000) * 1000).toISOString();
+    findGoogleAdsSessionIdentity.mockResolvedValueOnce({ ...first, startedAt: originalStart });
+    seedGoogleAdsSession.mockRejectedValueOnce(new Error("seed collision"));
+    const repeated = claimFromResponse(await GET(new NextRequest(href), context(["welcome"])));
+    expect(repeated?.sessionId).toBe(first?.sessionId);
+    expect(repeated?.startedAt).toBe(originalStart);
+  });
+
+  it("keeps different clicks and different final URLs separate", async () => {
+    const first = claimFromResponse(await GET(new NextRequest("https://valisenmentalhealth.com/google-ads/welcome?gclid=First_Click_123"), context(["welcome"])));
+    const other = claimFromResponse(await GET(new NextRequest("https://valisenmentalhealth.com/google-ads/welcome?gclid=Other_Click_123"), context(["welcome"])));
+    const home = claimFromResponse(await GET(new NextRequest("https://valisenmentalhealth.com/google-ads/home?gclid=First_Click_123"), context(["home"])));
+    expect(new Set([first?.sessionId, other?.sessionId, home?.sessionId]).size).toBe(3);
+  });
+
+  it("reuses a browser retry without combining different visitors sharing a braid", async () => {
+    const href = "https://valisenmentalhealth.com/google-ads/welcome?gbraid=Shared_Braid_123";
+    const firstResponse = await GET(new NextRequest(href), context(["welcome"]));
+    const first = claimFromResponse(firstResponse);
+    const cookie = firstResponse.headers.get("set-cookie")!.split(";")[0];
+    expect(firstResponse.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(firstResponse.headers.get("set-cookie")).toContain("Path=/google-ads");
+    const repeated = claimFromResponse(await GET(new NextRequest(href, { headers: { cookie } }), context(["welcome"])));
+    const separate = claimFromResponse(await GET(new NextRequest(href), context(["welcome"])));
+    expect(repeated?.sessionId).toBe(first?.sessionId);
+    expect(separate?.sessionId).not.toBe(first?.sessionId);
+    const changed = claimFromResponse(await GET(new NextRequest(`${href}&utm_campaign=different`, { headers: { cookie } }), context(["welcome"])));
+    expect(changed?.sessionId).not.toBe(first?.sessionId);
+    const tampered = claimFromResponse(await GET(new NextRequest(href, { headers: { cookie: cookie.replace("=", "=f") } }), context(["welcome"])));
+    expect(tampered?.sessionId).not.toBe(first?.sessionId);
+  });
+
+  it.each([
+    ["purpose", "prefetch"], ["sec-purpose", "prefetch;prerender"], ["next-router-prefetch", "1"],
+  ])("does not seed speculative requests: %s", async (header, value) => {
+    const response = await GET(new NextRequest("https://valisenmentalhealth.com/google-ads/welcome?gclid=Prefetch_Click_123", { headers: { [header]: value } }), context(["welcome"]));
+    expect(response.status).toBe(302);
+    expect(claimFromResponse(response)).toBeNull();
+    expect(seedGoogleAdsSession).not.toHaveBeenCalled();
+  });
+
+  it("does not seed HEAD requests", async () => {
+    await GET(new NextRequest("https://valisenmentalhealth.com/google-ads/welcome?gclid=Head_Click_123", { method: "HEAD" }), context(["welcome"]));
+    expect(seedGoogleAdsSession).not.toHaveBeenCalled();
+  });
+
   it("issues a signed journey and redirects only to the allowlisted landing", async () => {
     const response = await GET(
       new NextRequest(

@@ -158,6 +158,9 @@ export type GoogleAdsJourneySummary = {
 
 export type GoogleAdsDashboardData = {
   generatedAt: string;
+  landingPath?: string;
+  landingPaths?: string[];
+  excludedEntryRequests?: number;
   range: { from: string; to: string };
   kpis: GoogleAdsDashboardKpis;
   funnel: GoogleAdsFunnelStage[];
@@ -861,6 +864,11 @@ export function normalizeGoogleAdsDashboard(
   const kpis = normalizeKpis(pick(source, "kpis", "summary"));
   return {
     generatedAt: date(pick(source, "generatedAt", "generated_at"), new Date().toISOString()),
+    ...(typeof source.landingPath === "string" ? {
+      landingPath: path(source.landingPath),
+      landingPaths: Array.from(new Set(["/welcome", ...array(source.landingPaths).map(path)])),
+      excludedEntryRequests: count(source.excludedEntryRequests),
+    } : {}),
     range: normalizedRange,
     kpis,
     funnel: normalizeFunnel(source.funnel, kpis),

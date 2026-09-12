@@ -26,6 +26,7 @@ import { useRef, useState } from "react";
 import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
+import { DEFAULT_GOOGLE_ADS_LANDING_PATH } from "@/lib/googleAdsLandingReport";
 import {
   googleAdsCampaignLabel,
   googleAdsEventLabel,
@@ -207,9 +208,7 @@ function kpiCards(data: GoogleAdsDashboardData) {
     {
       label: "Ad sessions",
       value: formatCount(kpis.sessions),
-      note: kpis.sessionsWithoutEvents
-        ? `${formatCount(kpis.sessionsWithoutEvents)} left before the page loaded`
-        : "Only verified Google ad clicks",
+      note: "Recorded visits from Google ads",
       icon: Users,
     },
     {
@@ -274,6 +273,8 @@ export default function GoogleAdsDashboardClient({
   const [data, setData] = useState(initialData);
   const [error, setError] = useState(initialError);
   const [scope, setScope] = useState<DashboardScope>("live");
+  const [landingPath, setLandingPath] = useState(DEFAULT_GOOGLE_ADS_LANDING_PATH);
+  const [landingPaths, setLandingPaths] = useState(initialData?.landingPaths ?? [DEFAULT_GOOGLE_ADS_LANDING_PATH]);
   const [range, setRange] = useState<CheckpointDatePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -283,12 +284,12 @@ export default function GoogleAdsDashboardClient({
   );
   const requestSequence = useRef(0);
 
-  async function loadData(nextRange = range, nextScope = scope) {
+  async function loadData(nextRange = range, nextScope = scope, nextLandingPath = landingPath) {
     const requestId = ++requestSequence.current;
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ range: nextRange, scope: nextScope });
+      const params = new URLSearchParams({ range: nextRange, scope: nextScope, landingPath: nextLandingPath });
       if (nextRange === "custom") {
         params.set("from", customFrom);
         params.set("to", customTo);
@@ -309,7 +310,11 @@ export default function GoogleAdsDashboardClient({
         to: new Date().toISOString(),
       };
       const normalized = normalizeGoogleAdsDashboard(body.data, fallbackRange);
+      if (normalized.landingPath !== nextLandingPath) {
+        throw new Error("The selected final URL could not be loaded. Please refresh.");
+      }
       setData(normalized);
+      setLandingPaths(normalized.landingPaths ?? [DEFAULT_GOOGLE_ADS_LANDING_PATH]);
       setLastUpdated(normalized.generatedAt);
     } catch (caught) {
       if (requestId !== requestSequence.current) return;
@@ -329,6 +334,13 @@ export default function GoogleAdsDashboardClient({
     setData(null);
     setError(null);
     void loadData(range, nextScope);
+  }
+
+  function changeLandingPath(nextPath: string) {
+    if (nextPath === landingPath) return;
+    setLandingPath(nextPath);
+    setData(null);
+    void loadData(range, scope, nextPath);
   }
 
   const bestCampaign = data?.campaigns
@@ -433,6 +445,8 @@ export default function GoogleAdsDashboardClient({
             data={data}
             range={range}
             scope={scope}
+            landingPath={landingPath}
+            loading={loading}
             customFrom={customFrom}
             customTo={customTo}
           />
@@ -450,6 +464,30 @@ export default function GoogleAdsDashboardClient({
             />
           </button>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-[16px] border border-[#b8d2cc] bg-white p-3 shadow-sm">
+        <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[1.5px] text-[#667471]">Final URL</p>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Google Ads final URL tabs">
+          {Array.from(new Set([DEFAULT_GOOGLE_ADS_LANDING_PATH, ...landingPaths, landingPath])).map((path) => (
+            <button
+              key={path}
+              type="button"
+              aria-pressed={landingPath === path}
+              onClick={() => changeLandingPath(path)}
+              title={finalUrlLabel(path)}
+              className={`min-h-10 max-w-full break-all rounded-[10px] px-4 py-2 text-left text-[12px] font-semibold transition ${
+                landingPath === path ? "bg-[#1e5f5a] text-white" : "bg-[#f1f5f3] text-[#53625f] hover:bg-[#e5eeea]"
+              }`}
+            >
+              {path === "/" ? "valisenmentalhealth.com/" : path}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 px-1 text-[11px] leading-5 text-[#667471]" aria-live="polite">
+          Showing journeys that started at {finalUrlLabel(landingPath)}.
+          {data?.excludedEntryRequests ? ` ${formatCount(data.excludedEntryRequests)} entry requests without recorded activity are excluded.` : ""}
+        </p>
       </div>
 
       {range === "custom" ? (
@@ -658,12 +696,16 @@ function ExportMenu({
   data,
   range,
   scope,
+  landingPath,
+  loading,
   customFrom,
   customTo,
 }: {
   data: GoogleAdsDashboardData | null;
   range: CheckpointDatePreset;
   scope: DashboardScope;
+  landingPath: string;
+  loading: boolean;
   customFrom: string;
   customTo: string;
 }) {
@@ -682,7 +724,7 @@ function ExportMenu({
     setBusy(kind);
     setMessage(null);
     try {
-      const params = new URLSearchParams({ kind, range, scope });
+      const params = new URLSearchParams({ kind, range, scope, landingPath });
       if (range === "custom") {
         params.set("from", customFrom);
         params.set("to", customTo);
@@ -761,7 +803,7 @@ function ExportMenu({
               type="button"
               onClick={() => runExport(item.key)}
               disabled={
-                busy !== null || (item.key === "summary" ? !data : !rangeReady)
+                loading || busy !== null || (item.key === "summary" ? !data : !rangeReady)
               }
               className="block w-full rounded-[10px] px-3 py-2.5 text-left transition hover:bg-[#f2f7f5] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -770,7 +812,7 @@ function ExportMenu({
             </button>
           ))}
           <p className="px-3 pb-1.5 pt-2 text-[9.5px] leading-4 text-[#98a19f]">
-            Exports follow the selected scope and date range. Contact details are never included.
+            Exports follow the selected final URL, scope, and date range. Contact details are never included.
           </p>
         </div>
       </details>

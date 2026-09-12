@@ -58,6 +58,16 @@ beforeEach(() => {
 });
 
 describe("CRM Test QA API scope", () => {
+  it("passes the selected final URL to the full live report and rejects invalid paths", async () => {
+    const response = await getGoogleAdsDashboard(new NextRequest(`${ORIGIN}/api/admin/checkpoints/google-ads/dashboard?landingPath=%2F&range=30d`));
+    expect(response.status).toBe(200);
+    expect(repositories.fetchGoogleAdsDashboard).toHaveBeenCalledWith(expect.any(String), expect.any(String), "/");
+    repositories.fetchGoogleAdsDashboard.mockClear();
+    const invalid = await getGoogleAdsDashboard(new NextRequest(`${ORIGIN}/api/admin/checkpoints/google-ads/dashboard?landingPath=%2Fadmin&range=30d`));
+    expect(invalid.status).toBe(400);
+    expect(repositories.fetchGoogleAdsDashboard).not.toHaveBeenCalled();
+  });
+
   it("reads Google Ads test data directly without applying the live reporting cutoff", async () => {
     const response = await getGoogleAdsDashboard(
       new NextRequest(
@@ -69,6 +79,7 @@ describe("CRM Test QA API scope", () => {
     expect(repositories.fetchGoogleAdsTestDashboard).toHaveBeenCalledWith(
       "2026-08-17T04:00:00.000Z",
       "2026-08-21T04:00:00.000Z",
+      "/welcome",
     );
     expect(repositories.fetchGoogleAdsDashboard).not.toHaveBeenCalled();
     expect(repositories.resolveCrmReportingRange).not.toHaveBeenCalled();

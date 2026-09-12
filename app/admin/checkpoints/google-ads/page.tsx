@@ -1,6 +1,7 @@
 import GoogleAdsDashboardClient from "@/components/checkpoints/admin/GoogleAdsDashboardClient";
 import { resolveCheckpointDateRange } from "@/lib/checkpoints/dashboardMetrics";
 import { normalizeGoogleAdsDashboard } from "@/lib/googleAdsDashboard";
+import { DEFAULT_GOOGLE_ADS_LANDING_PATH } from "@/lib/googleAdsLandingReport";
 import { requireCheckpointAdminPage } from "@/lib/server/checkpointAdminAuth";
 import { fetchGoogleAdsDashboard } from "@/lib/server/googleAdsRepository";
 import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
@@ -21,6 +22,7 @@ export default async function GoogleAdsAnalyticsPage() {
       const response = await fetchGoogleAdsDashboard(
         reporting.range.from,
         reporting.range.to,
+        DEFAULT_GOOGLE_ADS_LANDING_PATH,
       );
       data = normalizeGoogleAdsDashboard(response, reporting.range);
     } catch (caught) {

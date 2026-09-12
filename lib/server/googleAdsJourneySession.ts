@@ -20,6 +20,8 @@ import {
 
 export const GOOGLE_ADS_JOURNEY_TTL_SECONDS =
   GOOGLE_ADS_JOURNEY_MAX_AGE_MS / 1_000;
+export const GOOGLE_ADS_ENTRY_COOKIE = "vmh_ga_entry";
+export const GOOGLE_ADS_ENTRY_RETRY_SECONDS = 120;
 
 const TOKEN_VERSION = "v1";
 const TOKEN_SUBJECT = "google-ads-main-domain-journey";
@@ -107,17 +109,21 @@ export function createGoogleAdsJourney(input: {
   search: string;
   now?: number;
   valueTrack?: GoogleAdsValueTrackAttribution;
+  identity?: { sessionId: string; startedAt: string; attribution: CampaignAttribution };
 }): { claim: VerifiedGoogleAdsJourney; token: string } | null {
   const secret = process.env.GOOGLE_ADS_CONVERSION_SECRET;
   const now = input.now ?? Date.now();
-  const issued = Math.floor(now / 1_000);
+  const issued = Math.floor((input.identity ? Date.parse(input.identity.startedAt) : now) / 1_000);
   const landing = canonicalizeGoogleAdsPath(input.landingPath);
   if (!usableSecret(secret) || landing === "/sitewide") return null;
 
-  const rawAttribution = campaignAttributionFromSearch(input.search);
+  if (!Number.isFinite(issued) || issued * 1_000 <= now - GOOGLE_ADS_JOURNEY_MAX_AGE_MS ||
+      issued * 1_000 > now + 60_000 ||
+      (input.identity && !googleAdsSessionIdIsValid(input.identity.sessionId))) return null;
+  const rawAttribution = input.identity?.attribution ?? campaignAttributionFromSearch(input.search);
   const googleClickIdPresent =
     Object.keys(googleAdsClickAttributionFromSearch(input.search)).length > 0;
-  const sessionId = `gas-${randomUUID()}`;
+  const sessionId = input.identity?.sessionId ?? googleAdsClickSessionId(input.search, landing) ?? `gas-${randomUUID()}`;
   const encodedValueTrack = input.valueTrack
     ? encodeGoogleAdsClickAttribution(input.valueTrack)
     : undefined;
@@ -162,6 +168,38 @@ export function createGoogleAdsJourney(input: {
     },
     token,
   };
+}
+
+/** GBRAID and campaign dimensions can be shared by different visitors. */
+export function googleAdsClickSessionId(search: string, landingPath: string): string | undefined {
+  const secret = process.env.GOOGLE_ADS_CONVERSION_SECRET;
+  const gclid = googleAdsClickAttributionFromSearch(search).gclid;
+  if (!usableSecret(secret) || !gclid) return undefined;
+  return `gas-${createHmac("sha256", secret)
+    .update(`google-ads-click-session\0${canonicalizeGoogleAdsPath(landingPath)}\0${gclid}`)
+    .digest("hex")}`;
+}
+
+export function googleAdsEntryCookieValue(token: string, search: string): string {
+  const params = new URLSearchParams(search);
+  params.sort();
+  const digest = createHmac("sha256", process.env.GOOGLE_ADS_CONVERSION_SECRET || "")
+    .update(`google-ads-entry-retry\0${params}\0${token}`).digest("hex");
+  return `${digest}~${token}`;
+}
+
+/** Short-lived, browser-local retries also work without a unique click ID. */
+export function readGoogleAdsEntryRetry(cookie: string | undefined, search: string, landingPath: string) {
+  if (!cookie || cookie.length > 2_600 || !/^[a-f0-9]{64}~[A-Za-z0-9_.-]+$/.test(cookie)) return null;
+  const separator = cookie.indexOf("~");
+  if (separator !== 64) return null;
+  const token = cookie.slice(separator + 1);
+  const expected = googleAdsEntryCookieValue(token, search);
+  if (cookie.length !== expected.length || !timingSafeEqual(Buffer.from(cookie), Buffer.from(expected))) return null;
+  const claim = verifyGoogleAdsJourneyToken(token);
+  if (!claim || claim.landingPath !== landingPath ||
+      Date.parse(claim.startedAt) < Date.now() - GOOGLE_ADS_ENTRY_RETRY_SECONDS * 1_000) return null;
+  return claim;
 }
 
 export function verifyGoogleAdsJourneyToken(

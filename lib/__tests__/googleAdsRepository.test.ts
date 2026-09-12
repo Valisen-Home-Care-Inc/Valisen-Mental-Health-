@@ -14,6 +14,9 @@ import {
   fetchGoogleAdsEventExportPage,
   fetchGoogleAdsJourneyExportPage,
   fetchGoogleAdsTestDashboard,
+  fetchGoogleAdsDashboard,
+  fetchGoogleAdsReportRows,
+  findGoogleAdsSessionIdentity,
   linkGoogleAdsConsultation,
   seedGoogleAdsSession,
 } from "@/lib/server/googleAdsRepository";
@@ -39,6 +42,55 @@ beforeEach(() => {
 });
 
 describe("Google Ads durable repository boundaries", () => {
+  it("recovers duplicate entry identities through protected exports, including QA sessions", async () => {
+    callSupabaseRpc.mockImplementation(async (name: string, input: { p_test: boolean }) => {
+      if (name !== "export_google_ads_journeys") throw new Error("Unexpected identity lookup");
+      return input.p_test ? [{ sessionId: SESSION_ID, startedAt: new Date().toISOString(),
+        landingPath: "/welcome", source: "google", medium: "cpc", campaign: "qa" }] : [];
+    });
+    expect(await findGoogleAdsSessionIdentity(SESSION_ID, "/welcome")).toMatchObject({
+      sessionId: SESSION_ID, attribution: { source: "google", campaign: "qa" },
+    });
+    expect(await findGoogleAdsSessionIdentity(SESSION_ID, "/")).toBeNull();
+  });
+
+  it("counts two request references belonging to one lead as one booked opportunity", async () => {
+    const otherReference = "VC-ABCDEF654321";
+    callSupabaseRpc.mockImplementation(async (name: string, input: { p_request_reference?: string }) => {
+      if (name === "export_google_ads_journeys") return [REFERENCE_ID, otherReference].map((reference, index) => ({
+        sessionId: `${SESSION_ID}${index}`, startedAt: "2026-09-11T14:14:00.000Z", landingPath: "/welcome",
+        eventCount: 2, consultationSubmitted: true, consultationReferenceId: reference, booked: true, paidTherapy: true,
+      }));
+      if (name === "export_google_ads_journey_events") return [];
+      if (name === "repair_consultation_request_attribution") return { accepted: true,
+        requestReference: input.p_request_reference, leadId: "same-lead" };
+      return {};
+    });
+    const report = await fetchGoogleAdsDashboard("2026-09-01T04:00:00.000Z", "2026-09-12T04:00:00.000Z", "/welcome");
+    expect(report).toMatchObject({ kpis: { sessions: 2, consultationRequests: 2, consultationOpportunities: 1,
+      bookedConsultations: 1, paidTherapyConversions: 1 } });
+    expect(JSON.stringify(report)).not.toContain("same-lead");
+  });
+
+  it("reads every export page before calculating a final URL's totals", async () => {
+    const from = "2026-09-01T04:00:00.000Z";
+    const to = "2026-09-12T04:00:00.000Z";
+    const row = (id: number) => ({ sessionId: `gas-00000000-0000-4000-8000-${String(id).padStart(12, "0")}`,
+      startedAt: "2026-09-11T14:14:00.000Z", landingPath: id === 1000 ? "/welcome" : "/", eventCount: 1, engagedMs: 10_000 });
+    callSupabaseRpc.mockImplementation(async (name: string, input: { p_offset: number }) => {
+      if (name === "export_google_ads_journeys") return input.p_offset === 0 ? Array.from({ length: 1000 }, (_, id) => row(id)) : [row(1000)];
+      if (name === "export_google_ads_journey_events") return [];
+      return {};
+    });
+    const data = await fetchGoogleAdsDashboard(from, to, "/welcome");
+    expect(data).toMatchObject({ landingPath: "/welcome", kpis: { sessions: 1, averageEngagedMs: 10_000 } });
+    expect(callSupabaseRpc).toHaveBeenCalledWith("export_google_ads_journeys",
+      { p_from: from, p_to: to, p_test: false, p_limit: 1000, p_offset: 1000 }, 20_000);
+    expect(callSupabaseRpc.mock.calls.some(([name]) => name === "get_google_ads_dashboard")).toBe(false);
+    callSupabaseRpc.mockResolvedValue({ error: "bad payload" });
+    await expect(fetchGoogleAdsReportRows(from, to, false)).rejects.toBeInstanceOf(SupabaseServerError);
+  });
+
   it("ensures a signed session before linking an intake", async () => {
     await expect(
       linkGoogleAdsConsultation({

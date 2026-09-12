@@ -506,11 +506,12 @@ export function buildGoogleAdsSummaryCsv(data: GoogleAdsDashboardData): string {
   };
   section(
     "Report",
-    ["Generated (Toronto)", "From (Toronto)", "To (Toronto)"],
+    ["Generated (Toronto)", "From (Toronto)", "To (Toronto)", "Final URL"],
     [[
       formatGoogleAdsExportLocalTime(data.generatedAt),
       formatGoogleAdsExportLocalTime(data.range.from),
       formatGoogleAdsExportLocalTime(data.range.to),
+      data.landingPath ? `valisenmentalhealth.com${data.landingPath}` : "All final URLs",
     ]],
   );
   section(
@@ -518,7 +519,8 @@ export function buildGoogleAdsSummaryCsv(data: GoogleAdsDashboardData): string {
     ["Metric", "Value"],
     [
       ["Ad sessions", data.kpis.sessions],
-      ["Sessions counted before page load", data.kpis.sessionsWithoutEvents],
+      ["Sessions without browser events", data.kpis.sessionsWithoutEvents],
+      ["Excluded entry requests without activity", data.excludedEntryRequests ?? 0],
       ["Sessions with final URL suffix data", data.kpis.attributedSessions],
       ["Engaged sessions", data.kpis.engagedSessions],
       ["Total active time (s)", seconds(data.kpis.totalEngagedMs)],

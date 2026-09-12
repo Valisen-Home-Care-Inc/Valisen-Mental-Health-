@@ -4,15 +4,13 @@ import {
   buildGoogleAdsEventsCsv,
   buildGoogleAdsJourneysCsv,
   googleAdsExportFilename,
-  normalizeGoogleAdsEventExportRows,
-  normalizeGoogleAdsJourneyExportRows,
   type GoogleAdsExportKind,
 } from "@/lib/googleAdsExport";
+import { googleAdsLandingFilter, isRecordedGoogleAdsSession } from "@/lib/googleAdsLandingReport";
 import { requireCheckpointAdminApi } from "@/lib/server/checkpointAdminAuth";
 import { resolveCrmReportingRange } from "@/lib/server/crmReportingRepository";
 import {
-  fetchGoogleAdsEventExportPage,
-  fetchGoogleAdsJourneyExportPage,
+  fetchGoogleAdsReportRows,
 } from "@/lib/server/googleAdsRepository";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
 
@@ -36,31 +34,13 @@ function jsonError(message: string, status: number): NextResponse {
   );
 }
 
-async function collect<T>(
-  fetchPage: (offset: number, limit: number) => Promise<unknown>,
-  normalize: (value: unknown) => T[],
-  limits: { page: number; maxRows: number },
-): Promise<{ rows: T[]; truncated: boolean }> {
-  const rows: T[] = [];
-  let offset = 0;
-  while (rows.length < limits.maxRows) {
-    const limit = Math.min(limits.page, limits.maxRows - rows.length);
-    const page = normalize(await fetchPage(offset, limit));
-    rows.push(...page);
-    if (page.length < limit) return { rows, truncated: false };
-    offset += page.length;
-  }
-  // The final page was full: there may be more rows than the cap allows.
-  const probe = normalize(await fetchPage(offset, 1));
-  return { rows, truncated: probe.length > 0 };
-}
-
 export async function GET(request: NextRequest) {
   const unauthorized = requireCheckpointAdminApi(request);
   if (unauthorized) return unauthorized;
 
   const kind = request.nextUrl.searchParams.get("kind");
   const scope = request.nextUrl.searchParams.get("scope") ?? "live";
+  const landingPath = googleAdsLandingFilter(request.nextUrl.searchParams.get("landingPath"));
   const range = resolveCheckpointDateRange(
     request.nextUrl.searchParams.get("range"),
     request.nextUrl.searchParams.get("from"),
@@ -69,7 +49,7 @@ export async function GET(request: NextRequest) {
   if (
     (kind !== "journeys" && kind !== "events") ||
     (scope !== "live" && scope !== "test") ||
-    !range
+    !range || !landingPath
   ) {
     return jsonError("Invalid export type, scope, or date range.", 400);
   }
@@ -79,25 +59,18 @@ export async function GET(request: NextRequest) {
       scope === "test"
         ? range
         : (await resolveCrmReportingRange("google_ads", range)).range;
-    const pageInput = {
-      from: effectiveRange.from,
-      to: effectiveRange.to,
-      test: scope === "test",
+    const report = await fetchGoogleAdsReportRows(effectiveRange.from, effectiveRange.to, scope === "test");
+    const journeys = report.journeys.filter((row) => row.landingPath === landingPath && isRecordedGoogleAdsSession(row));
+    const ids = new Set(journeys.map((row) => row.sessionId));
+    const events = report.events.filter((event) => ids.has(event.sessionId));
+    const rows = kind === "journeys" ? journeys : events;
+    const result = {
+      rows: rows.slice(0, LIMITS[kind].maxRows),
+      truncated: rows.length > LIMITS[kind].maxRows,
+      csv: kind === "journeys"
+        ? buildGoogleAdsJourneysCsv(journeys.slice(0, LIMITS.journeys.maxRows))
+        : buildGoogleAdsEventsCsv(events.slice(0, LIMITS.events.maxRows)),
     };
-    const result =
-      kind === "journeys"
-        ? await collect(
-            (offset, limit) =>
-              fetchGoogleAdsJourneyExportPage({ ...pageInput, offset, limit }),
-            normalizeGoogleAdsJourneyExportRows,
-            LIMITS.journeys,
-          ).then((page) => ({ ...page, csv: buildGoogleAdsJourneysCsv(page.rows) }))
-        : await collect(
-            (offset, limit) =>
-              fetchGoogleAdsEventExportPage({ ...pageInput, offset, limit }),
-            normalizeGoogleAdsEventExportRows,
-            LIMITS.events,
-          ).then((page) => ({ ...page, csv: buildGoogleAdsEventsCsv(page.rows) }));
 
     // A UTF-8 BOM makes Excel open the file with the right encoding.
     return new NextResponse("\uFEFF" + result.csv, {
