@@ -253,6 +253,9 @@ export default function QuizFlow() {
     const selectedIntent = quizIntentForAnswers(finalAnswers);
     setIntent(selectedIntent);
     setPhase("access");
+    // v6 derives the existing routing category from start timing; it no
+    // longer has a separate final intent question.
+    trackQuizEvent("quiz_intent_selected", { intent: selectedIntent });
     // Historical analytics name: this event means all questions were
     // answered and the final contact form was reached. It does not mean that
     // form was submitted; the CRM reserves "Completed" for a saved lead.

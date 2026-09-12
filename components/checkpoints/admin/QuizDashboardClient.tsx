@@ -42,6 +42,8 @@ import { getQuizIntentLabel, isQuizIntent } from "@/lib/quizIntent";
 import { getTherapistBySlug } from "@/lib/therapists";
 import QuizResultEngagementPanel from "@/components/checkpoints/admin/QuizResultEngagementPanel";
 import type { ResultEngagementReport } from "@/lib/quizResultEngagement";
+import { QUIZ_VERSION, TOTAL_QUESTIONS } from "@/lib/quiz";
+import QuizAccessFunnel from "@/components/checkpoints/admin/QuizAccessFunnel";
 
 const RANGE_OPTIONS: Array<{ value: Exclude<CheckpointDatePreset, "custom">; label: string }> = [
   { value: "today", label: "Today" },
@@ -127,6 +129,7 @@ export default function QuizDashboardClient({
   initialResultEngagement?: ResultEngagementReport | null;
 }) {
   const [data, setData] = useState(initialData);
+  const [quizVersion, setQuizVersion] = useState(QUIZ_VERSION);
   const [recovery, setRecovery] = useState(initialRecovery);
   const [testData, setTestData] = useState(initialTestData);
   const [resultEngagement, setResultEngagement] = useState(initialResultEngagement);
@@ -191,7 +194,10 @@ export default function QuizDashboardClient({
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  const maxReached = Math.max(1, ...((data?.quizQuestions ?? []).map((item) => item.reached)));
+  const flow = data?.quizFlow?.find((item) => item.quizVersion === quizVersion)
+    ?? data?.quizFlow?.find((item) => item.quizVersion === QUIZ_VERSION);
+  const questions = flow?.questions ?? data?.quizQuestions ?? [];
+  const maxReached = Math.max(1, ...questions.map((item) => item.reached));
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
@@ -205,8 +211,9 @@ export default function QuizDashboardClient({
             Therapist quiz performance
           </h1>
           <p className="mt-2 max-w-[720px] text-[13px] leading-5 text-[#667471]">
-            Follow the complete 19-question journey from campaign arrival through consultation,
-            confirmed booking, and paid therapy. Question responses are never shown here.
+            Follow the {TOTAL_QUESTIONS}-question quiz through results access, consultation,
+            confirmed booking, and paid therapy. Overall totals include historical quiz versions;
+            question and access-form tracking are separated below. Question responses are never shown here.
           </p>
         </div>
 
@@ -353,8 +360,8 @@ export default function QuizDashboardClient({
 
           <section className="mt-5 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6" aria-labelledby="quiz-intent-title">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-              <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Q19 routing intent</p><h2 id="quiz-intent-title" className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">What visitors want next</h2></div>
-              <p className="max-w-[500px] text-[10.5px] leading-4 text-[#7d8986]">One latest allow-listed category per quiz attempt. No clinical answer, safety response, score, or free text is stored here.</p>
+              <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Next-step routing</p><h2 id="quiz-intent-title" className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">What visitors want next</h2></div>
+              <p className="max-w-[500px] text-[10.5px] leading-4 text-[#7d8986]">One category per attempt across versions. The current quiz derives this from desired start timing; older quizzes asked for a next step. No clinical answer, safety response, score, or free text is stored here.</p>
             </div>
             {(data.quizIntentMix ?? []).some((item) => item.selections > 0) ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -375,22 +382,32 @@ export default function QuizDashboardClient({
                   );
                 })}
               </div>
-            ) : <EmptyState title="No intent selections yet" detail="Privacy-safe Q19 routing categories will appear after visitors reach the final quiz question." />}
+            ) : <EmptyState title="No routing categories yet" detail="The current quiz records a routing category when all questions are finished." />}
           </section>
 
           <section className="mt-5 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6" aria-labelledby="quiz-questions-title">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Question-level friction</p><h2 id="quiz-questions-title" className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">Exactly where visitors stop</h2></div>
-              <p className="max-w-[540px] text-[10.5px] leading-4 text-[#7d8986]">Counts are per quiz attempt; an answer always implies reach. An exit is assigned to the latest current question after backtracking and matures after 30 minutes or an explicit browser exit. Q19 exits after answering remain visible.</p>
+              <p className="max-w-[540px] text-[10.5px] leading-4 text-[#7d8986]">Counts are per quiz attempt and version; an answer always implies reach. An exit is assigned to the latest current question after backtracking and matures after 30 minutes or an explicit browser exit. Finishing the questions is separate from saving the results-access form.</p>
             </div>
-            {data.quizQuestions.some((question) => question.reached > 0) ? (
+            {data.quizFlow?.length ? <label className="mb-4 block text-xs font-semibold text-[#53615e]">
+              Questionnaire version
+              <select aria-label="Questionnaire version" value={flow?.quizVersion ?? QUIZ_VERSION} onChange={(event) => setQuizVersion(event.target.value)} className="ml-3 rounded-lg border border-black/10 bg-white px-3 py-2">
+                {data.quizFlow.map((item) => <option key={item.quizVersion} value={item.quizVersion}>
+                  {item.quizVersion === QUIZ_VERSION ? "Current" : "Historical"} · {item.quizVersion} · {item.totalQuestions} questions
+                </option>)}
+              </select>
+              <span className="ml-3 font-normal">{formatCount(flow?.attempts ?? 0)} attempts</span>
+            </label> : <p className="mb-4 text-xs text-[#8d452e]">Version-separated tracking is unavailable until the quiz-flow reporting migration is applied. Historical positions below are shown without question wording.</p>}
+            {flow ? <QuizAccessFunnel flow={flow} /> : null}
+            {questions.some((question) => question.reached > 0) ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1120px] border-collapse text-left">
                   <thead className="border-y border-black/[0.06] bg-[#f8faf8] text-[9.5px] font-bold uppercase tracking-[0.65px] text-[#788481]"><tr><th className="px-4 py-3">Question</th><th className="px-4 py-3">Reach</th><th className="px-4 py-3">Answered</th><th className="px-4 py-3">Answer rate</th><th className="px-4 py-3">Exit before answer</th><th className="px-4 py-3">Exit after answer</th><th className="px-4 py-3">Total exits</th><th className="px-4 py-3">Exit rate</th></tr></thead>
                   <tbody className="divide-y divide-black/[0.055]">
-                    {data.quizQuestions.map((question) => (
+                    {questions.map((question) => (
                       <tr key={question.questionNumber} className="text-[11.5px] text-[#53615e] hover:bg-[#fafbfa]">
-                        <td className="max-w-[480px] px-4 py-3.5"><p className="font-medium text-[#31413e]">{quizQuestionPositionLabel(question.questionNumber)}</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7ebe8]"><div className="h-full rounded-full bg-gradient-to-r from-[#76a79c] to-[#276e68]" style={{ width: `${Math.min(100, (question.reached / maxReached) * 100)}%` }} /></div></td>
+                        <td className="max-w-[480px] px-4 py-3.5"><p className="font-medium text-[#31413e]">{quizQuestionPositionLabel(question.questionNumber, flow?.quizVersion)}</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7ebe8]"><div className="h-full rounded-full bg-gradient-to-r from-[#76a79c] to-[#276e68]" style={{ width: `${Math.min(100, (question.reached / maxReached) * 100)}%` }} /></div></td>
                         <td className="px-4 py-3.5 font-semibold tabular-nums">{formatCount(question.reached)}</td>
                         <td className="px-4 py-3.5 tabular-nums">{formatCount(question.answered)}</td>
                         <td className="px-4 py-3.5 font-semibold tabular-nums text-[#376c66]">{formatPercent(question.answerRate)}</td>
@@ -462,7 +479,7 @@ export default function QuizDashboardClient({
                             {session.sessionId.slice(0, 18)}…
                           </td>
                           <td className="max-w-[240px] px-4 py-3.5 font-medium text-[#34423f]">
-                            {formatGrowthStage(session.lastStage, session.quizVersion)}
+                            {formatGrowthStage(session.lastStage, session.quizVersion || "unknown")}
                           </td>
                           <td className="px-4 py-3.5 tabular-nums">{session.lastQuizQuestion || "—"} / {session.maxQuizQuestion || "—"}</td>
                           <td className="px-4 py-3.5">

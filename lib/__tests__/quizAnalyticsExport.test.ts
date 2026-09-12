@@ -37,6 +37,10 @@ const dashboard: GrowthDashboardData = {
   quizFunnel: [{ key: "quiz_page_viewed", label: "Quiz visitors", count: 10, conversionRate: 100 }],
   quizIntentMix: [{ intent: "book_consultation", selections: 2, share: 50, attemptRate: 25 }],
   quizQuestions: [{ questionNumber: 1, reached: 8, answered: 7, exits: 1, exitsBeforeAnswer: 1, exitsAfterAnswer: 0, reachRate: 80, answerRate: 87.5, exitRate: 12.5 }],
+  quizFlow: [{ quizVersion: "6.0.0", totalQuestions: 12, attempts: 8,
+    questions: [{ questionNumber: 1, reached: 8, answered: 7, exits: 1, exitsBeforeAnswer: 1, exitsAfterAnswer: 0, reachRate: 100, answerRate: 87.5, exitRate: 12.5 }],
+    access: { viewed: 4, started: 4, submitAttempted: 3, saved: 3, resultsViewed: 2, validationFailed: 1, verificationFailed: 0, submitFailed: 1, exitedWithoutSubmitting: 1 },
+  }],
   sources: [{ source: "google", medium: "cpc", campaign: "therapy", sessions: 10, quizStarts: 8, quizCompletions: 4, quizLeads: 3, consultationClicks: 2, consultationRequests: 2, duplicateConsultationRequests: 1, consultationOpportunities: 1, consultationBookings: 1, paidTherapyConversions: 0, quizCompletionRate: 50, requestRate: 20, bookingRate: 100, paidTherapyRate: 0 }],
   recentSessions: [{
     sessionId: "private-session-key",
@@ -66,7 +70,7 @@ describe("quiz analytics export", () => {
     expect(exported.kpis.quizVisitors).toBe(10);
     expect(exported.kpis.quizQuestionsFinished).toBe(4);
     expect(exported.kpis.completedSubmissions).toBe(3);
-    expect(exported.schemaVersion).toBe("1.2");
+    expect(exported.schemaVersion).toBe("1.3");
     expect(exported.questionnaire.totalQuestions).toBe(12);
     expect(exported.questionnaire.quizVersion).toBe("6.0.0");
     expect(exported.questionnaire.questions).toHaveLength(12);
@@ -120,5 +124,17 @@ describe("quiz analytics export", () => {
     expect(quizAnalyticsExportFilename(dashboard)).toBe(
       "valisen-quiz-analytics-2026-08-01-to-2026-08-17.json",
     );
+  });
+
+  it("does not attach current question wording to historical or mixed metrics", () => {
+    const legacy = { ...dashboard.quizFlow![0], quizVersion: "5.1.0", totalQuestions: 18 };
+    const exported = buildQuizAnalyticsExport({ ...dashboard, quizFlow: [dashboard.quizFlow![0], legacy] });
+    expect(exported.quizVersions[1].questionFriction[0].label).toContain("Reason for visiting");
+    expect(exported.quizVersions[1].questionFriction[0].questionId).toBeNull();
+    expect(exported.quizVersions[0].resultsAccess.saved).toBe(3);
+    const mixed = buildQuizAnalyticsExport({ ...dashboard, quizFlow: undefined });
+    expect(mixed.questionFriction[0].label).toContain("Mixed versions");
+    expect(mixed.questionFriction[0].questionId).toBeNull();
+    expect(mixed.reportingScope.versionBreakdownAvailable).toBe(false);
   });
 });

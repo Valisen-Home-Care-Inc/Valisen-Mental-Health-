@@ -1,4 +1,22 @@
-import { QUESTIONS } from "@/lib/quiz";
+import { QUESTIONS, QUIZ_VERSION } from "@/lib/quiz";
+
+export type QuizFlowVersion = {
+  quizVersion: string;
+  totalQuestions: number;
+  attempts: number;
+  questions: QuizQuestionMetric[];
+  access: {
+    viewed: number;
+    started: number;
+    submitAttempted: number;
+    validationFailed: number;
+    verificationFailed: number;
+    submitFailed: number;
+    saved: number;
+    resultsViewed: number;
+    exitedWithoutSubmitting: number;
+  };
+};
 
 export type GrowthKpis = {
   trackedSessions: number;
@@ -105,6 +123,8 @@ export type GrowthDashboardData = {
   quizFunnel: GrowthFunnelStage[];
   quizIntentMix: GrowthQuizIntentMetric[];
   quizQuestions: QuizQuestionMetric[];
+  /** Version-separated question and access metrics; absent on older DB deployments. */
+  quizFlow?: QuizFlowVersion[];
   sources: GrowthSourceMetric[];
   recentSessions: GrowthSessionSummary[];
 };
@@ -128,16 +148,23 @@ export const QUIZ_QUESTION_LABELS = QUESTIONS.map((question, index) => {
   return `Q${index + 1} · ${concise}`;
 });
 
-export function quizQuestionLabel(questionNumber: number, version?: string): string {
-  if (version === "5.0.0") {
-    if (questionNumber === 17) return "Q17 · Therapist preference";
-    if (questionNumber === 18) return "Q18 · Safety check";
-    if (questionNumber === 19) return "Q19 · Preferred next step";
+const LEGACY_QUESTION_LABELS = [
+  "Reason for visiting", "Controlling worry", "Interest and pleasure",
+  "Emotional energy", "Tension and restlessness", "Low mood",
+  "Relationship strain", "Feeling overwhelmed", "Racing thoughts",
+  "Motivation and energy", "Rest and recovery", "Connection and support",
+  "Sleep", "Duration", "Daily-life impact", "Support concerns",
+];
+
+export function quizQuestionLabel(questionNumber: number, version = QUIZ_VERSION): string {
+  if (version === QUIZ_VERSION) return QUIZ_QUESTION_LABELS[questionNumber - 1] || `Question ${questionNumber}`;
+  if (version === "5.0.0" || version === "5.1.0") {
+    const labels = [...LEGACY_QUESTION_LABELS,
+      ...(version === "5.0.0" ? ["Therapist preference"] : []),
+      "Safety check", "Preferred next step"];
+    if (labels[questionNumber - 1]) return `Q${questionNumber} · ${labels[questionNumber - 1]}`;
   }
-  return (
-    QUIZ_QUESTION_LABELS[questionNumber - 1] ||
-    `Question ${questionNumber}`
-  );
+  return `Question ${questionNumber}`;
 }
 
 export function formatGrowthStage(stage: string, version?: string): string {
@@ -152,6 +179,11 @@ export function formatGrowthStage(stage: string, version?: string): string {
     quiz_back_clicked: "Quiz back navigation",
     quiz_intent_selected: "Next-step intent selected",
     quiz_access_form_viewed: "Results access form",
+    quiz_access_form_started: "Results access form started",
+    quiz_access_form_submit_attempted: "Saving contact details",
+    quiz_access_form_submit_failed: "Contact details could not be saved",
+    quiz_access_form_verification_failed: "Results access verification failed",
+    quiz_access_form_validation_failed: "Results access validation failed",
     lead_details_submitted: "Contact details submitted",
     results_viewed: "Results viewed",
     therapist_match_viewed: "Therapist match viewed",
@@ -166,9 +198,6 @@ export function formatGrowthStage(stage: string, version?: string): string {
 }
 
 /** Aggregated reports can contain both questionnaire versions; don't relabel historical positions. */
-export function quizQuestionPositionLabel(questionNumber: number): string {
-  if (questionNumber === 17) return "Q17 · Safety (v5.1) / Therapist preference (v5.0)";
-  if (questionNumber === 18) return "Q18 · Preferred next step (v5.1) / Safety (v5.0)";
-  if (questionNumber === 19) return "Q19 · Preferred next step (v5.0 only)";
-  return quizQuestionLabel(questionNumber);
+export function quizQuestionPositionLabel(questionNumber: number, version?: string): string {
+  return version ? quizQuestionLabel(questionNumber, version) : `Question ${questionNumber} · Mixed versions`;
 }

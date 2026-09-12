@@ -47,6 +47,24 @@ beforeEach(() => {
 });
 
 describe("first-party funnel event boundary", () => {
+  it("preserves the producing quiz version and enforces each version's question limit", async () => {
+    for (const [quizVersion, quizStep] of [["6.0.0", 11], ["5.1.0", 17], ["5.0.0", 18]] as const) {
+      expect((await POST(request([event({ quizVersion, quizStep })]))).status).toBe(204);
+      expect(saveFunnelEventBatch.mock.lastCall?.[2][0].quizVersion).toBe(quizVersion);
+      expect((await POST(request([event({ quizVersion, quizStep: quizStep + 1 })]))).status).toBe(400);
+    }
+    expect((await POST(request([event({ quizVersion: "private@example.invalid" })]))).status).toBe(400);
+    expect((await POST(request([event()]))).status).toBe(204);
+    expect(saveFunnelEventBatch.mock.lastCall?.[2][0].quizVersion).toBeUndefined();
+  });
+
+  it("accepts fixed results-access milestones but rejects contact values", async () => {
+    for (const name of ["quiz_access_form_submit_attempted", "quiz_access_form_submit_failed", "quiz_access_form_verification_failed"]) {
+      const milestone = event({ event: name, quizVersion: "6.0.0", quizStep: undefined });
+      expect((await POST(request([milestone]))).status).toBe(204);
+      expect((await POST(request([{ ...milestone, email: "private@example.invalid" }]))).status).toBe(400);
+    }
+  });
   it("accepts a question event only when its per-retake attempt is present", async () => {
     const response = await POST(request([event()]));
 

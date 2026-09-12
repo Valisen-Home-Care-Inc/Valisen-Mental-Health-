@@ -31,7 +31,7 @@ const browser = await puppeteer.launch({ headless: true });
 try {
   async function pageFor(width, restore, savedMatch = match) {
     const page = await browser.newPage();
-    const requests = [], metrics = [], errors = [];
+    const requests = [], metrics = [], errors = [], quizSaves = [], funnel = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewport({ width, height: 900, hasTouch: width < 640 });
     await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
@@ -42,6 +42,16 @@ try {
       if (url.hostname === "challenges.cloudflare.com") return void request.respond({ status: 200, contentType: "application/javascript", body: 'window.turnstile={render:function(el,options){setTimeout(function(){options.callback("test-turnstile-token")},0);return "qa"},remove:function(){},execute:function(){}};' });
       if (url.origin !== origin) return void request.abort();
       if (url.pathname === "/api/consultation-slots") return void request.respond({ status: 200, contentType: "application/json", body: '{"booked":[]}' });
+      if (url.pathname === "/api/funnel-events") {
+        funnel.push(...JSON.parse(request.postData()).events);
+        return void request.respond({ status: 204 });
+      }
+      if (url.pathname === "/api/quiz-lead") {
+        quizSaves.push(JSON.parse(request.postData()));
+        return void request.respond({ status: quizSaves.length === 1 ? 503 : 200, contentType: "application/json", body: JSON.stringify(quizSaves.length === 1
+          ? { error: "Temporary access-form test failure" }
+          : { ok: true, referenceId: "VQ-ACCESSQA", submissionToken: token, outcome, match: savedMatch, intent: "exploring" }) });
+      }
       if (url.pathname === "/api/quiz-lead/result") return void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, referenceId: "VQ-CALENDARQA", firstName: "Alex", email: "qa@example.invalid", phone: "613-555-0100", outcome, match: savedMatch, intent: "see_recommended_therapist", attribution: {} }) });
       if (url.pathname === "/api/submit-intake") {
         requests.push(JSON.parse(request.postData()));
@@ -51,7 +61,7 @@ try {
       if (url.pathname.startsWith("/api/")) return void request.respond({ status: 200, contentType: "application/json", body: '{"ok":true}' });
       void request.continue();
     });
-    return { page, requests, metrics, errors };
+    return { page, requests, metrics, errors, quizSaves, funnel };
   }
   if (!process.argv.includes('--welcome-only')) {
   const fresh = await pageFor(390, false);
@@ -86,10 +96,40 @@ try {
       await fresh.page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Continue").click());
     } else await fresh.page.click('button[aria-pressed="false"]');
   }
-  await fresh.page.waitForFunction(() => document.body.innerText.includes("Your therapist matches are ready"));
+  await fresh.page.waitForSelector('input[autocomplete="given-name"]');
   assert.equal(fresh.metrics.length, 0, "Result metrics must not run before submission");
+  await fresh.page.type('input[autocomplete="given-name"]', 'Alex');
+  // Starting the form must be captured before the first field loses focus.
+  const pending = await fresh.page.evaluate(() => JSON.parse(sessionStorage.getItem('valisen:funnel-pending:v1') || '{}').events || []);
+  assert([...fresh.funnel, ...pending].some((event) => event.event === 'quiz_access_form_started'), 'Form start must be queued or delivered immediately');
+  assert.equal(await fresh.page.evaluate(() => document.activeElement?.getAttribute('autocomplete')), 'given-name');
+  await fresh.page.type('input[type="email"]', 'qa@example.invalid');
+  await fresh.page.type('input[type="tel"]', '6135550100');
+  await fresh.page.click('input[type="checkbox"]');
+  await fresh.page.waitForFunction(() => !document.querySelector('form button[type="submit"]').disabled);
+  await Promise.all([
+    fresh.page.waitForResponse((response) => new URL(response.url()).pathname === '/api/quiz-lead' && response.status() === 503),
+    fresh.page.click('form button[type="submit"]'),
+  ]);
+  await fresh.page.waitForFunction(() => document.querySelector('form').getAttribute('aria-busy') === 'false');
+  assert.equal(fresh.quizSaves.length, 1);
+  assert.equal(fresh.metrics.length, 0, 'Failed access save must not open results');
+  await fresh.page.click('form button[type="submit"]');
+  await fresh.page.waitForSelector('[data-quiz-results]');
+  await fresh.page.waitForResponse((response) => new URL(response.url()).pathname === '/api/quiz-lead/result-engagement');
+  assert.equal(fresh.quizSaves.length, 2);
+  assert.equal(fresh.quizSaves[0].clientSubmissionId, fresh.quizSaves[1].clientSubmissionId);
+  const distinctEvents = [...new Map(fresh.funnel.map((event) => [event.eventId, event])).values()];
+  for (const name of ['quiz_completed', 'quiz_intent_selected', 'quiz_access_form_viewed', 'quiz_access_form_started', 'quiz_access_form_submit_failed', 'lead_details_submitted', 'results_viewed']) {
+    assert.equal(distinctEvents.filter((event) => event.event === name).length, 1, name);
+  }
+  assert.equal(distinctEvents.filter((event) => event.event === 'quiz_access_form_submit_attempted').length, 2);
+  assert(distinctEvents.filter((event) => event.page === 'quiz').every((event) => event.quizVersion === '6.0.0'));
+  assert(!JSON.stringify(fresh.funnel).includes('qa@example.invalid'));
+  assert(!JSON.stringify(fresh.funnel).includes('6135550100'));
+  assert.deepEqual(fresh.errors, []);
   await fresh.page.close();
-  console.log(`PASS all ${QUESTIONS.length} quiz screens; no result analytics before saved results`);
+  console.log(`PASS all ${QUESTIONS.length} quiz screens; access milestones, immediate start, failed save, stable retry, results tracking and privacy`);
 
   // A male strongest match must still DISPLAY the woman first, without relabeling the strongest match.
   const malePrimary = { ...match, therapistSlug: "tim-kahtava", reasons: match.alternative.reasons, alternative: { therapistSlug: "meryem-ibrahim", reasons: match.reasons } };

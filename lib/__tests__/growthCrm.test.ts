@@ -65,6 +65,16 @@ describe("growth CRM contracts", () => {
     expect(dashboard).toContain("Final form not submitted");
     expect(dashboard).not.toContain('active={session.quizCompleted} activeLabel="Completed"');
   });
+
+  it("uses the correct historical question labels without inventing missing versions", () => {
+    expect(quizQuestionLabel(1, "5.1.0")).toContain("Reason for visiting");
+    expect(quizQuestionLabel(12, "5.0.0")).toContain("Connection and support");
+    expect(quizQuestionLabel(17, "5.0.0")).toContain("Therapist preference");
+    expect(quizQuestionLabel(17, "5.1.0")).toContain("Safety check");
+    expect(quizQuestionLabel(18, "5.1.0")).toContain("Preferred next step");
+    expect(quizQuestionLabel(19, "5.0.0")).toContain("Preferred next step");
+    expect(quizQuestionLabel(1, "unknown")).toBe("Question 1");
+  });
 });
 
 describe("unified growth CRM migration", () => {

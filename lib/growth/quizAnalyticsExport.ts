@@ -1,6 +1,5 @@
 import {
   formatGrowthStage,
-  quizQuestionLabel,
   quizQuestionPositionLabel,
   type GrowthDashboardData,
 } from "@/lib/growth/dashboard";
@@ -12,7 +11,7 @@ import {
 import type { ResultEngagementReport } from "@/lib/quizResultEngagement";
 import { getQuizIntentLabel, isQuizIntent } from "@/lib/quizIntent";
 
-const EXPORT_SCHEMA_VERSION = "1.2";
+const EXPORT_SCHEMA_VERSION = "1.3";
 
 function datePart(value: string): string {
   const parsed = new Date(value);
@@ -63,12 +62,28 @@ export function buildQuizAnalyticsExport(
     quizLeads,
     ...unambiguousKpis
   } = data.kpis;
+  const currentFlow = data.quizFlow?.find((flow) => flow.quizVersion === QUIZ_VERSION);
+  function questionMetrics(question: GrowthDashboardData["quizQuestions"][number], version?: string) {
+    const definition = version === QUIZ_VERSION ? QUESTIONS[question.questionNumber - 1] : undefined;
+    return {
+      ...question,
+      questionId: definition?.id ?? null,
+      questionKind: definition?.kind ?? null,
+      questionText: definition?.text ?? quizQuestionPositionLabel(question.questionNumber, version),
+      label: quizQuestionPositionLabel(question.questionNumber, version),
+    };
+  }
   return {
     schemaVersion: EXPORT_SCHEMA_VERSION,
     exportType: "Valisen quiz analytics",
     exportedAt,
     analyticsGeneratedAt: data.generatedAt,
     selectedDateRange: data.range,
+    reportingScope: {
+      overallMetrics: "All quiz versions in the selected visitor cohort",
+      questionFriction: currentFlow ? QUIZ_VERSION : "Mixed versions; question wording is unavailable",
+      versionBreakdownAvailable: Boolean(data.quizFlow),
+    },
     resultPageEngagement: resultEngagement ? {
       views: resultEngagement.views,
       visitors: resultEngagement.visitors,
@@ -77,7 +92,7 @@ export function buildQuizAnalyticsExport(
       recentResultJourneys: resultEngagement.records.map(({ referenceId: _reference, ...metrics }, index) => ({ resultNumber: index + 1, ...metrics })),
     } : null,
     suggestedPrompt:
-      "Analyze this quiz funnel using the included current questionnaire wording and answer choices. Identify the biggest conversion leaks, question-level friction, wording or answer-option issues, source quality differences, and the highest-impact experiments Valisen should run next. Separate observations from hypotheses, do not infer clinical outcomes from aggregate behavior, and rank recommendations by likely impact and confidence.",
+      "Analyze this quiz funnel. Overall metrics include all quiz versions. Apply the included current questionnaire wording only to the matching version in questionFriction and quizVersions; never apply it to historical or mixed question positions. Identify conversion leaks, question friction, access-form failures, source quality differences, and useful experiments. Separate observations from hypotheses and do not infer clinical outcomes from aggregate behavior.",
     privacy: {
       testRecordsExcludedFromStatistics: true,
       containsContactDetails: false,
@@ -108,6 +123,10 @@ export function buildQuizAnalyticsExport(
         "Distinct non-duplicate CRM opportunities.",
       questionExits:
         "An exit is assigned to the latest current question and matures after 30 minutes or an explicit browser exit.",
+      resultsAccess:
+        "Milestones are distinct attempts per version, not raw event counts. Saved requires a durable lead reference. Submit and failure events begin with the tracking update and cannot be reconstructed historically.",
+      routingIntent:
+        "The current quiz derives a routing category from start timing when questions finish; historical versions asked for a preferred next step.",
       rates: "All rate values are percentages from 0 to 100.",
     },
     kpis: {
@@ -127,16 +146,14 @@ export function buildQuizAnalyticsExport(
       ...item,
       label: intentLabel(item.intent),
     })),
-    questionFriction: data.quizQuestions.map((question) => {
-      const definition = QUESTIONS[question.questionNumber - 1];
-      return {
-        ...question,
-        questionId: definition?.id ?? null,
-        questionKind: definition?.kind ?? null,
-        questionText: definition?.text ?? quizQuestionLabel(question.questionNumber),
-        label: quizQuestionPositionLabel(question.questionNumber),
-      };
-    }),
+    questionFriction: (currentFlow?.questions ?? data.quizQuestions).map((question) => questionMetrics(question, currentFlow?.quizVersion)),
+    quizVersions: data.quizFlow?.map((flow) => ({
+      quizVersion: flow.quizVersion,
+      totalQuestions: flow.totalQuestions,
+      attempts: flow.attempts,
+      resultsAccess: { ...flow.access },
+      questionFriction: flow.questions.map((question) => questionMetrics(question, flow.quizVersion)),
+    })) ?? [],
     acquisitionSources: data.sources.map((source) => {
       const { quizCompletions: questionsFinished, quizLeads: completedSubmissions, ...rest } = source;
       return { ...rest, questionsFinished, completedSubmissions };
@@ -145,7 +162,7 @@ export function buildQuizAnalyticsExport(
       journeyNumber: index + 1,
       startedAt: session.startedAt,
       lastSeenAt: session.lastSeenAt,
-      lastStage: formatGrowthStage(session.lastStage, session.quizVersion),
+      lastStage: formatGrowthStage(session.lastStage, session.quizVersion || "unknown"),
       lastQuizQuestion: session.lastQuizQuestion ?? null,
       maxQuizQuestion: session.maxQuizQuestion,
       quizVersion: session.quizVersion ?? null,

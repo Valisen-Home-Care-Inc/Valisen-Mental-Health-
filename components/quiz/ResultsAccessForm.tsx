@@ -71,6 +71,7 @@ export default function ResultsAccessForm({
   const pendingSecureSubmitRef = useRef(false);
   const turnstileTokenRef = useRef<string | null>(null);
   const startedRef = useRef(false);
+  const viewedRef = useRef(false);
 
   const handleTurnstileToken = useCallback((token: string | null) => {
     turnstileTokenRef.current = token;
@@ -86,6 +87,7 @@ export default function ResultsAccessForm({
   }, []);
 
   const handleTurnstileError = useCallback(() => {
+    trackQuizEvent("quiz_access_form_verification_failed");
     pendingSecureSubmitRef.current = false;
     turnstileTokenRef.current = null;
     setTurnstileToken(null);
@@ -118,7 +120,10 @@ export default function ResultsAccessForm({
   };
 
   useEffect(() => {
-    trackQuizEvent("quiz_access_form_viewed");
+    if (!viewedRef.current) {
+      viewedRef.current = true;
+      trackQuizEvent("quiz_access_form_viewed");
+    }
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     cardRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
     const timer = window.setTimeout(
@@ -128,11 +133,15 @@ export default function ResultsAccessForm({
     return () => window.clearTimeout(timer);
   }, []);
 
-  function markTouched(field: FieldName) {
+  function markStarted() {
     if (!startedRef.current) {
       startedRef.current = true;
       trackQuizEvent("quiz_access_form_started");
     }
+  }
+
+  function markTouched(field: FieldName) {
+    markStarted();
     setTouched((current) => ({ ...current, [field]: true }));
   }
 
@@ -163,6 +172,7 @@ export default function ResultsAccessForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    markStarted();
     setTouched({ firstName: true, email: true, phone: true, privacy: true });
     if (!canSubmit) {
       trackQuizEvent("quiz_access_form_validation_failed");
@@ -180,6 +190,7 @@ export default function ResultsAccessForm({
     }
 
     submittingRef.current = true;
+    trackQuizEvent("quiz_access_form_submit_attempted");
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -194,6 +205,7 @@ export default function ResultsAccessForm({
         turnstileToken: secureToken,
       });
     } catch (error) {
+      trackQuizEvent("quiz_access_form_submit_failed");
       setSubmitError(
         error instanceof Error
           ? error.message
@@ -215,6 +227,11 @@ export default function ResultsAccessForm({
   return (
     <div ref={cardRef} className="scroll-mt-6">
       <form
+        onChangeCapture={(event) => {
+          // Record the first edit even if the visitor leaves before blurring.
+          // Do not include the field name or its value in analytics.
+          if ((event.target as HTMLInputElement).name !== "website") markStarted();
+        }}
         onSubmit={handleSubmit}
         noValidate
         aria-busy={submitting || verifying}

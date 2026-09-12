@@ -49,6 +49,16 @@ afterEach(() => {
 });
 
 describe("privacy-safe quiz analytics", () => {
+  it("keeps access-form operational events first-party and excludes form contents", () => {
+    const dataLayer = installWindow(390, "/quiz");
+    for (const event of ["quiz_access_form_submit_attempted", "quiz_access_form_submit_failed", "quiz_access_form_verification_failed"] as const) {
+      trackQuizEvent(event, { email: "private@example.invalid", phone: "6135550100" } as SafeQuizEventProperties);
+    }
+    expect(dataLayer).toEqual([]);
+    expect(recordFirstPartyFunnelEvent).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(recordFirstPartyFunnelEvent.mock.calls)).not.toContain("private@example.invalid");
+    expect(JSON.stringify(recordFirstPartyFunnelEvent.mock.calls)).not.toContain("6135550100");
+  });
   it("sends only the allow-listed intent category to first-party analytics", () => {
     const dataLayer = installWindow(390, "/quiz");
 

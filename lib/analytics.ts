@@ -23,6 +23,9 @@ export type QuizEvent =
   | "quiz_access_form_viewed"
   | "quiz_access_form_started"
   | "quiz_access_form_validation_failed"
+  | "quiz_access_form_submit_attempted"
+  | "quiz_access_form_submit_failed"
+  | "quiz_access_form_verification_failed"
   | "quiz_started"
   | "quiz_progressed"
   | "quiz_completed"
@@ -294,7 +297,10 @@ export function trackQuizEvent(
 
   const w = window as DataLayerWindow;
   w.dataLayer = w.dataLayer || [];
-  w.dataLayer.push(marketingPayload);
+  // Operational form failures belong only in the first-party CRM.
+  if (!["quiz_access_form_submit_attempted", "quiz_access_form_submit_failed", "quiz_access_form_verification_failed"].includes(event)) {
+    w.dataLayer.push(marketingPayload);
+  }
   recordFirstPartyFunnelEvent(event, { ...firstPartyPayload, page: "quiz" });
 }
 

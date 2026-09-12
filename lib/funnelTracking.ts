@@ -4,6 +4,7 @@ import {
 } from "@/lib/funnelEvents";
 import { isQuizIntent } from "@/lib/quizIntentContract";
 import { isGoogleAdsJourneyActive } from "@/lib/googleAdsJourney";
+import { QUIZ_VERSION } from "@/lib/quiz";
 
 const SESSION_KEY = "valisen:funnel-session:v1";
 const PENDING_KEY = "valisen:funnel-pending:v1";
@@ -30,6 +31,7 @@ type QueuedEvent = {
   stage?: string;
   quizStep?: number;
   quizAttemptId?: string;
+  quizVersion?: string;
   quizIntent?: string;
   funnelStep?: number;
   ctaPlacement?: string;
@@ -313,6 +315,10 @@ function enqueue(
     event,
     path: window.location.pathname.slice(0, 180) || "/",
     page: clean(payload.page, 40),
+    // Persist the producing version with the queued event, including retries
+    // that arrive after a questionnaire deployment.
+    quizVersion: payload.page === "quiz" || window.location.pathname === "/quiz"
+      ? QUIZ_VERSION : undefined,
     stage: lifecycleEvent ? lastStage : stage,
     quizStep:
       typeof quizStep === "number" && Number.isInteger(quizStep) ? quizStep : undefined,

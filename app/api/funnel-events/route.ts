@@ -9,7 +9,6 @@ import {
   type FunnelEventRecord,
 } from "@/lib/server/funnelEventStore";
 import { isRateLimited } from "@/lib/server/rateLimit";
-import { QUIZ_VERSION } from "@/lib/quiz";
 import { isQuizIntent } from "@/lib/quizIntentContract";
 import { canonicalizeTrackedPath } from "@/lib/funnelPath";
 import { SupabaseServerError } from "@/lib/server/supabaseServer";
@@ -43,6 +42,7 @@ const EVENT_KEYS = new Set([
   "stage",
   "quizStep",
   "quizAttemptId",
+  "quizVersion",
   "quizIntent",
   "funnelStep",
   "ctaPlacement",
@@ -137,6 +137,10 @@ function parseEvent(input: unknown): FunnelEventRecord | null {
   }
 
   const quizStep = event.quizStep;
+  const quizVersion = event.quizVersion;
+  if (quizVersion !== undefined &&
+      (typeof quizVersion !== "string" || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(quizVersion))) return null;
+  const questionLimit = quizVersion === "6.0.0" ? 12 : quizVersion === "5.1.0" ? 18 : 19;
   const quizAttemptId = clean(event.quizAttemptId, 100);
   const hasQuizIntent = Object.prototype.hasOwnProperty.call(event, "quizIntent");
   const quizIntent = hasQuizIntent && isQuizIntent(event.quizIntent)
@@ -145,7 +149,7 @@ function parseEvent(input: unknown): FunnelEventRecord | null {
   const funnelStep = event.funnelStep;
   if (
     quizStep !== undefined &&
-    (typeof quizStep !== "number" || !Number.isInteger(quizStep) || quizStep < 0 || quizStep > 18)
+    (typeof quizStep !== "number" || !Number.isInteger(quizStep) || quizStep < 0 || quizStep >= questionLimit)
   ) {
     return null;
   }
@@ -196,6 +200,7 @@ function parseEvent(input: unknown): FunnelEventRecord | null {
     stage,
     quizStep: quizStep as number | undefined,
     quizAttemptId,
+    quizVersion: quizVersion as string | undefined,
     quizIntent,
     funnelStep: funnelStep as number | undefined,
     ctaPlacement,
@@ -270,9 +275,7 @@ export async function POST(request: NextRequest) {
     await saveFunnelEventBatch(
       input.sessionId,
       new Date(input.sessionStartedAt).toISOString(),
-      parsedEvents.map((event) =>
-        event.page === "quiz" ? { ...event, quizVersion: QUIZ_VERSION } : event,
-      ),
+      parsedEvents,
     );
     return new NextResponse(null, {
       status: 204,

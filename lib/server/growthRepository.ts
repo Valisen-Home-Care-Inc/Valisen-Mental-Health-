@@ -13,7 +13,6 @@ import type {
 } from "@/lib/growth/quizTestData";
 import type { FunnelEventRecord } from "@/lib/server/funnelEventStore";
 import { callSupabaseRpc } from "@/lib/server/supabaseServer";
-import { QUIZ_VERSION } from "@/lib/quiz";
 
 export async function persistGrowthFunnelEventBatch(
   sessionId: string,
@@ -23,9 +22,7 @@ export async function persistGrowthFunnelEventBatch(
   return callSupabaseRpc("ingest_growth_funnel_events", {
     p_session_key: sessionId,
     p_session_started_at: sessionStartedAt,
-    p_events: events.map((event) =>
-      event.page === "quiz" ? { ...event, quizVersion: QUIZ_VERSION } : event,
-    ),
+    p_events: events,
   });
 }
 
