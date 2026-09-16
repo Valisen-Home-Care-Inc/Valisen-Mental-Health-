@@ -10,6 +10,8 @@ export function shouldLoadSiteAnalytics(
 ): boolean {
   return !(
     hasActiveCheckpointSession ||
+    pathname === "/ads-preview" ||
+    pathname.startsWith("/ads-preview/") ||
     pathname === "/c" ||
     pathname.startsWith("/c/") ||
     pathname === "/thank-you" ||

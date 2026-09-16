@@ -1,0 +1,76 @@
+import type { LandingTranslations } from "@/lib/paidSearchLocale";
+
+export const mandarinLandingTranslations: LandingTranslations = {
+  "Mandarin therapy": "普通话心理治疗",
+  "Mandarin-speaking therapist · Ontario": "普通话心理治疗师 · 安大略省",
+  "Therapy in Mandarin.": "用普通话进行心理治疗。",
+  "Room for all of you.": "容纳完整的你。",
+  "Family expectations. Life between cultures. The feelings that are difficult to translate. Speak with Dayong Quan in Mandarin or English, with space for your language, your context, and your experience.": "家庭的期待、不同文化之间的生活，以及难以翻译的感受。你可以用普通话或英语与 Dayong Quan 交谈，让你的语言、背景和经历都得到关注。",
+  "Ask about therapy with Dayong": "了解 Dayong 的心理治疗服务",
+  "Some things feel different in your own language.": "有些感受，用自己的语言表达时会不同。",
+  "Explaining family expectations while trying to explain your feelings.": "在解释自己感受的同时，还需要解释家人的期待。",
+  "Navigating immigration, belonging, or life between cultures.": "面对移民、归属感，或在不同文化之间生活带来的变化。",
+  "Wanting to speak naturally, without translating every detail first.": "希望自然地表达，而不必先在心里翻译每一个细节。",
+  "Your language is part of the conversation.": "你的语言，也是交流的一部分。",
+  "Dayong provides therapy in English and Mandarin for adults in Ontario. Language and cultural adjustment are visible parts of his practice.": "Dayong 为安大略省的成年人提供英语和普通话心理治疗。语言与文化适应是他执业中明确关注的内容。",
+  "Speak in the language that fits": "使用适合你的语言表达",
+  "Use Mandarin or English to explore what feels difficult, personal, or hard to explain.": "用普通话或英语探讨那些困难、私密或难以解释的感受与经历。",
+  "Make room for your context": "为你的背景留出空间",
+  "Discuss family roles, cultural expectations, migration, identity, and major life changes.": "讨论家庭角色、文化期待、迁移经历、身份认同和重大生活变化。",
+  "Find a grounded way forward": "找到踏实的前进方向",
+  "Work with a calm, reflective clinician on awareness, coping, and practical change.": "与一位沉稳、善于思考的治疗师一起提升觉察、探索应对方式，并实践具体改变。",
+  "A Mandarin-speaking therapist. A thoughtful, steady presence.": "一位说普通话的治疗师。一份用心、稳定的陪伴。",
+  "Dayong is a Registered Psychotherapist with a Master of Arts in Counseling Psychology and a Master of Science in Psychology from East China Normal University. His clinical work includes anxiety, depression, cultural adjustment, and life transitions.": "Dayong 是一名注册心理治疗师，拥有咨询心理学文学硕士学位，以及华东师范大学心理学理学硕士学位。他的临床工作涉及焦虑、抑郁、文化适应和人生转变。",
+  "Therapy in Mandarin & English": "提供普通话和英语心理治疗",
+  "Graduate psychology degrees in Canada & China": "拥有加拿大和中国的心理学研究生学位",
+  "Cultural adjustment, anxiety & family expectations": "文化适应、焦虑与家庭期待",
+  "普通话 / English": "普通话 / 英语",
+  "Dayong offers therapy in both languages": "Dayong 提供这两种语言的心理治疗",
+  "Can my therapy sessions be in Mandarin?": "心理治疗可以用普通话进行吗？",
+  "Yes. Dayong offers psychotherapy in both Mandarin and English. Tell us you are looking for Mandarin therapy when arranging your consultation so that preference is clear from the start.": "可以。Dayong 提供普通话和英语心理治疗。安排初次咨询时，请告诉我们你希望接受普通话心理治疗，以便我们从一开始就了解你的语言偏好。",
+  "Can we discuss cultural or immigration-related pressure?": "可以讨论文化或移民相关的压力吗？",
+  "Yes. Dayong’s listed work includes cultural adjustment, immigration stress, family expectations, belonging, and major life transitions.": "可以。Dayong 公开列出的工作领域包括文化适应、移民压力、家庭期待、归属感和重大人生转变。",
+  "Start in the language that feels like you.": "用让你感到自在的语言开始。",
+};
+
+export const arabicLandingTranslations: LandingTranslations = {
+  "Arabic therapy": "العلاج النفسي بالعربية",
+  "Arabic-speaking therapist · Ontario": "معالجة نفسية تتحدث العربية · أونتاريو",
+  "Therapy in Arabic.": "علاج نفسي بالعربية.",
+  "So nothing gets lost.": "حتى لا يضيع شيء في التعبير.",
+  "You deserve a space where language, culture, and the experiences that shaped you belong in the conversation. Meryem Ibrahim offers compassionate, culturally responsive therapy in Arabic and English.": "تستحق مساحة تكون فيها لغتك وثقافتك والتجارب التي شكّلتك جزءًا من الحديث. تقدّم مريم إبراهيم علاجًا نفسيًا متعاطفًا ومستجيبًا ثقافيًا بالعربية والإنجليزية.",
+  "Ask about therapy with Meryem": "استفسر عن العلاج النفسي مع مريم",
+  "Be understood in the language that feels natural.": "عبّر عن نفسك وكن مفهومًا باللغة التي تشعر أنها طبيعية لك.",
+  "Looking for support that makes room for culture, faith, and identity.": "تبحث عن دعم يفسح المجال للثقافة والإيمان والهوية.",
+  "Carrying the pressure of change, migration, or family expectations.": "تحمل ضغوط التغيير أو الهجرة أو توقعات العائلة.",
+  "Wanting to express yourself without searching for the English words.": "ترغب في التعبير عن نفسك دون البحث عن الكلمات الإنجليزية.",
+  "Your story. Your language. Your pace.": "قصتك. لغتك. وتيرتك.",
+  "Arabic is Meryem’s first language. Her experience includes working with diverse communities, immigrants, and refugees.": "العربية هي اللغة الأولى لمريم. وتشمل خبرتها العمل مع مجتمعات متنوعة ومهاجرين ولاجئين.",
+  "Speak comfortably": "تحدّث براحة",
+  "Explore emotions and personal experiences in Arabic or English.": "استكشف مشاعرك وتجاربك الشخصية بالعربية أو الإنجليزية.",
+  "Bring your whole context": "أفسح المجال لكل جوانب خلفيتك",
+  "Make space for culture, identity, faith, grief, trauma, and the impact of life changes.": "أفسح المجال للثقافة والهوية والإيمان والحزن والصدمات وأثر التغيرات الحياتية.",
+  "Build practical support": "ابنِ دعمًا عمليًا",
+  "Work on coping skills and patterns through CBT, DBT, and solution-focused approaches, tailored to your goals.": "اعمل على مهارات التكيّف والأنماط من خلال العلاج المعرفي السلوكي (CBT)، والعلاج السلوكي الجدلي (DBT)، والمناهج المركّزة على الحلول، بما يتناسب مع أهدافك.",
+  "Arabic is her first language. Understanding is her starting point.": "العربية لغتها الأولى. والفهم نقطة انطلاقها.",
+  "Meryem is a Registered Psychotherapist (Qualifying) who works with adults experiencing anxiety, depression, trauma, grief, and life transitions. She offers a compassionate, culturally responsive space in Arabic and English.": "مريم معالجة نفسية مسجّلة ضمن فئة التأهيل، تعمل مع بالغين يواجهون القلق والاكتئاب والصدمات والحزن والتحولات الحياتية. وتوفّر مساحة متعاطفة ومستجيبة ثقافيًا بالعربية والإنجليزية.",
+  "Arabic is her first language": "العربية لغتها الأولى",
+  "Experience with immigrants & refugees": "خبرة في العمل مع المهاجرين واللاجئين",
+  "CBT, DBT & trauma-informed care": "العلاج المعرفي السلوكي، والعلاج السلوكي الجدلي، والرعاية المراعية للصدمات",
+  "العربية / English": "العربية / الإنجليزية",
+  "Therapy with Meryem in either language": "علاج نفسي مع مريم بأيٍّ من اللغتين",
+  "Can therapy be entirely in Arabic?": "هل يمكن أن يكون العلاج النفسي بالكامل بالعربية؟",
+  "Yes. Meryem provides psychotherapy in Arabic and English. State your language preference when arranging the consultation so the team can help with the next step.": "نعم. تقدّم مريم العلاج النفسي بالعربية والإنجليزية. اذكر تفضيلك اللغوي عند ترتيب الاستشارة حتى يتمكّن الفريق من مساعدتك في الخطوة التالية.",
+  "What does RP (Qualifying) mean?": "ماذا يعني RP (Qualifying)؟",
+  "Meryem is a Registered Psychotherapist in the Qualifying category. Her designation is shown clearly so you can ask questions about her practice and confirm whether your benefits plan covers sessions with an RP (Qualifying).": "مريم معالجة نفسية مسجّلة ضمن فئة التأهيل. نعرض مسمّاها المهني بوضوح كي تتمكّن من طرح أسئلة حول ممارستها والتأكد مما إذا كانت خطة مزاياك تغطي جلسات مع معالج نفسي مسجّل ضمن فئة التأهيل.",
+  "A first conversation, with your language in mind.": "محادثة أولى تراعي لغتك.",
+  "Meryem Ibrahim": "مريم إبراهيم",
+  "Meryem": "مريم",
+};
+
+export function translateLandingTree<T>(value: T, translate: (text: string) => string): T {
+  if (typeof value === "string") return translate(value) as T;
+  if (Array.isArray(value)) return value.map((item) => translateLandingTree(item, translate)) as T;
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, translateLandingTree(item, translate)])) as T;
+  return value;
+}

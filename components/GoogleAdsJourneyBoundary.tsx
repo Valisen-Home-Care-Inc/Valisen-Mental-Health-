@@ -102,6 +102,8 @@ export default function GoogleAdsJourneyBoundary() {
   const pageStateRef = useRef<PageState | null>(null);
 
   useEffect(() => {
+    // Review visits must not create campaign sessions or conversion signals.
+    if (pathname === "/ads-preview" || pathname.startsWith("/ads-preview/")) return;
     captureGoogleAdsJourneyFromUrl();
     if (
       !isGoogleAdsJourneyActive() ||

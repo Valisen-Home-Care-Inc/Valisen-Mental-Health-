@@ -1,0 +1,320 @@
+[
+    {
+        "keyword":  "\"psychotherapy for anxiety ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "anxiety"
+    },
+    {
+        "keyword":  "[therapist in ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "psychotherapists"
+    },
+    {
+        "keyword":  "[anxiety therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "anxiety"
+    },
+    {
+        "keyword":  "[cbt therapy ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "cbt"
+    },
+    {
+        "keyword":  "\"virtual therapy ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[couples therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "couples"
+    },
+    {
+        "keyword":  "[cbt for ocd ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "ocd"
+    },
+    {
+        "keyword":  "\"anxiety therapy ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "anxiety"
+    },
+    {
+        "keyword":  "[registered psychotherapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "psychotherapists"
+    },
+    {
+        "keyword":  "\"couples therapy ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "couples"
+    },
+    {
+        "keyword":  "[online therapy ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "\"panic attack therapy ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "panic"
+    },
+    {
+        "keyword":  "[cbt for depression ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "depression"
+    },
+    {
+        "keyword":  "\"social anxiety therapy ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "social-anxiety"
+    },
+    {
+        "keyword":  "[online therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "\"cbt for depression ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "depression"
+    },
+    {
+        "keyword":  "[cognitive behavioral therapy ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "cbt"
+    },
+    {
+        "keyword":  "[online psychotherapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "\"cbt for anxiety ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "anxiety"
+    },
+    {
+        "keyword":  "\"psychotherapy for depression ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "depression"
+    },
+    {
+        "keyword":  "[depression therapy ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "depression"
+    },
+    {
+        "keyword":  "[psychotherapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "psychotherapists"
+    },
+    {
+        "keyword":  "\"depression therapy ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "depression"
+    },
+    {
+        "keyword":  "[cbt for panic attacks ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "panic"
+    },
+    {
+        "keyword":  "\"online therapy ontario\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[ocd therapy ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "ocd"
+    },
+    {
+        "keyword":  "[anxiety therapy ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "anxiety"
+    },
+    {
+        "keyword":  "[virtual therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[cbt therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "cbt"
+    },
+    {
+        "keyword":  "[online psychotherapy ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[cbt for anxiety ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "anxiety"
+    },
+    {
+        "keyword":  "[depression therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "02 - CBT - Anxiety \u0026 Depression Ontario",
+        "slug":  "depression"
+    },
+    {
+        "keyword":  "[book online therapy]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[book a therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[book a psychotherapist]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[book free consultation]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[therapy consultation ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "\"free consultation therapist\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[find a therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[book counselling online]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[book a therapist online]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[book a therapist]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "\"book online therapy\"",
+        "matchType":  "Phrase match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[therapist consultation ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[online therapist appointment]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[free therapy consultation]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[online therapy consultation]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[online therapist appointment ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[book therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[book therapist online]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[find therapist ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    },
+    {
+        "keyword":  "[online therapy consultation ontario]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "online-therapy"
+    },
+    {
+        "keyword":  "[schedule therapy appointment]",
+        "matchType":  "Exact match",
+        "adGroup":  "01 - High Intent - Book a Consultation",
+        "slug":  "free-consultation"
+    }
+]

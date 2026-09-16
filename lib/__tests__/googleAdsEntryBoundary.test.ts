@@ -550,6 +550,9 @@ describe("same-domain Google Ads entry boundary", () => {
     expect(shouldLoadGoogleAdsMarketingTags("/thank-you", false)).toBe(false);
     expect(shouldLoadGoogleAdsMarketingTags("/thank-you", true)).toBe(true);
     expect(shouldLoadSiteAnalytics("/thank-you")).toBe(false);
+    expect(shouldLoadSiteAnalytics("/ads-preview")).toBe(false);
+    expect(shouldLoadSiteAnalytics("/ads-preview/mandarin")).toBe(false);
+    expect(shouldLoadSiteAnalytics("/welcome")).toBe(true);
   });
 
   it("bootstraps the fragment before child analytics effects", () => {
