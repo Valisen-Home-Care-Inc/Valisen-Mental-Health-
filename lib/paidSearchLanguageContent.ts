@@ -1,6 +1,11 @@
 import type { LandingTranslations } from "@/lib/paidSearchLocale";
 
 export const mandarinLandingTranslations: LandingTranslations = {
+  "Explore the relationships and life changes that matter to you. Culture, identity, or migration can be part of the conversation if they are relevant to your experience.": "探索对你重要的人际关系和生活变化。如果文化、身份认同或移居经历与你的情况有关，也可以在咨询中谈及。",
+  "Yes. Dayong offers psychotherapy in Mandarin and English. Choose your consultation language in the calendar. You can read this page in English while booking a Mandarin-language call directly with Dayong.": "可以。Dayong 提供普通话和英语心理治疗。请在预约日历中选择通话语言。你可以用英语浏览本页，同时预约与 Dayong 直接进行的普通话电话咨询。",
+  "Anxiety, low mood, life stress—or feelings that are easier to explain in Mandarin. Dayong Quan offers calm, practical support in Mandarin and English. Virtual therapy for adults across Ontario, with room for your own experience.": "焦虑、情绪低落、生活压力，或那些用普通话更容易表达的感受。Dayong Quan 用普通话和英语提供沉稳、切实的支持，面向安大略省成年人提供线上心理治疗，尊重你自己的经历。",
+  "Worry or low mood making everyday life feel harder.": "担忧或情绪低落让日常生活变得更难。",
+  "Balancing work, relationships, or changes in your life.": "在工作、人际关系或生活变化之间寻找平衡。",
   "Mandarin therapy": "普通话心理治疗",
   "Mandarin-speaking therapist · Ontario": "普通话心理治疗师 · 安大略省",
   "Therapy in Mandarin.": "用普通话进行心理治疗。",
@@ -34,6 +39,11 @@ export const mandarinLandingTranslations: LandingTranslations = {
 };
 
 export const arabicLandingTranslations: LandingTranslations = {
+  "Make space for the relationships, losses, or life changes affecting you. Culture, identity, or faith can be included if they matter to you.": "أفسح المجال للحديث عن العلاقات أو الفقد أو التغيّرات الحياتية التي تؤثر فيك. ويمكن التطرق إلى الثقافة أو الهوية أو الإيمان إذا كانت هذه الأمور مهمة لك.",
+  "Yes. Meryem provides psychotherapy in Arabic and English. Choose your consultation language in the calendar. You can read this page in English while booking an Arabic-language call directly with Meryem.": "نعم. تقدّم مريم العلاج النفسي بالعربية والإنجليزية. اختر لغة الاستشارة في تقويم الحجز. يمكنك قراءة هذه الصفحة بالإنجليزية وحجز مكالمة باللغة العربية مباشرة مع مريم.",
+  "Anxiety, low mood, stress, or a difficult change: you can talk about it in Arabic. Meryem Ibrahim offers practical, compassionate support in Arabic and English for adults across Ontario. Your experiences set the direction.": "القلق أو انخفاض المزاج أو الضغط أو تغيير صعب: يمكنك التحدث عنه بالعربية. تقدّم مريم إبراهيم دعمًا عمليًا ومتعاطفًا بالعربية والإنجليزية للبالغين في أنحاء أونتاريو. تجاربك هي التي تحدد اتجاه العمل.",
+  "Carrying worry, stress, or low mood through your day.": "أن يمضي يومك وأنت تحمل القلق أو الضغط أو انخفاض المزاج.",
+  "Navigating relationships, grief, or a change in your life.": "التعامل مع العلاقات أو الحزن أو تغيير في حياتك.",
   "Arabic therapy": "العلاج النفسي بالعربية",
   "Arabic-speaking therapist · Ontario": "معالجة نفسية تتحدث العربية · أونتاريو",
   "Therapy in Arabic.": "علاج نفسي بالعربية.",

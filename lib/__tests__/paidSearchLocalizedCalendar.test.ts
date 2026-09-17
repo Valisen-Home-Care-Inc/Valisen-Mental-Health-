@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { conceptTherapists, consultationPoolForConcept, getPaidSearchConcept } from "@/lib/paidSearchConcepts";
 import { getAvailableTimeSlotsForDate, getConsultationCalendarMonth } from "@/lib/paidSearchPreviewCalendar";
-import { WEEKLY_CONSULTATION_SHIFTS, eligibleConsultationTherapists, therapistShifts } from "@/lib/consultationSchedules";
+import { eligibleConsultationTherapists, therapistShifts } from "@/lib/consultationSchedules";
 import { arabicLandingTranslations, mandarinLandingTranslations } from "@/lib/paidSearchLanguageContent";
 import { landingTranslator, sharedLandingTranslations } from "@/lib/paidSearchLocale";
 
@@ -50,13 +50,13 @@ describe("complete language-page copy", () => {
     for (const text of copy) expect(landingTranslator(locale, dictionary)(text)).not.toBe(text);
   });
   it("covers static interface text without silent English fallbacks", () => {
-    for (const file of ["ConceptLanding.tsx", "ConceptBooking.tsx"]) {
+    for (const file of ["ConceptLanding.tsx", "ConceptBooking.tsx", "ConsultationReminder.tsx"]) {
       const tree = ts.createSourceFile(file, readFileSync(`components/paid-search/concepts/${file}`, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
       const missing: string[] = [];
       function visit(node: ts.Node) {
         if (ts.isCallExpression(node) && node.expression.getText(tree) === "t" && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) {
           const text = node.arguments[0].text;
-          if (/[A-Za-z]/.test(text) && !sharedLandingTranslations.ar[text]) missing.push(text);
+          for (const locale of ["ar", "zh-Hans"] as const) if (/[A-Za-z]/.test(text) && !sharedLandingTranslations[locale][text]) missing.push(`${locale}: ${text}`);
         }
         ts.forEachChild(node, visit);
       }

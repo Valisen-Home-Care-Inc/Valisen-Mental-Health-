@@ -3,11 +3,11 @@ export type LandingTranslations = Record<string, string>;
 export const localeTag = (locale: LandingLocale) => locale === "en" ? "en-CA" : locale === "ar" ? "ar" : "zh-CN";
 
 export const LANDING_BOOKING_CONSENT = {
-  en: "I agree that Valisen Mental Health may use my name, email address, and phone number to book and contact me about my free 20-minute phone consultation at the selected time.",
-  ar: "أوافق على أن تستخدم فاليسن للصحة النفسية اسمي وعنوان بريدي الإلكتروني ورقم هاتفي لحجز استشارتي الهاتفية المجانية لمدة 20 دقيقة في الموعد المختار والتواصل معي بشأنها.",
-  "zh-Hans": "我同意 Valisen 心理健康使用我的姓名、电子邮箱和电话号码，为我预约所选时段的免费20分钟电话咨询，并就此与我联系。",
+  en: "I agree that Valisen Mental Health may use my name, email address, and phone number to book my free 20-minute phone consultation with the selected therapist at the selected time and contact me about it.",
+  ar: "أوافق على أن تستخدم فاليسن للصحة النفسية اسمي وعنوان بريدي الإلكتروني ورقم هاتفي لحجز استشارتي الهاتفية المجانية لمدة 20 دقيقة مع المعالج الذي اخترته في الموعد المحدد والتواصل معي بشأنها.",
+  "zh-Hans": "我同意 Valisen 心理健康使用我的姓名、电子邮箱和电话号码，为我预约在所选时间与所选治疗师进行的免费20分钟电话咨询，并就此与我联系。",
 } satisfies Record<LandingLocale, string>;
-export const LANDING_BOOKING_CONSENT_VERSION = "landing-consultation-booking-v1";
+export const LANDING_BOOKING_CONSENT_VERSION = "landing-consultation-booking-v2";
 
 /** Each row preserves the complete English information in Arabic and Mandarin. */
 const rows: Array<[string, string, string]> = [
@@ -154,6 +154,46 @@ const rows: Array<[string, string, string]> = [
   ["Master of Science in Psychology, East China Normal University", "ماجستير العلوم في علم النفس، جامعة شرق الصين للمعلمين", "华东师范大学心理学理学硕士"],
   ["Professional Qualification for Counselling in China", "مؤهل مهني للإرشاد النفسي في الصين", "中国心理咨询专业资格"],
   ["Private, EAP, and community mental health psychotherapy experience", "خبرة في العلاج النفسي في الممارسة الخاصة وبرامج مساعدة الموظفين (EAP) والصحة النفسية المجتمعية", "拥有私人执业、员工援助计划（EAP）及社区心理健康领域的心理治疗经验"],
+  ["Book a free consultation", "احجز استشارة مجانية", "预约免费咨询"],
+  ["Choose a consultation time", "اختر موعدًا للاستشارة", "选择咨询时间"],
+  ["20 minutes · Speak directly with your therapist · No obligation", "20 دقيقة · تحدث مباشرة مع معالجك · دون التزام", "20分钟 · 直接与治疗师交流 · 无后续治疗义务"],
+  ["Paid sessions: {price} CAD / {duration} minutes", "الجلسات المدفوعة: {price} دولار كندي / {duration} دقيقة", "付费治疗：{price}加元 / {duration}分钟"],
+  ["Total for both partners", "المبلغ الإجمالي للشريكين", "两位伴侣的总费用"],
+  ["Total for both partners.", "المبلغ الإجمالي للشريكين.", "此为两位伴侣的总费用。"],
+  ["ADHD therapy and practical support. No diagnostic assessment or medication prescribing.", "علاج ودعم عملي لاضطراب نقص الانتباه وفرط الحركة. لا تشمل الخدمة التقييم التشخيصي أو وصف الأدوية.", "提供针对ADHD的心理治疗和实际支持，不提供诊断评估或药物处方。"],
+  ["Free 20-minute therapist consultation", "استشارة مجانية مع معالج لمدة 20 دقيقة", "与治疗师进行免费20分钟咨询"],
+  ["Compare their approach, qualifications, and fees. Choose who you’d like to speak with.", "قارن بين مناهجهم ومؤهلاتهم ورسومهم، ثم اختر من تود التحدث معه.", "比较他们的治疗方式、资质和费用，再选择想交流的治疗师。"],
+  ["Training", "التدريب", "培训"],
+  ["Experience", "الخبرة", "经验"],
+  ["{price} CAD / {duration} min", "{price} دولار كندي / {duration} دقيقة", "{price}加元 / {duration}分钟"],
+  ["Book a free call with {name}", "احجز مكالمة مجانية مع {name}", "预约与{name}的免费通话"],
+  ["50 minutes · Total for both partners", "50 دقيقة · المبلغ الإجمالي للشريكين", "50分钟 · 两位伴侣的总费用"],
+  ["Your selected therapist calls you at your chosen date and time for a free 20-minute conversation. Ask about their approach, discuss what you’re looking for, and decide whether you’d like to work together. This is separate from a full therapy session.", "يتصل بك المعالج الذي اخترته في اليوم والوقت المحددين لإجراء محادثة مجانية مدتها 20 دقيقة. اسأل عن نهجه، وناقش ما تبحث عنه، ثم قرر إن كنت ترغب في العمل معه. هذه المحادثة منفصلة عن جلسة العلاج النفسي الكاملة.", "你选择的治疗师会在所选日期和时间致电，与你进行免费的20分钟交流。你可以询问其治疗方式、讨论自己的需求，再决定是否希望一起开展治疗。这次交流与完整的心理治疗会谈是分开的。"],
+  ["Paid therapy sessions are {price} CAD per 50 minutes.", "تبلغ رسوم جلسات العلاج النفسي المدفوعة {price} دولار كندي لكل 50 دقيقة.", "付费心理治疗为每50分钟{price}加元。"],
+  ["Book a free 20-minute phone call directly with your selected therapist. The date and time you choose are when you’ll speak together.", "احجز مكالمة هاتفية مجانية لمدة 20 دقيقة مباشرة مع المعالج الذي اخترته. ستتحدثان في اليوم والوقت اللذين تحددهما.", "预约一次直接与你所选治疗师进行的免费20分钟电话交流。你选择的日期和时间，就是你们通话的时间。"],
+  ["Choose your therapist and time.", "اختر معالجك وموعدك.", "选择治疗师和时间。"],
+  ["Compare the people on this page, then choose an available time.", "قارن بين المعالجين في هذه الصفحة، ثم اختر موعدًا متاحًا.", "比较本页的治疗师，再选择一个可约时间。"],
+  ["Speak directly with your therapist.", "تحدث مباشرة مع معالجك.", "直接与治疗师交流。"],
+  ["Ask about their approach and decide whether you’d like to work together.", "اسأل عن نهجه وقرر إن كنت ترغب في العمل معه.", "了解其治疗方式，再决定是否希望一起开展治疗。"],
+  ["An introduction, not a full therapy session.", "لقاء تعارفي وليس جلسة علاج نفسي كاملة.", "这是初次交流，并非完整的心理治疗会谈。"],
+  ["No obligation to continue.", "دون التزام بالمتابعة.", "无需承诺继续治疗。"],
+  ["A first conversation. A clearer next step.", "محادثة أولى. وخطوة تالية أوضح.", "先交流一次，让下一步更清楚。"],
+  ["Consultation summary", "ملخص الاستشارة", "咨询摘要"],
+  ["Free 20-minute phone call with {name}", "مكالمة هاتفية مجانية لمدة 20 دقيقة مع {name}", "与{name}进行免费20分钟电话交流"],
+  ["Choose a date and time below.", "اختر اليوم والوقت أدناه.", "请在下方选择日期和时间。"],
+  ["Consultation language", "لغة الاستشارة", "咨询语言"],
+  ["Your call with {name}", "مكالمتك مع {name}", "你与{name}的通话"],
+  ["In a live booking, {name} would call the number you provided at this time. This introductory conversation is separate from a full therapy session.", "عند إجراء حجز فعلي، سيتصل {name} بالرقم الذي قدمته في هذا الموعد. هذه المحادثة التعارفية منفصلة عن جلسة العلاج النفسي الكاملة.", "在正式预约中，{name}会在这个时间拨打你提供的号码。这次初步交流与完整的心理治疗会谈是分开的。"],
+  ["Change therapist or time", "غيّر المعالج أو الموعد", "更改治疗师或时间"],
+  ["Choose your consultation.", "اختر استشارتك.", "选择你的咨询安排。"],
+  ["Choose your therapist", "اختر معالجك", "选择治疗师"],
+  ["Need help choosing, another time, or a different way to connect?", "هل تحتاج مساعدة في الاختيار أو موعدًا آخر أو طريقة تواصل مختلفة؟", "需要选择帮助、其他时间或不同的交流方式吗？"],
+  ["Contact the clinic to discuss therapist fit, scheduling, or an alternative to a phone consultation.", "تواصل مع العيادة لمناقشة اختيار المعالج المناسب أو المواعيد أو بديل للاستشارة الهاتفية.", "请联系诊所，讨论治疗师是否合适、时间安排，或电话咨询以外的交流方式。"],
+  ["Email the clinic", "راسل العيادة عبر البريد الإلكتروني", "给诊所发邮件"],
+  ["Free consultation invitation", "دعوة لاستشارة مجانية", "免费咨询邀请"],
+  ["Dismiss invitation", "إغلاق الدعوة", "关闭邀请"],
+  ["Meet {name} before deciding.", "تعرّف على {name} قبل أن تقرر.", "先与{name}交流，再作决定。"],
+  ["Book a free 20-minute call to ask questions and see whether working together feels right.", "احجز مكالمة مجانية لمدة 20 دقيقة لطرح أسئلتك ومعرفة إن كان العمل معًا مناسبًا لك.", "预约免费20分钟通话，提出问题，了解是否适合一起开展治疗。"],
 ];
 export const sharedLandingTranslations: Record<Exclude<LandingLocale, "en">, LandingTranslations> = {
   ar: Object.fromEntries(rows.map(([en, ar]) => [en, ar])),

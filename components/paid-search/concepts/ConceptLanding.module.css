@@ -9,12 +9,6 @@
 .page[data-tone="lilac"] { --accent: #746479; --wash: #ece8ed; --tint: #d8cedc; --warm: #8a6e8d; }
 .page[data-tone="gold"] { --accent: #836540; --wash: #f0e9d9; --tint: #e5d7b9; --warm: #94713e; }
 .page *, .galleryPage * { box-sizing: border-box; }
-.languagePrompt { color: #203e39; background: #fffdf7; border: 1px solid #c6d1bf; border-radius: 14px; padding: 34px; width: min(440px, calc(100% - 36px)); box-shadow: 0 25px 100px #14291f40; }
-.languagePrompt::backdrop { background: #14291f80; backdrop-filter: blur(4px); }
-.languagePrompt h2 { font: 400 36px/1.2 var(--font-serif), Georgia, serif; margin: 0 0 18px; }
-.languagePrompt > p:not(.eyebrow) { font-size: 16px; line-height: 1.7; color: #536258; margin-bottom: 24px; }
-.languagePrompt .primaryButton { width: 100%; }
-.keepLanguage { width: 100%; background: transparent; border: 0; color: #31543f; min-height: 48px; cursor: pointer; margin-top: 10px; font-size: 16px; }
 .languageToggle { display: flex; align-items: center; gap: 3px; border: 1px solid #cad2c3; padding: 3px; border-radius: 6px; flex-shrink: 0; }
 .languageToggle button { border: 0; background: none; padding: 8px 10px; cursor: pointer; border-radius: 4px; color: #496143; font-size: 13px; min-height: 38px; }
 .languageToggle button[aria-pressed="true"] { background: #264a40; color: white; }
@@ -456,4 +450,71 @@
 @media (prefers-reduced-motion: reduce) {
   .page *, .galleryPage * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
   .primaryButton:hover, .conceptCard:hover { transform: none; }
+}
+
+/* Review refinement: clear offer, visible evidence, and one booking form. */
+.heroTherapist { display: flex; align-items: center; gap: 16px; margin: 0 0 22px; max-width: 460px; }
+.heroTherapist img { width: 70px; height: 84px; object-fit: cover; object-position: top; border-radius: 7px; flex: 0 0 auto; }
+.heroTherapist strong, .heroTherapist span { display: block; }
+.heroTherapist strong { font-size: 18px; }
+.heroTherapist span { font-size: 12px; line-height: 1.65; color: #52655a; }
+.heroFee { font-size: 13px; color: #344d3f; margin: 0 0 18px; }
+.heroReassurance { margin-bottom: 10px; max-width: 460px; }
+.scopeNote { font-size: 12px; line-height: 1.7; border-inline-start: 2px solid var(--accent); padding-inline-start: 12px; max-width: 430px; margin-bottom: 18px; }
+.heroWithBooking .heroGrid { align-items: start; grid-template-columns: 1fr 1fr; gap: 55px; }
+.heroWithBooking .heroTherapist img { width: 104px; height: 124px; }
+.heroWithBooking .heroCopy { padding-top: 22px; }
+.earlyBooking { min-width: 0; scroll-margin-top: 100px; }
+.earlyBooking .bookingCard { box-shadow: 0 12px 50px #203e3910; border: 1px solid var(--line); padding: 26px; }
+.visibleQualification { font-size: 12px; color: #355244; padding: 12px; background: #ffffff70; border: 1px solid #c5d0bf; border-radius: 5px; margin: 15px 0; line-height: 1.6; }
+.profileBottom { align-items: start; flex-direction: column; gap: 12px; }
+.profileBottom small { display: block; font-size: 11px; }
+.profileBottom button { min-height: 44px; line-height: 1.5; text-align: start; }
+.bookingSummary { display: flex; flex-direction: column; gap: 5px; background: #eaf0e6; border: 1px solid #cfdbca; border-radius: 7px; padding: 14px; margin: 15px 0; font-size: 13px; line-height: 1.7; color: #314d3e; }
+.bookingSummary strong { font-weight: 600; font-size: 14px; }
+.selectedClinician { font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
+.bookingAssistance { border-top: 1px solid #d3dccd; margin-top: 20px; padding-top: 13px; font-size: 12px; color: #52665a; }
+.bookingAssistance summary { cursor: pointer; min-height: 44px; }
+.bookingAssistance p { margin: 9px 0; }
+.bookingAssistance a { display: inline-flex; align-items: center; gap: 6px; text-decoration: underline; min-height: 44px; margin-inline-end: 18px; }
+.closingInvitation { padding: 65px 22px; background: #e8eee1; text-align: center; }
+.closingInvitation h2 { font: 400 34px/1.3 var(--font-serif), Georgia, serif; margin-bottom: 22px; }
+.cornerInvitation { position: fixed; bottom: 24px; inset-inline-end: 24px; z-index: 35; width: 330px; padding: 28px 23px 23px; color: #244337; background: #fffdf5; border: 1px solid #bfcfba; border-radius: 13px; box-shadow: 0 12px 45px #203e3925; }
+.cornerInvitation h2 { font: 400 25px/1.3 var(--font-serif), Georgia, serif; margin: 10px 0 12px; text-wrap: balance; }
+.cornerInvitation p { font-size: 13px; line-height: 1.75; margin-bottom: 17px; }
+.cornerInvitation .primaryButton { min-height: 44px; width: 100%; }
+.dismissInvitation { position: absolute; top: 3px; inset-inline-end: 3px; display: grid; place-items: center; width: 44px; height: 44px; color: #355447; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
+.dismissInvitation:hover { background: #eaf0e4; }
+.page :is(button,a,input,select,summary):focus-visible { outline: 3px solid #437a68; outline-offset: 3px; }
+.bookingCard .field select { width: 100%; min-height: 46px; max-width: 100%; background: #fffef9; }
+.bookingCard { scroll-margin-top: 110px; }
+.confirmation h3 { text-wrap: balance; }
+.page[lang="ar"] .cornerInvitation h2, .page[lang="zh-Hans"] .cornerInvitation h2 { font-family: inherit; }
+.page[lang="ar"] .heroTherapist, .page[lang="zh-Hans"] .heroTherapist { line-height: 1.6; }
+@media (max-width: 900px) {
+  .mobileSticky { position: fixed; z-index: 39; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 17px calc(11px + env(safe-area-inset-bottom)); bottom: 0; left: 0; right: 0; background: #fffdf5f7; backdrop-filter: blur(10px); border-top: 1px solid #d2dac7; box-shadow: 0 -4px 20px #2c422912; }
+  .mobileSticky > span { color: #52664b; font-size: 11px; max-width: 82px; line-height: 1.6; }
+  .heroWithBooking .heroGrid { grid-template-columns: 1fr; gap: 32px; }
+  .heroWithBooking .heroCopy { padding-top: 0; }
+  .earlyBooking { width: 100%; max-width: 560px; margin-inline: auto; }
+  .cornerInvitation { display: none; }
+  .mobileSticky > button { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 16px; background: #274c3b; border: 0; border-radius: 4px; font-size: 13px; color: white; flex: 1; min-height: 44px; cursor: pointer; }
+}
+@media (max-width: 700px) {
+  .hero { padding-top: 27px; }
+  .hero h1 { font-size: clamp(33px, 8.8vw, 44px); margin-bottom: 16px; }
+  .heroIntro { font-size: 14px; line-height: 1.75; margin-bottom: 17px; }
+  .heroTherapist { gap: 12px; margin-bottom: 18px; }
+  .heroTherapist img { width: 58px; height: 70px; }
+  .heroTherapist strong { font-size: 16px; }
+  .heroTherapist span { font-size: 11px; }
+  .heroWithBooking .heroTherapist img { width: 80px; height: 96px; }
+  .heroFee { font-size: 12px; }
+  .portraitFrame { height: 275px; }
+  .calendar button, .timeGrid button, .periodTabs button, .monthNav button { min-height: 44px; }
+  .earlyBooking .bookingCard { padding: 20px 16px; }
+  .bookingSummary { font-size: 12px; padding: 12px; }
+  .bookingSummary strong { font-size: 13px; }
+  .page section[id], .bookingCard { scroll-margin-top: 94px; }
+  .page:not([lang="en"]) section[id], .page:not([lang="en"]) .bookingCard { scroll-margin-top: 133px; }
 }
