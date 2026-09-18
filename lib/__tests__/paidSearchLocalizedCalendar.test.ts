@@ -19,16 +19,17 @@ describe("clinic weekly schedules", () => {
     const calendar = getConsultationCalendarMonth(2026, 8, new Date(2026, 8, 14), ["meryem-ibrahim"]);
     expect(calendar.find((day) => day.date === "2026-09-20")?.selectable).toBe(true);
     expect(calendar.find((day) => day.date === "2026-09-21")?.selectable).toBe(false);
-    expect(eligibleConsultationTherapists("2026-09-21", "6:00 PM", consultationPoolForConcept("couples")!)).toEqual(["wilfred-bengnwi", "ryann-simpson"]);
+    expect(eligibleConsultationTherapists("2026-09-21", "6:00 PM", consultationPoolForConcept("couples")!)).toEqual(["ryann-simpson", "wilfred-bengnwi"]);
+    expect(eligibleConsultationTherapists("2026-09-17", "6:00 PM", consultationPoolForConcept("ocd")!)).toEqual(["ryann-simpson"]);
     expect(therapistShifts("ryann-simpson", 5)).toEqual([]);
   });
-  it("prioritizes Ryann for equal fits, while retaining Wilfred's couples expertise and language qualifications", () => {
-    for (const slug of ["anxiety", "social-anxiety", "online-therapy", "free-consultation", "adhd", "perfectionism"]) expect(conceptTherapists(getPaidSearchConcept(slug)!)[0].slug).toBe("ryann-simpson");
-    expect(consultationPoolForConcept("couples")?.[0]).toBe("wilfred-bengnwi");
+  it("features Ryann for equal fits and the confirmed couples/OCD leads, while preserving language qualifications", () => {
+    for (const slug of ["anxiety", "social-anxiety", "online-therapy", "free-consultation", "adhd", "perfectionism", "couples", "ocd"]) expect(conceptTherapists(getPaidSearchConcept(slug)!)[0].slug).toBe("ryann-simpson");
+    expect(consultationPoolForConcept("couples")).toEqual(["ryann-simpson", "wilfred-bengnwi"]);
     expect(consultationPoolForConcept("mandarin")).toEqual(["dayong-quan"]);
     expect(consultationPoolForConcept("arabic")).toEqual(["meryem-ibrahim"]);
     expect(consultationPoolForConcept("cbt")).not.toContain("ryann-simpson");
-    expect(consultationPoolForConcept("ocd")).not.toContain("ryann-simpson");
+    expect(consultationPoolForConcept("ocd")).toEqual(["ryann-simpson", "meryem-ibrahim", "wilfred-bengnwi", "dayong-quan"]);
     expect(consultationPoolForConcept("invalid")).toBeNull();
   });
 });

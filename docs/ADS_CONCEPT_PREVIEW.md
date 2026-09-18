@@ -9,7 +9,9 @@ Calendars illustrate the selected therapist's supplied permanent weekly schedule
 including Wilfred's Thursday and Friday hours. They do not query live availability.
 Arabic and Mandarin pages open in their native language with a visible English
 toggle. Page language and consultation language are separate selections. Ryann
-is featured first where the documented fit is equal.
+is featured first where the documented fit is equal and leads the couples and
+OCD concepts at the owner's request. Her confirmed OCD work and recurring hours
+are included in that page's therapist selection and calendar.
 
 The gallery includes the enabled-keyword mapping download. `/welcome/{slug}`
 addresses in that file are proposed future campaign destinations, not activated
@@ -96,7 +98,7 @@ testimonials, scarcity, or additional certification claims have been invented.
 | Named-therapist flow; remove English popup | Explicitly approved, superseding earlier instructions |
 | Couples fee/duration | Owner confirmed $200 CAD / 50 minutes, both partners total |
 | One or both partners at consultation | Unconfirmed; deliberately omitted from the page |
-| OCD clinicians | Owner confirmed Wilfred, Meryem, Dayong; verify each clinician's methods and OCD-specific training before paid traffic; ERP not established |
+| OCD clinicians | Owner confirmed Ryann, Wilfred, Meryem, Dayong; verify each clinician's methods and OCD-specific training before paid traffic; ERP not established |
 | Trauma / EMDR | Tim lists EMDR, but exact training, protocol, and service scope still need clinician confirmation before an EMDR campaign |
 | Education / registration | Existing degrees/designations retained; Meryem education and individual registration numbers/verification links require approved details |
 | Translation review | Meryem to review Arabic; Dayong to review Mandarin before paid-traffic launch |
