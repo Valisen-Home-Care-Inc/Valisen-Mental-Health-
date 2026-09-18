@@ -129,7 +129,7 @@ export default function ReferralForm({ enabled, initialTherapist }: { enabled: b
       <span>{REFERRAL_CONSENT} *</span>
     </label>
     <p id="error-consent" className={styles.error}>{errors.consent}</p>
-    <p id="referral-privacy" className={styles.hint}>Referral information is stored in Valisen’s access-controlled operations system for referral coordination. It is not sent to advertising or analytics services. Read our <Link href="/referrals/privacy-policy">Privacy Policy</Link>.</p>
+    <p id="referral-privacy" className={styles.hint}>Referral details are emailed to info@valisenmentalhealth.com for patient coordination. They are not saved in the website CRM or sent to advertising or analytics services. Read our <Link href="/referrals/privacy-policy">Privacy Policy</Link>.</p>
     {enabled && <TurnstileWidget action={REFERRAL_ACTION} onToken={setToken} resetKey={resetKey} />}
     {message && <p role="alert" className={styles.errorMessage}>{message}</p>}
     <div className={styles.formBottom}><button type="submit" className={styles.button} disabled={!enabled || busy}>{busy ? "Submitting referral…" : "Submit Referral"}<span aria-hidden="true">→</span></button><span>No appointment is booked at this stage.</span></div>

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const { rpc, verify, track } = vi.hoisted(() => ({ rpc: vi.fn(), verify: vi.fn(), track: vi.fn() }));
-vi.mock("@/lib/server/supabaseServer", () => ({ callSupabaseRpc: rpc }));
+const { send, verify, track } = vi.hoisted(() => ({ send: vi.fn(), verify: vi.fn(), track: vi.fn() }));
+vi.mock("@/lib/server/referralEmail", () => ({ sendReferralEmail: send }));
 vi.mock("@/lib/server/turnstile", () => ({ verifyTurnstile: verify }));
 vi.mock("@/lib/funnelTracking", () => ({ recordFirstPartyFunnelEvent: track }));
 import { POST } from "@/app/api/referrals/route";
@@ -15,7 +15,7 @@ const envelope = () => ({ fields, submissionId: "c1b0a5d4-1963-4f79-bdf4-83ac944
 function request(body: unknown = envelope(), origin = "https://valisenmentalhealth.com") {
   return new NextRequest("https://valisenmentalhealth.com/api/referrals", { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify(body) });
 }
-beforeEach(() => { vi.stubEnv("REFERRALS_ENABLED", "true"); resetRateLimitState(); rpc.mockReset().mockResolvedValue(null); verify.mockReset().mockResolvedValue({ ok: true }); track.mockReset(); });
+beforeEach(() => { vi.stubEnv("REFERRALS_ENABLED", "true"); resetRateLimitState(); send.mockReset().mockResolvedValue(null); verify.mockReset().mockResolvedValue({ ok: true }); track.mockReset(); });
 afterEach(() => vi.unstubAllEnvs());
 
 describe("provider referral intake", () => {
@@ -26,10 +26,10 @@ describe("provider referral intake", () => {
     if (!result.ok) expect(result.errors).toMatchObject({ patientEmail: expect.any(String), consent: expect.any(String) });
     expect(validateReferral({ ...fields, reason: "injected reason", therapist: "unknown", notes: "x".repeat(1001) }).ok).toBe(false);
   });
-  it("fails closed when collection is disabled", async () => {
+  it("is enabled even if an obsolete enable flag is false", async () => {
     vi.stubEnv("REFERRALS_ENABLED", "false");
-    expect((await POST(request())).status).toBe(503);
-    expect(rpc).not.toHaveBeenCalled();
+    expect((await POST(request())).status).toBe(200);
+    expect(send).toHaveBeenCalledOnce();
   });
   it("rejects cross-origin, oversized, honeypot and invalid authorization requests", async () => {
     expect((await POST(request(envelope(), "https://attacker.invalid"))).status).toBe(403);
@@ -37,19 +37,19 @@ describe("provider referral intake", () => {
     expect((await POST(request({ ...envelope(), website: "bot" }))).status).toBe(400);
     expect((await POST(request({ ...envelope(), fields: { ...fields, consent: false } }))).status).toBe(422);
     expect((await POST(request({ ...envelope(), consentVersion: "old" }))).status).toBe(400);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
-  it("requires verified Turnstile before persistence", async () => {
+  it("requires verified Turnstile before email delivery", async () => {
     verify.mockResolvedValue({ ok: false, reason: "invalid" });
     expect((await POST(request())).status).toBe(400);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
-  it("persists only validated fields and acknowledges only durable receipt", async () => {
+  it("emails only validated fields and acknowledges only accepted delivery", async () => {
     const response = await POST(request({ ...envelope(), gclid: "not-stored", fields: { ...fields, extra: "not-stored" } }));
     expect(await response.json()).toEqual({ ok: true });
     expect(response.headers.get("cache-control")).toContain("no-store");
-    expect(rpc).toHaveBeenCalledWith("submit_provider_referral", { p_id: envelope().submissionId, p_details: fields, p_consent_version: REFERRAL_CONSENT_VERSION });
-    rpc.mockRejectedValue(new Error("private upstream failure"));
+    expect(send).toHaveBeenCalledWith(fields, envelope().submissionId);
+    send.mockRejectedValue(new Error("private upstream failure"));
     const failed = await POST(request());
     expect(failed.status).toBe(503);
     expect(await failed.text()).not.toContain("private upstream failure");
@@ -58,7 +58,7 @@ describe("provider referral intake", () => {
   it("rate limits repeated submissions", async () => {
     for (let i = 0; i < 10; i++) await POST(request());
     expect((await POST(request())).status).toBe(429);
-    expect(rpc).toHaveBeenCalledTimes(10);
+    expect(send).toHaveBeenCalledTimes(10);
   });
 });
 describe("referral measurement privacy", () => {

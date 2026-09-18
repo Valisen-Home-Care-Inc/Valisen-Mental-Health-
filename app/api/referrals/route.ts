@@ -4,7 +4,7 @@ import { REFERRAL_ACTION, REFERRAL_CONSENT_VERSION, validateReferral } from "@/l
 import { hasJsonContentType, isSameOriginRequest, readBoundedJson } from "@/lib/server/httpRequestSecurity";
 import { isRateLimited } from "@/lib/server/rateLimit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
-import { callSupabaseRpc } from "@/lib/server/supabaseServer";
+import { sendReferralEmail } from "@/lib/server/referralEmail";
 
 export const runtime = "nodejs";
 const respond = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store, private", "Referrer-Policy": "no-referrer" } });
@@ -12,7 +12,6 @@ const respond = (body: unknown, status = 200) => NextResponse.json(body, { statu
 export async function POST(request: NextRequest) {
   if (!isSameOriginRequest(request)) return respond({ error: "Invalid request origin." }, 403);
   if (!hasJsonContentType(request)) return respond({ error: "A JSON request is required." }, 415);
-  if (process.env.REFERRALS_ENABLED !== "true") return respond({ error: "Online referrals are currently unavailable. Please call 613-707-0333." }, 503);
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (isRateLimited(`referral:${ip}`, 10, 600_000)) return respond({ error: "Too many attempts. Please wait a few minutes before trying again." }, 429);
   const body = await readBoundedJson(request, 12_000);
@@ -26,9 +25,7 @@ export async function POST(request: NextRequest) {
   const verification = await verifyTurnstile(request, input.turnstileToken, REFERRAL_ACTION, createHash("sha256").update(input.submissionId).digest("hex"));
   if (!verification.ok) return respond({ error: "Security verification could not be completed. Please try again." }, verification.reason === "invalid" ? 400 : 503);
   try {
-    // Durable receipt only. No email, CRM/Sheet mirror, advertising identifiers,
-    // patient data in logs, or shared consultation conversion handling.
-    await callSupabaseRpc("submit_provider_referral", { p_id: input.submissionId, p_details: validation.data, p_consent_version: REFERRAL_CONSENT_VERSION });
+    await sendReferralEmail(validation.data, input.submissionId);
     return respond({ ok: true });
   } catch {
     return respond({ error: "We could not confirm receipt. Your entries are still here; please retry or call 613-707-0333." }, 503);
