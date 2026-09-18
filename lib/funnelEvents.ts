@@ -1,4 +1,11 @@
 export const FUNNEL_EVENT_NAMES = [
+  "referral_page_viewed",
+  "referral_cta_clicked",
+  "therapist_profile_clicked_from_referrals",
+  "referral_form_started",
+  "referral_form_submitted",
+  "referral_guide_downloaded",
+  "referral_phone_clicked",
   "session_exit",
   "landing_page_viewed",
   "homepage_viewed",

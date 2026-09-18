@@ -62,6 +62,15 @@ const nextConfig = {
         headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
       {
+        source: "/referrals/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          // Only same-origin assets and the existing bot challenge may load.
+          { key: "Content-Security-Policy", value: adminLoginCsp },
+        ],
+      },
+      {
         source: "/thank-you",
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0" },

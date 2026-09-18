@@ -9,7 +9,7 @@ import { consultationPoolForConcept } from "@/lib/paidSearchConcepts";
 
 export const runtime = "nodejs";
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   const concept = request ? new URL(request.url).searchParams.get("concept") || undefined : undefined;
   const selected = request ? new URL(request.url).searchParams.get("therapist") : null;
   const eligible = consultationPoolForConcept(concept);

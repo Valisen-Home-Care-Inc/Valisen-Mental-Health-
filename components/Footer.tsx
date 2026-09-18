@@ -16,6 +16,7 @@ const COL_SERVICES = [
 ];
 
 const COL_COMPANY = [
+  { href: "/referrals", label: "For Healthcare Providers" },
   { href: "/about", label: "About Valisen" },
   { href: "/therapists", label: "Our Therapists" },
   { href: "/insurance", label: "Insurance" },
@@ -99,9 +100,7 @@ function FooterCol({
       <ul className="space-y-2 text-[13px] text-white/70">
         {links.map((link) => (
           <li key={link.label}>
-            <Link href={link.href} className="no-underline hover:text-teal-light">
-              {link.label}
-            </Link>
+            {link.href === "/referrals" ? <a href={link.href} className="no-underline hover:text-teal-light">{link.label}</a> : <Link href={link.href} className="no-underline hover:text-teal-light">{link.label}</Link>}
           </li>
         ))}
       </ul>

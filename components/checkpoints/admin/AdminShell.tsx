@@ -15,6 +15,12 @@ import { useState, type ReactNode } from "react";
 
 const NAVIGATION = [
   {
+    href: "/admin/checkpoints/referrals",
+    label: "Referrals",
+    icon: ClipboardList,
+    active: (pathname: string) => pathname.startsWith("/admin/checkpoints/referrals"),
+  },
+  {
     href: "/admin/checkpoints/google-ads",
     label: "Google Ads",
     icon: Megaphone,

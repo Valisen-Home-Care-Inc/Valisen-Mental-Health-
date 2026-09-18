@@ -19,7 +19,7 @@ describe("shared consultation availability route", () => {
       { date: "invalid", time: "private" },
     ]);
 
-    const response = await GET();
+    const response = await GET(new Request("https://valisenmentalhealth.com/api/consultation-slots"));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
@@ -43,7 +43,7 @@ describe("shared consultation availability route", () => {
 
   it("fails closed if availability cannot be read", async () => {
     getBookedConsultationSlots.mockRejectedValue(new Error("offline"));
-    expect((await GET()).status).toBe(503);
+    expect((await GET(new Request("https://valisenmentalhealth.com/api/consultation-slots"))).status).toBe(503);
   });
 
 });

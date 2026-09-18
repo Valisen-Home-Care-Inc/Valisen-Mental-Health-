@@ -10,6 +10,8 @@ export function shouldLoadSiteAnalytics(
   hasActiveCheckpointSession = false,
 ): boolean {
   return !(
+    pathname === "/referrals" ||
+    pathname.startsWith("/referrals/") ||
     hasActiveCheckpointSession ||
     isFocusedLandingPath(pathname) ||
     pathname === "/ads-preview" ||
@@ -28,7 +30,8 @@ export function isSensitiveGoogleAdsMarketingPath(pathname: string): boolean {
     pathname.length > 1 && pathname.endsWith("/")
       ? pathname.slice(0, -1)
       : pathname;
-  return isFocusedLandingPath(normalized) || [
+  return isFocusedLandingPath(normalized) || normalized.startsWith("/referrals/") || [
+    "/referrals",
     "/consultation",
     "/book-consultation",
     "/get-matched",

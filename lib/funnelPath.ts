@@ -10,6 +10,7 @@ type FunnelPage = (typeof FUNNEL_PAGES)[number];
  */
 export const TRACKED_PUBLIC_PATHS = [
   ...PAID_SEARCH_CONCEPT_PATHS,
+  "/referrals",
   "/",
   "/about",
   "/anxiety-therapy-ottawa",

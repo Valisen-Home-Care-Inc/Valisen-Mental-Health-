@@ -1,9 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export default function Logo({ dark = false }: { dark?: boolean }) {
+export default function Logo({ dark = false, href = "/", label = "Valisen home" }: { dark?: boolean; href?: string; label?: string }) {
   return (
-    <Link href="/" className="inline-flex items-center no-underline" aria-label="Valisen home">
+    <Link href={href} className="inline-flex items-center no-underline" aria-label={label}>
       <Image
         src="/valisen-logo.png"
         alt="Valisen Mental Health"
