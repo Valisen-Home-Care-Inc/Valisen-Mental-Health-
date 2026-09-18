@@ -1,4 +1,6 @@
 "use client";
+
+import { formatPhoneDigits } from "@/lib/phoneFormatting";
 import { announceConsultationBooked } from "@/lib/useConsultationAvailability";
 
 import Link from "next/link";
@@ -88,14 +90,6 @@ function makeSubmissionId(): string {
   return `consult-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
-/** Formats up to 10 digits as a North American number: (613) 555-0123. */
-function formatPhoneDigits(digits: string): string {
-  const d = digits.slice(0, 10);
-  if (d.length === 0) return "";
-  if (d.length < 4) return d;
-  if (d.length < 7) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
-  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
-}
 
 function splitFullName(value: string): { firstName: string; lastName: string } | null {
   const parts = value.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);

@@ -807,9 +807,10 @@ export const therapists: Therapist[] = [
     headline:
       "Virtual and Telephone Therapy for Anxiety, Perfectionism, People-Pleasing, ADHD, and Self-Esteem",
     cardStatement:
-      "Ryann is a Registered Social Worker offering virtual and telephone therapy to individual adults and couples in Ontario and Saskatchewan. She works with clients navigating anxiety, relationship challenges, people-pleasing, perfectionism, ADHD, self-esteem concerns, and major life transitions, with a focus on real insight, practical tools, and understanding the patterns that shape you.",
+      "Ryann is a Registered Social Worker offering virtual and telephone therapy to individual adults and couples in Ontario and Saskatchewan. She works with clients navigating anxiety, OCD, relationship challenges, people-pleasing, perfectionism, ADHD, self-esteem concerns, and major life transitions, with a focus on real insight, practical tools, and understanding the patterns that shape you.",
     specialties: [
       "Anxiety",
+      "OCD",
       "Relationship challenges",
       "People-pleasing",
       "Perfectionism",
@@ -833,6 +834,10 @@ export const therapists: Therapist[] = [
       "She often works with people who describe themselves as self-aware, intuitive, intellectual, and emotionally attuned — people who may seem to have things together on the outside while struggling internally with anxiety, overwhelm, and self-criticism, and who want to understand what's really shaping their habits, decisions, and relationships.",
     ],
     areasOfSupport: [
+      {
+        title: "Obsessive-Compulsive Disorder (OCD)",
+        description: "Support for people navigating obsessive-compulsive disorder (OCD).",
+      },
       {
         title: "Anxiety",
         description:

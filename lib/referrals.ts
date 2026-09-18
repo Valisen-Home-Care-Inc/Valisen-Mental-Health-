@@ -4,7 +4,7 @@ export const REFERRAL_CONSENT_VERSION = "2026-09-18-email-v1";
 export const REFERRAL_CONSENT = "I confirm that I am authorized to share this information and have the patient's consent for Valisen Mental Health to receive these details by email at info@valisenmentalhealth.com, coordinate this referral and contact the patient. I understand that submitting a referral does not book an appointment or authorize disclosure of clinical information back to me.";
 export const REFERRAL_ACTION = "provider_referral";
 export const REFERRAL_GUIDE_URL = "/referrals/guide";
-export const REFERRAL_REASONS = ["Anxiety", "Depression", "Stress and burnout", "Trauma", "Relationship concerns", "Life transitions", "Emotional regulation", "Grief and loss", "Self-esteem", "Work and academic stress", "Family or interpersonal concerns", "General psychotherapy support"] as const;
+export const REFERRAL_REASONS = ["Anxiety", "OCD", "Depression", "Stress and burnout", "Trauma", "Relationship concerns", "Life transitions", "Emotional regulation", "Grief and loss", "Self-esteem", "Work and academic stress", "Family or interpersonal concerns", "General psychotherapy support"] as const;
 export type ReferralFields = {
   providerName: string; providerRole: string; organization: string; providerPhone: string; providerEmail: string;
   patientName: string; patientPhone: string; patientEmail: string; contactMethod: string;

@@ -6,6 +6,7 @@ import TurnstileWidget from "@/components/TurnstileWidget";
 import { EMPTY_REFERRAL, REFERRAL_ACTION, REFERRAL_CONSENT, REFERRAL_CONSENT_VERSION, REFERRAL_REASONS, validateReferral, type ReferralErrors, type ReferralFields } from "@/lib/referrals";
 import { getActiveTherapists, getVerifiedLanguages } from "@/lib/therapists";
 import { trackReferralEvent } from "@/lib/referralAnalytics";
+import { formatReferralPhone } from "@/lib/phoneFormatting";
 import styles from "@/app/referrals/referrals.module.css";
 
 export default function ReferralForm({ enabled, initialTherapist }: { enabled: boolean; initialTherapist?: string }) {
@@ -31,7 +32,15 @@ export default function ReferralForm({ enabled, initialTherapist }: { enabled: b
   function field(key: Exclude<keyof ReferralFields, "consent">, label: string, type = "text", required = true) {
     return <div className={styles.field}>
       <label htmlFor={`ref-${key}`}>{label}{required ? " *" : " (optional)"}</label>
-      <input id={`ref-${key}`} name={key} type={type} value={fields[key]} required={required} maxLength={200} autoComplete="off" aria-invalid={Boolean(errors[key])} aria-describedby={errors[key] ? `error-${key}` : undefined} onChange={e => update(key, e.target.value)} />
+      <input id={`ref-${key}`} name={key} type={type} inputMode={type === "tel" ? "tel" : undefined} placeholder={type === "tel" ? "(613) 555-0123" : undefined} value={fields[key]} required={required} maxLength={200} autoComplete="off" aria-invalid={Boolean(errors[key])} aria-describedby={errors[key] ? `error-${key}` : undefined} onChange={e => {
+        if (type !== "tel") { update(key, e.target.value); return; }
+        const input = e.target;
+        const result = formatReferralPhone(input.value, input.selectionStart ?? input.value.length);
+        update(key, result.formatted);
+        requestAnimationFrame(() => {
+          if (document.activeElement === input) input.setSelectionRange(result.caret, result.caret);
+        });
+      }} />
       {errors[key] && <span className={styles.error} id={`error-${key}`}>{errors[key]}</span>}
     </div>;
   }
