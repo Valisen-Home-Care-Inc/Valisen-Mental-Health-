@@ -38,7 +38,11 @@ operational calendar. Staff must keep outside bookings and time off coordinated.
 ## Tracking
 
 All 15 final URLs enter the existing signed Google Ads journey and remain separate
-in CRM final-URL reports; `/welcome` stays first. Named booking step 1 is choosing
+in CRM final-URL reports. All 15 destinations stay selectable even with no visits
+in the selected range or scope; `/welcome` stays first and remains the default.
+Other historical entry URLs remain available when present in the report. Metrics,
+journeys and CSV exports follow the selected original final URL, including its
+downstream activity. Named booking step 1 is choosing
 a time, and step 2 is contact details. Production CTA, start, detail, field and
 confirmed-submission events use the existing first-party event contract. No field
 values are included. Reminder section `section-99` distinguishes exposure,

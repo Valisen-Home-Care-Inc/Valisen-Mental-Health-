@@ -26,7 +26,7 @@ import { useRef, useState } from "react";
 import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
-import { DEFAULT_GOOGLE_ADS_LANDING_PATH } from "@/lib/googleAdsLandingReport";
+import { DEFAULT_GOOGLE_ADS_LANDING_PATH, googleAdsLandingPaths } from "@/lib/googleAdsLandingPaths";
 import {
   googleAdsCampaignLabel,
   googleAdsEventLabel,
@@ -469,7 +469,7 @@ export default function GoogleAdsDashboardClient({
       <div className="mt-6 rounded-[16px] border border-[#b8d2cc] bg-white p-3 shadow-sm">
         <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[1.5px] text-[#667471]">Final URL</p>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Google Ads final URL tabs">
-          {Array.from(new Set([DEFAULT_GOOGLE_ADS_LANDING_PATH, ...landingPaths, landingPath])).map((path) => (
+          {googleAdsLandingPaths([...landingPaths, landingPath]).map((path) => (
             <button
               key={path}
               type="button"

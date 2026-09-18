@@ -5,6 +5,7 @@ import {
   normalizeGoogleAdsDashboard,
 } from "@/lib/googleAdsDashboard";
 import { encodeGoogleAdsValueTrackAttribution } from "@/lib/googleAdsEntry";
+import { PAID_SEARCH_CONCEPT_PATHS } from "@/lib/paidSearchRoutes";
 
 const RANGE = {
   from: "2026-08-01T04:00:00.000Z",
@@ -12,6 +13,13 @@ const RANGE = {
 };
 
 describe("Google Ads dashboard normalization", () => {
+  it("retains all live destinations in sparse responses and preserves the selected historical URL", () => {
+    const data = normalizeGoogleAdsDashboard({ landingPath: "/services", landingPaths: ["/", "/welcome", "/"] }, RANGE);
+    expect(data.landingPaths).toEqual(["/welcome", ...PAID_SEARCH_CONCEPT_PATHS, "/", "/services"]);
+    expect(data.landingPath).toBe("/services");
+    expect(data.kpis.sessions).toBe(0);
+  });
+
   it("normalizes the database dashboard contract and ordered journey timeline", () => {
     const valueTrackContent = encodeGoogleAdsValueTrackAttribution({
       adGroupId: "7639334819",

@@ -2,8 +2,9 @@ import { isFocusedLandingPath } from "@/lib/paidSearchRoutes";
 import { normalizeGoogleAdsDashboard, type GoogleAdsDashboardData } from "@/lib/googleAdsDashboard";
 import type { GoogleAdsEventExportRow, GoogleAdsJourneyExportRow } from "@/lib/googleAdsExport";
 import { canonicalizeGoogleAdsPath } from "@/lib/googleAdsJourney";
+import { DEFAULT_GOOGLE_ADS_LANDING_PATH, googleAdsLandingPaths } from "@/lib/googleAdsLandingPaths";
 
-export const DEFAULT_GOOGLE_ADS_LANDING_PATH = "/welcome";
+export { DEFAULT_GOOGLE_ADS_LANDING_PATH } from "@/lib/googleAdsLandingPaths";
 
 export function googleAdsLandingFilter(value: string | null): string | null {
   if (value === null) return DEFAULT_GOOGLE_ADS_LANDING_PATH;
@@ -38,9 +39,9 @@ export function buildGoogleAdsLandingReport(
   opportunityKeys: ReadonlyMap<string, string> = new Map(),
 ): GoogleAdsDashboardData {
   const inRange = journeys.filter((row) => row.startedAt >= range.from && row.startedAt < range.to);
-  const landingPaths = [DEFAULT_GOOGLE_ADS_LANDING_PATH, ...Array.from(new Set([
+  const landingPaths = googleAdsLandingPaths([
     ...inRange.map((row) => row.landingPath), landingPath,
-  ])).filter((path) => path !== DEFAULT_GOOGLE_ADS_LANDING_PATH).sort()];
+  ]);
   const selected = inRange.filter((row) => row.landingPath === landingPath);
   const sessions = Array.from(new Map(selected.filter(isRecordedGoogleAdsSession).map((row) => [row.sessionId, row])).values());
   const sessionIds = new Set(sessions.map((row) => row.sessionId));

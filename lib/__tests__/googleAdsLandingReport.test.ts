@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildGoogleAdsLandingReport, googleAdsLandingFilter } from "@/lib/googleAdsLandingReport";
 import { normalizeGoogleAdsEventExportRows, normalizeGoogleAdsJourneyExportRows } from "@/lib/googleAdsExport";
+import { PAID_SEARCH_CONCEPT_PATHS } from "@/lib/paidSearchRoutes";
 
 const range = { from: "2026-09-01T04:00:00.000Z", to: "2026-09-12T04:00:00.000Z" };
 const startedAt = "2026-09-11T14:14:00.000Z";
@@ -27,20 +28,55 @@ describe("Google Ads final URL reporting", () => {
       event(2, named.sessionId, "/welcome/ocd", "consultation_step_viewed", { formStep: 2 }),
     ], "/welcome/ocd");
     expect(data.kpis.sessions).toBe(1);
-    expect(data.landingPaths).toEqual(["/welcome", "/welcome/anxiety", "/welcome/ocd"]);
+    expect(data.landingPaths).toEqual(["/welcome", ...PAID_SEARCH_CONCEPT_PATHS]);
     expect(data.funnel.find((stage) => stage.key === "consultation_page")?.count).toBe(1);
     expect(data.funnel.find((stage) => stage.key === "consultation_step_2")).toMatchObject({ label: "Contact details reached", count: 1 });
   });
   it("keeps welcome first and available even with no welcome visits", () => {
     const data = report([session(1, "/")], []);
     expect(data.landingPath).toBe("/welcome");
-    expect(data.landingPaths).toEqual(["/welcome", "/"]);
+    expect(data.landingPaths).toEqual(["/welcome", ...PAID_SEARCH_CONCEPT_PATHS, "/"]);
     expect(data.kpis.sessions).toBe(0);
     expect(data.recentSessions).toEqual([]);
     expect(googleAdsLandingFilter(null)).toBe("/welcome");
     for (const invalid of ["", "https://evil.example/", "/welcome?gclid=123", "/admin", "/welcome/"]) {
       expect(googleAdsLandingFilter(invalid)).toBeNull();
     }
+  });
+
+  it.each(PAID_SEARCH_CONCEPT_PATHS)("keeps %s selectable when the range has no visits", (path) => {
+    const data = buildGoogleAdsLandingReport(normalizeGoogleAdsJourneyExportRows([session(1, path)]), [],
+      { from: "2026-09-12T04:00:00.000Z", to: "2026-09-13T04:00:00.000Z" }, path);
+    expect(googleAdsLandingFilter(path)).toBe(path);
+    expect(data.landingPath).toBe(path);
+    expect(data.landingPaths).toEqual(["/welcome", ...PAID_SEARCH_CONCEPT_PATHS]);
+    expect(data.kpis.sessions).toBe(0);
+    expect(data.recentSessions).toEqual([]);
+  });
+
+  it.each(PAID_SEARCH_CONCEPT_PATHS)("isolates activity and outcomes for %s within the same campaign", (path) => {
+    const rows = PAID_SEARCH_CONCEPT_PATHS.map((landingPath, index) => session(index + 1, landingPath, {
+      engagedMs: (index + 1) * 1_000, consultationCtaClicked: true, formStarted: true,
+      consultationSubmitted: true, consultationReferenceId: `VC-${String(index + 1).padStart(24, "0")}`,
+      booked: index % 2 === 0, paidTherapy: index % 3 === 0,
+    }));
+    const events = rows.flatMap((row, index) => [
+      event(index * 2 + 1, row.sessionId, row.landingPath),
+      // A visit to another landing page must stay with the original entry URL.
+      event(index * 2 + 2, row.sessionId, PAID_SEARCH_CONCEPT_PATHS[(index + 1) % rows.length]),
+    ]);
+    const index = PAID_SEARCH_CONCEPT_PATHS.indexOf(path);
+    const data = report([...rows, session(100), session(101, "/")], events, path);
+    expect(data.kpis).toMatchObject({ sessions: 1, averageEngagedMs: (index + 1) * 1_000,
+      totalEngagedMs: (index + 1) * 1_000, consultationCtaSessions: 1, formStarts: 1,
+      consultationRequests: 1, consultationOpportunities: 1,
+      bookedConsultations: index % 2 === 0 ? 1 : 0, paidTherapyConversions: index % 3 === 0 ? 1 : 0 });
+    expect(data.recentSessions.map((row) => row.sessionId)).toEqual([rows[index].sessionId]);
+    expect(data.recentSessions[0].events).toHaveLength(2);
+    expect(data.pages).toHaveLength(2);
+    expect(data.campaigns).toHaveLength(1);
+    expect(data.campaigns[0].sessions).toBe(1);
+    expect(data.actions.find((row) => row.event === "page_viewed")).toMatchObject({ events: 2, sessions: 1 });
   });
 
   it("isolates every metric by original final URL, retaining downstream pages", () => {

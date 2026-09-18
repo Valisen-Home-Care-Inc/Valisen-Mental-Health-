@@ -1,3 +1,4 @@
+import { googleAdsLandingPaths } from "@/lib/googleAdsLandingPaths";
 import {
   GOOGLE_ADS_FORM_FIELD_IDS,
   GOOGLE_ADS_EVENT_NAMES,
@@ -866,7 +867,7 @@ export function normalizeGoogleAdsDashboard(
     generatedAt: date(pick(source, "generatedAt", "generated_at"), new Date().toISOString()),
     ...(typeof source.landingPath === "string" ? {
       landingPath: path(source.landingPath),
-      landingPaths: Array.from(new Set(["/welcome", ...array(source.landingPaths).map(path)])),
+      landingPaths: googleAdsLandingPaths([path(source.landingPath), ...array(source.landingPaths).map(path)]),
       excludedEntryRequests: count(source.excludedEntryRequests),
     } : {}),
     range: normalizedRange,

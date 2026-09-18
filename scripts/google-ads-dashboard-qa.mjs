@@ -17,19 +17,25 @@ const unsigned = `v1.${payload}`;
 const cookie = `__Host-vmh_checkpoint_admin=${unsigned}.${createHmac("sha256", secret).update(unsigned).digest("base64url")}`;
 const startedAt = new Date(Date.now() - 3600_000).toISOString();
 const state = { section: "google_ads", activeSince: "2026-01-01T00:00:00.000Z", updatedAt: startedAt };
+const landingPaths = ["anxiety", "depression", "cbt", "couples", "ocd", "panic", "social-anxiety",
+  "online-therapy", "psychotherapists", "free-consultation", "mandarin", "arabic", "adhd", "perfectionism", "trauma"]
+  .map((slug) => `/welcome/${slug}`);
 const journey = (id, landingPath, engagedMs, eventCount = 2) => ({
   sessionId: `gas-00000000-0000-4000-8000-${String(id).padStart(12, "0")}`,
   startedAt, lastSeenAt: new Date(Date.parse(startedAt) + engagedMs).toISOString(),
   landingPath, lastPath: landingPath, engagedMs, eventCount, source: "google", medium: "cpc",
-  campaignName: landingPath === "/welcome" ? "Welcome campaign" : "Home campaign",
+  campaignName: landingPath === "/welcome" ? "Welcome campaign"
+    : landingPath.startsWith("/welcome/") ? `Focused campaign ${id}` : "Home campaign",
 });
 const fixtures = [journey(1, "/welcome", 15000), journey(2, "/welcome", 2000),
   journey(3, "/welcome", 0, 0), journey(4, "/welcome", 0, 0), journey(5, "/welcome", 0, 0),
-  journey(6, "/", 90000), journey(7, "/services", 25000)];
+  journey(6, "/", 90000), journey(7, "/services", 25000),
+  ...landingPaths.map((path, index) => journey(index + 8, path, (index + 1) * 1000))];
 const timeline = fixtures.filter((row) => row.eventCount > 0).map((row) => ({
   sessionId: row.sessionId, sessionStartedAt: row.startedAt, occurredAt: row.startedAt,
   sequence: 1, event: "page_viewed", path: row.landingPath,
 }));
+let failReports = false;
 const database = createServer(async (request, response) => {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
@@ -39,6 +45,11 @@ const database = createServer(async (request, response) => {
   if (name === "get_crm_reporting_state") result = state;
   if (name === "list_crm_reporting_archives") result = { ...state, archives: [] };
   if (name === "export_google_ads_journeys" || name === "export_google_ads_journey_events") {
+    if (failReports) {
+      response.writeHead(503, { "content-type": "application/json" });
+      response.end(JSON.stringify({ message: "Simulated reporting outage" }));
+      return;
+    }
     const rows = body.p_test ? [] : name === "export_google_ads_journeys" ? fixtures : timeline;
     result = rows.slice(body.p_offset, body.p_offset + body.p_limit);
   }
@@ -85,7 +96,13 @@ try {
   await page.goto(`${origin}/admin/checkpoints/google-ads`, { waitUntil: "networkidle0", timeout: 120000 });
   console.log("Dashboard loaded; checking URL tabs.");
   const tabs = '[aria-label="Google Ads final URL tabs"]';
+  const assertPinnedTabs = async () => {
+    const paths = await page.$$eval(`${tabs} button`, (nodes) => nodes.map((node) => node.textContent));
+    assert.deepEqual(paths.slice(0, 16), ["/welcome", ...landingPaths]);
+    assert.equal(new Set(paths).size, paths.length);
+  };
   await page.waitForSelector(tabs);
+  await assertPinnedTabs();
   assert.equal(await page.$eval(`${tabs} button[aria-pressed="true"]`, (node) => node.textContent), "/welcome");
   assert.equal(await page.$eval(`${tabs} button:first-child`, (node) => node.textContent), "/welcome");
   assert(await page.evaluate(() => document.body.innerText.includes("3 entry requests without recorded activity are excluded")));
@@ -103,6 +120,25 @@ try {
   const csv = await page.evaluate(async () => (await fetch("/api/admin/checkpoints/google-ads/export?kind=journeys&landingPath=%2F&range=30d")).text());
   assert(csv.includes(fixtures[5].sessionId));
   assert(!csv.includes(fixtures[0].sessionId));
+  for (const [index, path] of landingPaths.entries()) {
+    const responsePromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/admin/checkpoints/google-ads/dashboard" && url.searchParams.get("landingPath") === path;
+    });
+    await page.click(`${tabs} button[title="valisenmentalhealth.com${path}"]`);
+    const response = await responsePromise;
+    assert.equal(response.status(), 200);
+    const { data } = await response.json();
+    assert.equal(data.landingPath, path);
+    assert.equal(data.kpis.sessions, 1);
+    assert.equal(data.kpis.averageEngagedMs, (index + 1) * 1000);
+    assert.deepEqual(data.recentSessions.map((row) => row.sessionId), [fixtures[index + 7].sessionId]);
+    await page.waitForFunction((campaign) => document.body.innerText.includes(campaign), {}, `Focused campaign ${index + 8}`);
+    assert.equal(await page.$eval(`${tabs} button[aria-pressed="true"]`, (node) => node.textContent), path);
+    assert.equal(await page.evaluate(() => document.body.innerText.includes("Welcome campaign")), false);
+    await assertPinnedTabs();
+    console.log(`Verified ${path}`);
+  }
   await page.click(`${tabs} button:first-child`);
   await page.waitForFunction(() => document.body.innerText.includes("Welcome campaign"));
   await mkdir("artifacts/google-ads", { recursive: true });
@@ -112,9 +148,19 @@ try {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await page.evaluate(() => Array.from(document.querySelectorAll("button")).find((node) => node.textContent === "Test QA").click());
   await page.waitForFunction(() => document.body.innerText.includes("Test QA data only") && !document.body.innerText.includes("Welcome campaign"));
-  assert.equal(await page.$eval(`${tabs} button:first-child`, (node) => node.textContent), "/welcome");
+  await assertPinnedTabs();
+  await page.click(`${tabs} button[title="valisenmentalhealth.com/welcome/ocd"]`);
+  await page.waitForFunction(() => document.querySelector('[aria-label="Google Ads final URL tabs"] button[aria-pressed="true"]')?.textContent === "/welcome/ocd"
+    && document.body.innerText.includes("No recent ad sessions"));
+  await assertPinnedTabs();
+  await page.evaluate(() => Array.from(document.querySelectorAll("button")).find((node) => node.textContent === "7 days").click());
+  await page.waitForNetworkIdle();
+  await assertPinnedTabs();
+  failReports = true;
+  await page.reload({ waitUntil: "networkidle0" });
+  await assertPinnedTabs();
   assert.deepEqual(errors, []);
-  console.log("PASS default/persistent welcome tab, URL switching, full scoped metrics, exports, empty QA scope, desktop/mobile layout, no browser errors");
+  console.log("PASS all 15 permanent URL tabs, isolated metrics and sessions, exports, legacy URLs, empty QA scope, date ranges, initial reporting failure, desktop/mobile layout, no browser errors");
 } finally {
   await browser?.close();
   server.kill();

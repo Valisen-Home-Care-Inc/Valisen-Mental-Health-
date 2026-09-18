@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { normalizeGoogleAdsEventExportRows, normalizeGoogleAdsJourneyExportRows } from "@/lib/googleAdsExport";
+import { PAID_SEARCH_CONCEPT_PATHS } from "@/lib/paidSearchRoutes";
 
 const mock = vi.hoisted(() => ({ rows: vi.fn(), auth: vi.fn(() => null), range: vi.fn() }));
 vi.mock("@/lib/server/googleAdsRepository", () => ({ fetchGoogleAdsReportRows: mock.rows }));
@@ -27,6 +28,28 @@ beforeEach(() => {
 });
 
 describe("Google Ads exports follow the URL tab", () => {
+  it.each(PAID_SEARCH_CONCEPT_PATHS)("exports only journeys and downstream events originating at %s", async (path) => {
+    const journeys = normalizeGoogleAdsJourneyExportRows(PAID_SEARCH_CONCEPT_PATHS.map((landingPath, index) => ({
+      sessionId: `gas-00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      startedAt: "2026-09-11T14:14:00.000Z", landingPath, eventCount: 2, campaignName: "Shared campaign",
+    })));
+    mock.rows.mockResolvedValue({ journeys, events: normalizeGoogleAdsEventExportRows(journeys.map((row) => ({
+      sessionId: row.sessionId, sessionStartedAt: row.startedAt, occurredAt: row.startedAt,
+      sequence: 1, event: "page_viewed", path: "/therapists",
+    }))) });
+    for (const kind of ["journeys", "events"]) {
+      const response = await GET(new NextRequest(`https://valisenmentalhealth.com/api/admin/checkpoints/google-ads/export?kind=${kind}&landingPath=${encodeURIComponent(path)}&range=30d`));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("x-export-rows")).toBe("1");
+      const csv = await response.text();
+      for (const row of journeys) {
+        if (row.landingPath === path) expect(csv).toContain(row.sessionId);
+        else expect(csv).not.toContain(row.sessionId);
+      }
+      if (kind === "events") expect(csv).toContain("/therapists");
+    }
+  });
+
   it("defaults to welcome and excludes entry-only rows", async () => {
     const response = await GET(new NextRequest("https://valisenmentalhealth.com/api/admin/checkpoints/google-ads/export?kind=journeys&range=30d"));
     expect(response.status).toBe(200);
