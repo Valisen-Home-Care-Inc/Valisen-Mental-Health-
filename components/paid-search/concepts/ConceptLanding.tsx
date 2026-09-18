@@ -83,10 +83,9 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
           <a className={styles.meetLink} href="#your-therapist"><span className={styles.avatarStack}>{clinicians.slice(0, 3).map((person) => <Image key={person.slug} src={person.photo} alt="" width={38} height={38} />)}</span><span>{clinicians.length === 1 ? t("Meet {name}", { name: lead?.name.split(" ")[0] || "" }) : t("Meet your therapists")}<ArrowDown size={13} /></span></a>
         </div>
         {earlyBooking ? <section ref={booking} id="consultation" tabIndex={-1} className={styles.earlyBooking} aria-label={t("Book a free consultation")}>{bookingForm}</section> : <div className={styles.heroVisual}>
-          <div className={styles.portraitFrame}>
+          <div className={styles.portraitWrap}><div className={styles.portraitFrame}>
             {lead ? <Image src={lead.photo} alt={lead.name} fill priority sizes="(max-width: 700px) 90vw, 43vw" className={styles.heroPortrait} /> : null}
-            <div className={styles.portraitTop}><span className={styles.availabilityDot} />{t("Accepting new clients")}</div>
-          </div>
+          </div><div className={styles.portraitTop}><span className={styles.availabilityDot} />{t("Accepting new clients")}</div></div>
           <div className={styles.personCaption}><div><span>{concept.language?.label ?? t("A real person, here to listen")}</span><h2>{lead?.name}</h2><p>{lead?.role}</p></div><span className={styles.captionSeal} aria-hidden="true"><HeartHandshake size={27} strokeWidth={1.25} /></span></div>
           <div className={styles.heroProof}><span className={styles.proofIcon}><Check size={17} /></span><div><strong>{concept.proof[0]}</strong><span>{concept.proof[1]}</span></div></div>
         </div>}
