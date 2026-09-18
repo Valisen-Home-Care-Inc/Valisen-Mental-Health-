@@ -93,6 +93,7 @@ export default function ReferralForm({ enabled, initialTherapist }: { enabled: b
   if (success) return <div className={styles.success} ref={result} tabIndex={-1} role="status">
     <span className={styles.eyebrow}>Referral received</span>
     <h3>Thank you for referring your patient.</h3>
+    <p>A separate acknowledgement is sent to the provider email you supplied. It includes a referral reference and next steps, with no patient details. If it does not arrive, check your spam folder or contact our team; please do not resubmit this referral.</p>
     <p>The Valisen team will review the referral and contact the patient using their preferred method to discuss clinician fit and availability.</p>
     <p>An appointment has not yet been booked. This referral does not authorize clinical updates to the referring provider.</p>
     <button className={styles.button} type="button" onClick={() => { setSuccess(false); submissionId.current = null; started.current = false; }}>Refer another patient</button>

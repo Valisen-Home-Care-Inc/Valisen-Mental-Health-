@@ -23,7 +23,7 @@ No referral admin login, Supabase key or enable flag is required to submit refer
 
 Watch info@valisenmentalhealth.com for PATIENT REFERRAL subjects. The message contains provider contacts, patient contacts, preferred contact method, referral details, therapist preference and the versioned authorization statement. Reply-To points to the provider. Contact the patient using the patient's details in the body. Clinical updates require separate authorization.
 
-Consent and privacy text explicitly describe email delivery. The transport requires TLS; SMTP debug/body logging is disabled. No patient name or clinical concern appears in the subject. There is no automatic patient confirmation email and no automatic appointment booking.
+Consent and privacy text explicitly describe email delivery. The transport requires TLS; SMTP debug/body logging is disabled. No patient name or clinical concern appears in the subject. After the clinic mail server accepts the referral, Next.js schedules a separate acknowledgement to the provider email after the response. It includes only the reference number and general next steps, with no patient details. Its subject begins "Referral received | Valisen Mental Health" and replies go to info@valisenmentalhealth.com. A failed acknowledgement never reverses successful clinic delivery or causes the clinic email to be resent. There is no automatic patient email or appointment booking.
 
 Same-instance retries are deduplicated using a short-lived in-memory reference; a stable Message-ID and reference help identify duplicates across restarts/instances. Exactly-once delivery cannot be guaranteed without durable storage. Do not treat repeated copies with the same reference as new referrals.
 
@@ -35,4 +35,4 @@ Same-instance retries are deduplicated using a short-lived in-memory reference; 
 
 Run lint, the production build, and the referrals.test.ts and referralEmail.test.ts tests. Browser QA covers isolated navigation and responsive layouts. Email tests mock SMTP and never send real patient details.
 
-After deployment, send a clearly labelled test referral with contact details you control and confirm the PATIENT REFERRAL email arrives. This is the final delivery check before distributing the link to doctors. Do not paste hosting secrets into chat.
+After deployment, send a clearly labelled test referral with contact details you control and confirm the PATIENT REFERRAL email arrives at the clinic and the separate acknowledgement arrives at the provider address. This is the final delivery check before distributing the link to doctors. Do not paste hosting secrets into chat.
