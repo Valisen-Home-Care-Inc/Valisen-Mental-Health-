@@ -205,6 +205,8 @@
 .periodTabs button[aria-pressed="true"] { color: #365a43; border-bottom-color: #365a43; }
 .timeGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 21px; }
 .timeGrid button { background: #fffef9; border: 1px solid #d9e0cd; border-radius: 4px; min-height: 34px; font-size: 11px; cursor: pointer; color: #536748; }
+.timeGrid button:disabled { background: #efefe9; color: #929789; border-color: #e4e5dd; cursor: default; text-decoration: line-through; }
+.bookingCard button:disabled, .languageToggle button:disabled { cursor: default; opacity: .55; }
 .bookingCard .primaryButton { width: 100%; margin-top: 2px; }
 .underButton { margin: 11px 0 0; color: #7d8974; font-size: 11px; line-height: 1.6; text-align: center; }
 .backButton { display: flex; align-items: center; gap: 8px; border: 0; background: none; font-size: 12px !important; color: #617653; padding: 0; margin-bottom: 18px; cursor: pointer; }
@@ -220,7 +222,7 @@
 .confirmation { text-align: center; padding: 35px 2px 24px; }
 .confirmation > svg { color: #608447; margin: 0 auto 22px; }
 .confirmation .eyebrow { justify-content: center; margin-bottom: 15px; }
-.confirmation h3 { font: 400 30px/1.3 var(--font-serif), Georgia, serif; margin: 0 0 25px; }
+.confirmation h3, .confirmation h1 { font: 400 30px/1.3 var(--font-serif), Georgia, serif; margin: 0 0 25px; }
 .confirmation p { font-size: 14px; color: #6d7d5f; }
 .confirmation .confirmationNote { border-top: 1px solid #dce4d1; margin-top: 22px; padding-top: 20px; font-size: 13px; }
 .textButton { border: 0; background: none; color: #426134; font-size: 13px !important; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 0 0; cursor: pointer; }

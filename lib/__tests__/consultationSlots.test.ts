@@ -11,7 +11,7 @@ vi.mock("@/lib/server/consultationBookingRepository", () => ({
 import { GET } from "@/app/api/consultation-slots/route";
 
 describe("shared consultation availability route", () => {
-  beforeEach(() => getBookedConsultationSlots.mockReset());
+  beforeEach(() => { getBookedConsultationSlots.mockReset(); });
 
   it("returns only privacy-safe booked slot keys without caching", async () => {
     getBookedConsultationSlots.mockResolvedValue([
@@ -24,9 +24,26 @@ describe("shared consultation availability route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     await expect(response.json()).resolves.toEqual({
-      booked: ["2026-09-10|9:00 AM"],
+      booked: ["2026-09-10|9:00 AM"], calendarVersion: "therapist-capacity-v2",
     });
     expect(getBookedConsultationSlots).toHaveBeenCalledOnce();
+  });
+
+  it("restricts named availability to the selected eligible therapist", async () => {
+    getBookedConsultationSlots.mockResolvedValue([]);
+    const response = await GET(new Request("https://valisenmentalhealth.com/api/consultation-slots?concept=ocd&therapist=ryann-simpson"));
+    expect(response.status).toBe(200);
+    expect(getBookedConsultationSlots).toHaveBeenCalledWith(expect.any(String), expect.any(String), ["ryann-simpson"]);
+  });
+
+  it.each(["concept=arabic&therapist=ryann-simpson", "therapist=ryann-simpson", "concept=ocd&therapist=unknown", "concept=unknown"])("rejects an invalid named calendar: %s", async (query) => {
+    expect((await GET(new Request(`https://valisenmentalhealth.com/api/consultation-slots?${query}`))).status).toBe(400);
+    expect(getBookedConsultationSlots).not.toHaveBeenCalled();
+  });
+
+  it("fails closed if availability cannot be read", async () => {
+    getBookedConsultationSlots.mockRejectedValue(new Error("offline"));
+    expect((await GET()).status).toBe(503);
   });
 
 });
@@ -72,9 +89,9 @@ describe("shared consultation picker", () => {
       "utf8",
     );
 
-    expect(picker).toContain('fetch("/api/consultation-slots"');
+    expect(picker).toContain('useConsultationAvailability(undefined, availabilityRefreshKey)');
     expect(picker).toContain("disabled={disabled}");
     expect(picker).toContain("<small>Booked</small>");
-    expect(picker).toContain("30_000");
+    expect(readFileSync(join(process.cwd(), "lib/useConsultationAvailability.ts"), "utf8")).toContain("30_000");
   });
 });

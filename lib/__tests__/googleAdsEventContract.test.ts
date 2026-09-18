@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PAID_SEARCH_CONCEPT_PATHS } from "@/lib/paidSearchRoutes";
 import {
   parseGoogleAdsEvent,
   parseGoogleAdsEventBatch,
@@ -26,6 +27,17 @@ function event(
 }
 
 describe("Google Ads event contract", () => {
+  it.each(PAID_SEARCH_CONCEPT_PATHS)("accepts named booking stages and reminder metrics on %s", (path) => {
+    for (const item of [
+      event("form_started", { path, formStep: 1 }),
+      event("consultation_step_viewed", { path, formStep: 2 }),
+      event("form_field_entered", { path, targetType: "form_field", targetId: "email" }),
+      event("consultation_submitted", { path, formStep: 2, submissionReference: "VC-ABCDEF123456" }),
+      event("section_viewed", { path, sectionId: "section-99" }),
+      event("control_clicked", { path, sectionId: "section-99", targetType: "button", targetId: "button", ctaPlacement: "main" }),
+      event("consultation_cta_clicked", { path, sectionId: "section-99", targetType: "consultation", targetPath: "/consultation", ctaPlacement: "main" }),
+    ]) expect(parseGoogleAdsEvent(item)).not.toBeNull();
+  });
   it("accepts every consultation event shape emitted by the shared form", () => {
     const emitted = [
       event("form_started", { formStep: 1 }),

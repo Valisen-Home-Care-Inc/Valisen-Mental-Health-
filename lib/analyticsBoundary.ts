@@ -1,3 +1,4 @@
+import { isFocusedLandingPath } from "@/lib/paidSearchRoutes";
 /**
  * The NFC wellness flow has a stricter privacy boundary than ordinary site
  * pages. Third-party marketing tags and the general site funnel are disabled
@@ -10,6 +11,7 @@ export function shouldLoadSiteAnalytics(
 ): boolean {
   return !(
     hasActiveCheckpointSession ||
+    isFocusedLandingPath(pathname) ||
     pathname === "/ads-preview" ||
     pathname.startsWith("/ads-preview/") ||
     pathname === "/c" ||
@@ -26,7 +28,7 @@ export function isSensitiveGoogleAdsMarketingPath(pathname: string): boolean {
     pathname.length > 1 && pathname.endsWith("/")
       ? pathname.slice(0, -1)
       : pathname;
-  return [
+  return isFocusedLandingPath(normalized) || [
     "/consultation",
     "/book-consultation",
     "/get-matched",

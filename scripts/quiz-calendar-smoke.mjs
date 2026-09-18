@@ -160,7 +160,11 @@ try {
       for (let step = 1; step <= 6; step++) await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: rect.x + rect.width - 30 - (rect.width - 60) * step / 6, y: rect.y + 90 }] });
       await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForFunction(() => document.querySelector('[aria-label="Next therapist"]').disabled);
+      // Let touch scrolling settle before switching input methods.
+      await page.waitForFunction(() => !document.querySelector('[aria-label="Previous therapist"]').disabled);
+      await page.bringToFront();
       await page.focus('[aria-label="Previous therapist"]');
+      await page.waitForFunction(() => document.activeElement === document.querySelector('[aria-label="Previous therapist"]'));
       await page.keyboard.press('Enter');
       await page.waitForFunction(() => document.querySelector('[aria-label="Previous therapist"]').disabled);
     }
@@ -170,7 +174,7 @@ try {
     await page.click('#quiz-consultation-booking [aria-label="Next month"]');
     await page.click('#quiz-consultation-booking [aria-label="Previous month"]');
     assert.equal(await page.$eval('#quiz-consultation-booking [aria-label="Previous month"]', (el) => el.disabled), true);
-    assert(await page.$$eval('[aria-label^="Choose a date"] button', (items) => items.filter((el) => /Saturday|Sunday/.test(el.getAttribute('aria-label'))).every((el) => el.disabled)));
+    for (const weekday of ['Saturday','Sunday']) assert(await page.$$eval('[aria-label^="Choose a date"] button', (items,day) => items.some((el) => el.getAttribute('aria-label').includes(day)&&!el.disabled),weekday), `${weekday} has recurring consultation shifts`);
     await page.click('[aria-label^="Choose a date"] button:not([disabled])');
     await page.waitForSelector('[aria-label^="Choose a time"] button');
     await page.$eval('[aria-label^="Choose a time"] button:last-child', (el) => el.scrollIntoView({ block: 'center' }));

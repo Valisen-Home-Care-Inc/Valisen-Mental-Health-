@@ -20,6 +20,17 @@ function report(rows: unknown[], events: unknown[], path = "/welcome") {
 }
 
 describe("Google Ads final URL reporting", () => {
+  it("separates focused destinations and labels the named-booking details step", () => {
+    const named = session(1, "/welcome/ocd", { formStarted: true });
+    const data = report([named, session(2, "/welcome/anxiety"), session(3)], [
+      event(1, named.sessionId, "/welcome/ocd", "form_started", { formStep: 1 }),
+      event(2, named.sessionId, "/welcome/ocd", "consultation_step_viewed", { formStep: 2 }),
+    ], "/welcome/ocd");
+    expect(data.kpis.sessions).toBe(1);
+    expect(data.landingPaths).toEqual(["/welcome", "/welcome/anxiety", "/welcome/ocd"]);
+    expect(data.funnel.find((stage) => stage.key === "consultation_page")?.count).toBe(1);
+    expect(data.funnel.find((stage) => stage.key === "consultation_step_2")).toMatchObject({ label: "Contact details reached", count: 1 });
+  });
   it("keeps welcome first and available even with no welcome visits", () => {
     const data = report([session(1, "/")], []);
     expect(data.landingPath).toBe("/welcome");

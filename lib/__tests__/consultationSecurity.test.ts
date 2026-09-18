@@ -66,6 +66,7 @@ import {
 } from "@/lib/server/checkpointAttributionRepair";
 import { createGoogleAdsJourney } from "@/lib/server/googleAdsJourneySession";
 import { QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION } from "@/lib/quizConsultation";
+import { LANDING_BOOKING_CONSENT, LANDING_BOOKING_CONSENT_VERSION } from "@/lib/paidSearchLocale";
 
 const consentLanguage =
   "I consent to Valisen Mental Health using the name, email address, and phone number I have provided to contact me regarding my consultation request and to coordinate a consultation within my preferred availability.";
@@ -181,6 +182,69 @@ afterEach(() => {
 });
 
 describe("consultation submission boundary", () => {
+  function landingBooking(overrides: Record<string, unknown> = {}) {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
+    return payload({ formVariant: "welcome", landingConcept: "arabic", landingLocale: "ar", preferredTherapist: "meryem-ibrahim", consultationLanguage: "Arabic", source: "paid_search_landing", consultationDate: "2026-09-08", consultationTime: "9:20 AM", consentLanguage: LANDING_BOOKING_CONSENT.ar, consentVersion: LANDING_BOOKING_CONSENT_VERSION, ...overrides });
+  }
+  it("books the selected language-page therapist and stores the actual translated consent", async () => {
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: true, capacityTherapistId: "meryem-ibrahim" });
+    const response = await POST(request(landingBooking()));
+    expect(response.status).toBe(200);
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ pool: ["meryem-ibrahim"], time: "9:20 AM" }));
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ consentText: LANDING_BOOKING_CONSENT.ar, consentVersion: LANDING_BOOKING_CONSENT_VERSION }));
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ coordinationDetails: expect.stringContaining("Booked therapist: Meryem Ibrahim") }));
+    expect(flowMocks.sendMail.mock.calls[0][0].text).toContain("Booked therapist: Meryem Ibrahim");
+    expect(flowMocks.sendMail.mock.calls[1][0].text).not.toContain("Meryem Ibrahim");
+    expect(flowMocks.sendMail.mock.calls[1][0].text).toContain("مريم إبراهيم");
+    expect(flowMocks.sendMail.mock.calls[1][0].html).toContain('dir="rtl"');
+    expect(await response.json()).not.toHaveProperty("capacityTherapistId");
+  });
+  it("books Ryann for OCD using only her capacity", async () => {
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: true, capacityTherapistId: "ryann-simpson" });
+    const response = await POST(request(landingBooking({ landingConcept: "ocd", landingLocale: "en", preferredTherapist: "ryann-simpson", consultationLanguage: "English", consultationTime: "5:00 PM", consentLanguage: LANDING_BOOKING_CONSENT.en })));
+    expect(response.status).toBe(200);
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ pool: ["ryann-simpson"] }));
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ preferredTherapist: "Ryann Simpson" }));
+    expect(flowMocks.sendMail.mock.calls[1][0].text).toContain("Ryann Simpson will call");
+  });
+  it("preserves Arabic consultation language when the page is read in English", async () => {
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: true, capacityTherapistId: "meryem-ibrahim" });
+    const response = await POST(request(landingBooking({ landingLocale: "en", consentLanguage: LANDING_BOOKING_CONSENT.en })));
+    expect(response.status).toBe(200);
+    expect(flowMocks.sendMail.mock.calls[1][0].text).toContain("Consultation language: Arabic");
+  });
+  it("revalidates the named therapist on a completed request retry", async () => {
+    const input = landingBooking();
+    flowMocks.claimConsultationSlot.mockResolvedValueOnce({ accepted: true, capacityTherapistId: "meryem-ibrahim" });
+    expect((await POST(request(input))).status).toBe(200);
+    flowMocks.claimConsultationSlot.mockResolvedValueOnce({ accepted: false, reason: "identifier_in_use" });
+    const retry = { ...input, landingConcept: "ocd", landingLocale: "en", preferredTherapist: "wilfred-bengnwi", consultationLanguage: "English", consentLanguage: LANDING_BOOKING_CONSENT.en };
+    expect((await POST(request(retry))).status).toBe(409);
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
+  });
+  it("does not email a named booking when the slot was taken", async () => {
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: false, reason: "slot_unavailable" });
+    const response = await POST(request(landingBooking()));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ slotUnavailable: true });
+    expect(flowMocks.upsertConsultationLead).not.toHaveBeenCalled();
+    expect(flowMocks.sendMail).not.toHaveBeenCalled();
+  });
+  it.each([
+    { consultationDate: "2026-09-09" },
+    { preferredTherapist: "ryann-simpson" },
+    { pool: ["ryann-simpson"] },
+    { landingConcept: "unknown" },
+    { landingLocale: "zh-Hans" },
+    { consentLanguage: LANDING_BOOKING_CONSENT.en },
+    { consultationLanguage: "Mandarin" },
+    { preferredTherapist: undefined },
+    { consultationLanguage: undefined },
+  ])("rejects an invalid landing pool, date, language, or consent before reserving %j", async (changes) => {
+    expect((await POST(request(landingBooking(changes)))).status).toBe(400);
+    expect(flowMocks.claimConsultationSlot).not.toHaveBeenCalled();
+    expect(flowMocks.sendMail).not.toHaveBeenCalled();
+  });
   function quizBooking(overrides: Record<string, unknown> = {}) {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
@@ -247,7 +311,7 @@ describe("consultation submission boundary", () => {
     expect(flowMocks.sendMail).not.toHaveBeenCalled();
   });
 
-  it.each([{ quizSubmissionToken: undefined }, { email: "attacker@example.com" }, { consentVersion: "consultation-coordination-v1" }, { consultationDate: "2026-09-12" }, { consultationTime: "9:20 AM" }])("rejects unverified or invalid quiz bookings before notification %j", async (overrides) => {
+  it.each([{ quizSubmissionToken: undefined }, { email: "attacker@example.com" }, { consentVersion: "consultation-coordination-v1" }, { consultationDate: "2026-09-12" }, { consultationTime: "8:40 AM" }])("rejects unverified or invalid quiz bookings before notification %j", async (overrides) => {
     const response = await POST(request(quizBooking(overrides)));
     expect(response.status).toBe(400);
     expect(flowMocks.sendMail).not.toHaveBeenCalled();

@@ -1,4 +1,5 @@
 import type { FUNNEL_PAGES } from "@/lib/funnelEvents";
+import { PAID_SEARCH_CONCEPT_PATHS } from "@/lib/paidSearchRoutes";
 
 type FunnelPage = (typeof FUNNEL_PAGES)[number];
 
@@ -8,6 +9,7 @@ type FunnelPage = (typeof FUNNEL_PAGES)[number];
  * pathname column as a free-text or contact-information field.
  */
 export const TRACKED_PUBLIC_PATHS = [
+  ...PAID_SEARCH_CONCEPT_PATHS,
   "/",
   "/about",
   "/anxiety-therapy-ottawa",

@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import NavBar from "@/components/NavBar";
 import ConsultationJaneBookingCard from "@/components/ConsultationJaneBookingCard";
+import NamedConsultationConfirmation from "@/components/paid-search/NamedConsultationConfirmation";
+import { consumeNamedConsultationConfirmation, type NamedConsultationConfirmation as NamedConfirmation } from "@/lib/namedConsultationConfirmation";
 import {
   consumeWelcomeThankYou,
   type WelcomeThankYouHandoff,
@@ -31,12 +33,14 @@ type ConfirmationState = "checking" | "confirmed";
 export default function GoogleAdsThankYou() {
   const [state, setState] = useState<ConfirmationState>("checking");
   const [handoff, setHandoff] = useState<WelcomeThankYouHandoff | null>(null);
+  const [namedHandoff, setNamedHandoff] = useState<NamedConfirmation | null>(null);
   const consumedHandoffRef = useRef(false);
 
   useEffect(() => {
     if (consumedHandoffRef.current) return;
     consumedHandoffRef.current = true;
     setHandoff(consumeWelcomeThankYou());
+    setNamedHandoff(consumeNamedConsultationConfirmation());
   }, []);
 
   useEffect(() => {
@@ -233,6 +237,8 @@ export default function GoogleAdsThankYou() {
       document.removeEventListener("visibilitychange", wakeRetry);
     };
   }, []);
+
+  if (namedHandoff) return <NamedConsultationConfirmation booking={namedHandoff} />;
 
   if (state === "checking") {
     return (

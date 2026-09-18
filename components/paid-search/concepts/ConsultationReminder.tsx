@@ -2,10 +2,12 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowRight, X } from "lucide-react";
 import { landingTranslator, type LandingLocale } from "@/lib/paidSearchLocale";
-import { PREVIEW_REMINDER, PREVIEW_REMINDER_KEY, PREVIEW_BOOKING_KEY, previewSessionHas, previewSessionMark, recordConceptPreviewEvent, reminderEligible } from "@/lib/paidSearchPreviewExperience";
+import { PREVIEW_REMINDER, PREVIEW_REMINDER_KEY, PREVIEW_BOOKING_KEY, LIVE_REMINDER_KEY, LIVE_BOOKING_KEY, previewSessionHas, previewSessionMark, recordConceptPreviewEvent, reminderEligible } from "@/lib/paidSearchPreviewExperience";
 import styles from "./ConceptLanding.module.css";
 
-export default function ConsultationReminder({ conceptSlug, locale, therapistName, bookingRef, bookingStarted, onChoose }: { conceptSlug: string; locale: LandingLocale; therapistName: string; bookingRef: RefObject<HTMLElement>; bookingStarted: boolean; onChoose: (placement: "reminder" | "mobile") => void }) {
+export default function ConsultationReminder({ conceptSlug, locale, therapistName, bookingRef, bookingStarted, onChoose, preview = true }: { preview?: boolean; conceptSlug: string; locale: LandingLocale; therapistName: string; bookingRef: RefObject<HTMLElement>; bookingStarted: boolean; onChoose: (placement: "reminder" | "mobile") => void }) {
+  const reminderKey = preview ? PREVIEW_REMINDER_KEY : LIVE_REMINDER_KEY;
+  const bookingKey = preview ? PREVIEW_BOOKING_KEY : LIVE_BOOKING_KEY;
   const [desktopVisible, setDesktopVisible] = useState(false);
   const [mobileVisible, setMobileVisible] = useState(false);
   const shown = useRef(false);
@@ -14,7 +16,7 @@ export default function ConsultationReminder({ conceptSlug, locale, therapistNam
   const t = landingTranslator(locale);
   const context = useRef({ locale, conceptSlug });
   useEffect(() => { context.current = { locale, conceptSlug }; }, [locale, conceptSlug]);
-  useEffect(() => { started.current = bookingStarted; if (bookingStarted) { setDesktopVisible(false); setMobileVisible(false); previewSessionMark(PREVIEW_BOOKING_KEY); } }, [bookingStarted]);
+  useEffect(() => { started.current = bookingStarted; if (bookingStarted) { setDesktopVisible(false); setMobileVisible(false); previewSessionMark(bookingKey); } }, [bookingStarted, bookingKey]);
   useEffect(() => {
     const enabled = PREVIEW_REMINDER.enabled && new URLSearchParams(location.search).get("reminder") !== "off";
     let last = performance.now();
@@ -30,12 +32,12 @@ export default function ConsultationReminder({ conceptSlug, locale, therapistNam
       const overlayOpen = Boolean(document.querySelector("dialog[open]"));
       const fieldFocused = Boolean(document.activeElement?.matches("input, select, textarea"));
       const keyboardOpen = Boolean(window.visualViewport && window.visualViewport.height < innerHeight * .75);
-      const suppressed = started.current || previewSessionHas(PREVIEW_BOOKING_KEY);
+      const suppressed = started.current || previewSessionHas(bookingKey);
       const desktop = matchMedia("(min-width: 901px)").matches;
-      const eligible = reminderEligible({ enabled, desktop, activeMs: activeMs.current, delayMs: PREVIEW_REMINDER.activeDelayMs, passedTherapists: Boolean(therapists && therapists.bottom < 0), bookingVisible, bookingStarted: suppressed, alreadyShown: shown.current || previewSessionHas(PREVIEW_REMINDER_KEY), overlayOpen });
+      const eligible = reminderEligible({ enabled, desktop, activeMs: activeMs.current, delayMs: PREVIEW_REMINDER.activeDelayMs, passedTherapists: Boolean(therapists && therapists.bottom < 0), bookingVisible, bookingStarted: suppressed, alreadyShown: shown.current || previewSessionHas(reminderKey), overlayOpen });
       if (eligible && visible && !fieldFocused) {
-        shown.current = true; previewSessionMark(PREVIEW_REMINDER_KEY); setDesktopVisible(true);
-        recordConceptPreviewEvent("reminder_exposed", context.current.conceptSlug, "reminder", context.current.locale);
+        shown.current = true; previewSessionMark(reminderKey); setDesktopVisible(true);
+        recordConceptPreviewEvent("reminder_exposed", context.current.conceptSlug, "reminder", context.current.locale, preview);
       }
       if (bookingVisible || suppressed || overlayOpen || !desktop || fieldFocused) setDesktopVisible(false);
       const hero = document.getElementById("landing-hero")?.getBoundingClientRect();
@@ -45,14 +47,14 @@ export default function ConsultationReminder({ conceptSlug, locale, therapistNam
     window.addEventListener("focus", update); window.addEventListener("blur", update);
     window.addEventListener("scroll", update, { passive: true }); window.addEventListener("resize", update); document.addEventListener("visibilitychange", update); document.addEventListener("focusin", update); document.addEventListener("focusout", update); window.visualViewport?.addEventListener("resize", update);
     return () => { clearInterval(timer); window.removeEventListener("focus", update); window.removeEventListener("blur", update); window.removeEventListener("scroll", update); window.removeEventListener("resize", update); document.removeEventListener("visibilitychange", update); document.removeEventListener("focusin", update); document.removeEventListener("focusout", update); window.visualViewport?.removeEventListener("resize", update); };
-  }, [bookingRef]);
+  }, [bookingRef, bookingKey, reminderKey, preview]);
   function choose(placement: "reminder" | "mobile") {
-    if (placement === "reminder") recordConceptPreviewEvent("reminder_clicked", conceptSlug, placement, locale);
+    if (placement === "reminder") recordConceptPreviewEvent("reminder_clicked", conceptSlug, placement, locale, preview);
     setDesktopVisible(false); setMobileVisible(false); onChoose(placement);
   }
   return <>
     {desktopVisible ? <aside className={styles.cornerInvitation} aria-label={t("Free consultation invitation")}>
-      <button type="button" className={styles.dismissInvitation} aria-label={t("Dismiss invitation")} onClick={(event) => { recordConceptPreviewEvent("reminder_dismissed", conceptSlug, "reminder", locale); setDesktopVisible(false); if (document.activeElement === event.currentTarget) document.getElementById("fees-and-questions")?.focus({ preventScroll: true }); }}><X size={20} /></button>
+      <button type="button" className={styles.dismissInvitation} aria-label={t("Dismiss invitation")} onClick={(event) => { recordConceptPreviewEvent("reminder_dismissed", conceptSlug, "reminder", locale, preview); setDesktopVisible(false); if (document.activeElement === event.currentTarget) document.getElementById("fees-and-questions")?.focus({ preventScroll: true }); }}><X size={20} /></button>
       <h2>{t("Meet {name} before deciding.", { name: therapistName })}</h2>
       <p>{t("Book a free 20-minute call to ask questions and see whether working together feels right.")}</p>
       <button type="button" className={styles.primaryButton} onClick={() => choose("reminder")}>{t("Choose a time")}<ArrowRight size={16} /></button>

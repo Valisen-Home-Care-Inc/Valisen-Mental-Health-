@@ -1,7 +1,9 @@
 "use client";
 
 import { Check, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useConsultationAvailability } from "@/lib/useConsultationAvailability";
+import { torontoCalendarToday } from "@/lib/quizConsultation";
 import styles from "./ConsultationTimeSlotPicker.module.css";
 import {
   CONSULTATION_MONTH_NAMES,
@@ -30,53 +32,13 @@ export default function ConsultationTimeSlotPicker({
   calendarToday?: Date;
   availabilityRefreshKey?: number;
 }) {
-  const today = useMemo(() => calendarToday ?? new Date(), [calendarToday]);
+  const today = useMemo(() => calendarToday ?? torontoCalendarToday(), [calendarToday]);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
-  const [availabilityStatus, setAvailabilityStatus] = useState<
-    "checking" | "ready" | "unavailable"
-  >("checking");
-
-  const refreshAvailability = useCallback(async () => {
-    try {
-      const response = await fetch("/api/consultation-slots", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      const body = (await response.json().catch(() => null)) as
-        | { booked?: unknown }
-        | null;
-      if (!response.ok || !Array.isArray(body?.booked)) throw new Error("unavailable");
-      setBookedSlots(
-        new Set(body.booked.filter((slot): slot is string => typeof slot === "string")),
-      );
-      setAvailabilityStatus("ready");
-    } catch {
-      setAvailabilityStatus("unavailable");
-    }
-  }, []);
-
+  const { booked: bookedSlots, status: availabilityStatus } = useConsultationAvailability(undefined, availabilityRefreshKey);
   useEffect(() => {
-    setAvailabilityStatus("checking");
-    void refreshAvailability();
-    const interval = window.setInterval(() => void refreshAvailability(), 30_000);
-    const onFocus = () => void refreshAvailability();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [availabilityRefreshKey, refreshAvailability]);
-
-  useEffect(() => {
-    if (
-      value?.kind === "specific" &&
-      bookedSlots.has(`${value.date}|${value.time}`)
-    ) {
-      onChange(null);
-    }
+    if (value?.kind === "specific" && bookedSlots.has(`${value.date}|${value.time}`)) onChange(null);
   }, [bookedSlots, onChange, value]);
 
   const cells = useMemo(

@@ -62,6 +62,11 @@ import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 import { buildConsultationConfirmationEmail } from "@/lib/server/consultationConfirmationEmail";
 import { parseQuizConsultationSlot, QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION, type QuizConsultationSlot } from "@/lib/quizConsultation";
 import { buildQuizConsultationBookingEmail } from "@/lib/server/quizConsultationEmail";
+import { consultationPoolForConcept } from "@/lib/paidSearchConcepts";
+import { getTherapistBySlug } from "@/lib/therapists";
+import { buildNamedConsultationEmail } from "@/lib/server/namedConsultationEmail";
+import { LANDING_BOOKING_CONSENT, LANDING_BOOKING_CONSENT_VERSION, type LandingLocale } from "@/lib/paidSearchLocale";
+import type { ConsultationTherapist } from "@/lib/consultationSchedules";
 import {
   claimConsultationSlot,
   markConsultationSlotBooked,
@@ -121,6 +126,9 @@ const HEADER_ROW = [
 
 const ALLOWED_KEYS = new Set([
   "formVariant",
+  "landingConcept",
+  "landingLocale",
+  "consultationLanguage",
   "consultationDate",
   "consultationTime",
   "clientSubmissionId",
@@ -150,6 +158,10 @@ const ALLOWED_KEYS = new Set([
 ]);
 
 type IntakePayload = {
+  landingConcept?: string;
+  landingLocale?: LandingLocale;
+  consultationLanguage?: string;
+  pool?: ConsultationTherapist[];
   formVariant?: "welcome" | "quiz_calendar";
   bookedSlot?: QuizConsultationSlot;
   clientSubmissionId: string;
@@ -231,6 +243,20 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   }
   const isQuizBooking = input.formVariant === "quiz_calendar";
   const isWelcomeBooking = input.formVariant === "welcome";
+  const landingConcept = input.landingConcept;
+  if (landingConcept !== undefined && (typeof landingConcept !== "string" || !landingConcept || !isWelcomeBooking)) return { error: "Invalid landing calendar." };
+  const eligiblePool = consultationPoolForConcept(landingConcept as string | undefined);
+  if (!eligiblePool?.length) return { error: "Invalid landing calendar." };
+  const selectedTherapist = landingConcept && typeof input.preferredTherapist === "string" && eligiblePool.some((slug) => slug === input.preferredTherapist)
+    ? getTherapistBySlug(input.preferredTherapist) : null;
+  if (landingConcept && !selectedTherapist) return { error: "Please choose a therapist from this page." };
+  const pool = selectedTherapist ? [selectedTherapist.slug as ConsultationTherapist] : eligiblePool;
+  const consultationLanguage = typeof input.consultationLanguage === "string" ? input.consultationLanguage : undefined;
+  if (landingConcept && (!consultationLanguage || !selectedTherapist?.languages.includes(consultationLanguage))) return { error: "Please choose an available consultation language." };
+  if (!landingConcept && input.consultationLanguage !== undefined) return { error: "Invalid consultation language." };
+  const landingLocale = (input.landingLocale ?? "en") as LandingLocale;
+  if (landingConcept && !["en", ...(landingConcept === "arabic" ? ["ar"] : landingConcept === "mandarin" ? ["zh-Hans"] : [])].includes(landingLocale)) return { error: "Invalid page language." };
+  if (!landingConcept && input.landingLocale !== undefined) return { error: "Invalid page language." };
   const hasConsultationDate = input.consultationDate !== undefined;
   const hasConsultationTime = input.consultationTime !== undefined;
   if (hasConsultationDate !== hasConsultationTime) {
@@ -238,7 +264,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   }
   const bookedSlot =
     (isQuizBooking || isWelcomeBooking) && hasConsultationDate
-      ? parseQuizConsultationSlot(input.consultationDate, input.consultationTime)
+      ? parseQuizConsultationSlot(input.consultationDate, input.consultationTime, new Date(), pool)
       : null;
   if (isQuizBooking && (!bookedSlot || !isValidSubmissionToken(input.quizSubmissionToken) || input.source !== "quiz_result")) {
     return { error: "Please choose a valid consultation date and time from your quiz results." };
@@ -249,8 +275,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   if (!isQuizBooking && !isWelcomeBooking && hasConsultationDate) {
     return { error: "Invalid consultation fields." };
   }
-  const consentText = isQuizBooking ? QUIZ_BOOKING_CONSENT_TEXT : CONSENT_TEXT;
-  const consentVersion = isQuizBooking ? QUIZ_BOOKING_CONSENT_VERSION : CONSENT_VERSION;
+  if (landingConcept && !bookedSlot) return { error: "Please choose an available therapist consultation time." };
+  const consentText = landingConcept ? LANDING_BOOKING_CONSENT[landingLocale] : isQuizBooking ? QUIZ_BOOKING_CONSENT_TEXT : CONSENT_TEXT;
+  const consentVersion = landingConcept ? LANDING_BOOKING_CONSENT_VERSION : isQuizBooking ? QUIZ_BOOKING_CONSENT_VERSION : CONSENT_VERSION;
   if (!validSubmissionId(input.clientSubmissionId)) {
     return { error: "Invalid submission identifier." };
   }
@@ -377,6 +404,8 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       clientSubmissionId: input.clientSubmissionId,
       formStartedAt: input.formStartedAt,
       formVariant: isQuizBooking ? "quiz_calendar" : input.formVariant === "welcome" ? "welcome" : undefined,
+      landingConcept: landingConcept as string | undefined,
+      pool,
       bookedSlot: bookedSlot || undefined,
       firstName,
       lastName,
@@ -385,13 +414,15 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       reason,
       preferredTherapist: cleanSingleLine(input.preferredTherapist, 40),
       notes: bookedSlot
-        ? `20-minute phone consultation booked through ${isQuizBooking ? "/quiz" : "/welcome"}: ${bookedSlot.label}${notes ? `\n${notes}` : ""}`.slice(0, 1500)
+        ? `20-minute phone consultation booked through ${isQuizBooking ? "/quiz" : landingConcept ? `/welcome/${landingConcept}` : "/welcome"}: ${bookedSlot.label}${selectedTherapist ? `\nSelected therapist: ${selectedTherapist.name}. Consultation language: ${consultationLanguage}. Page language: ${landingLocale}. The client speaks directly with this therapist at the selected time.` : ""}${notes ? `\n${notes}` : ""}`.slice(0, 1500)
         : notesWithSlot || undefined,
       days: [...expectedDays],
       timeOfDay: bookedSlot?.availability || timeOfDay,
       consent: true,
       consentLanguage: consentText,
       consentVersion,
+      landingLocale: landingConcept ? landingLocale : undefined,
+      consultationLanguage,
       source: source || "direct",
       quizSubmissionToken:
         typeof quizSubmissionToken === "string"
@@ -722,7 +753,8 @@ export async function POST(request: NextRequest) {
   const completedSubmission = getCompletedSubmissionRecord(
     payload.clientSubmissionId,
   );
-  if (completedSubmission) {
+  // Named appointments always re-check the durable claim's exact therapist pool.
+  if (completedSubmission && !payload.bookedSlot) {
     if (
       !sameCheckpointAttribution(
         completedSubmission.checkpointAttribution,
@@ -833,6 +865,7 @@ export async function POST(request: NextRequest) {
         clientSubmissionId: payload.clientSubmissionId,
         consultationReferenceId: referenceId,
         source: payload.formVariant === "quiz_calendar" ? "quiz_calendar" : "welcome",
+        pool: payload.pool,
       });
       if (!claim.accepted) {
         return NextResponse.json(
@@ -848,6 +881,16 @@ export async function POST(request: NextRequest) {
             headers: { "Cache-Control": "no-store" },
           },
         );
+      }
+      if (payload.landingConcept && claim.capacityTherapistId !== preferredTherapist) {
+        throw new Error("Named therapist claim mismatch");
+      }
+      if (completedSubmission && completedSubmission.referenceId === referenceId && sameCheckpointAttribution(completedSubmission.checkpointAttribution, payload.checkpointAttribution)) {
+        return consultationSuccessResponse({ request, payload, referenceId, body: { ok: true, referenceId, duplicate: true } });
+      }
+      if (claim.capacityTherapistId && payload.pool?.includes(claim.capacityTherapistId)) {
+        const coverage = getPreferredTherapistLabel(claim.capacityTherapistId);
+        payload.notes = `${payload.landingConcept ? "Booked therapist" : "Internal calendar coverage"}: ${coverage}. Reserve this therapist's 20-minute capacity in the operational calendar.${payload.landingConcept ? " The client selected this therapist and will speak directly with them at the booked time." : " This is a clinic consultation; the client did not select a particular therapist."}\n${payload.notes || ""}`.slice(0, 1500);
       }
     } catch (error) {
       console.error(
@@ -999,7 +1042,7 @@ Recorded: Yes
 Version: ${payload.consentVersion}
 Language: ${payload.consentLanguage}
 
-${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is confirmed and has been blocked in the shared website calendar. Add it to the clinic's operational calendar and ensure the 20-minute phone consultation is fulfilled." : "This is a consultation request, not a confirmed appointment. Please coordinate and confirm directly with the client."}`;
+${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is confirmed, and capacity has been reserved in the shared website calendar. Add the 20-minute call to the clinic's operational calendar using the internal coverage note above. Other eligible therapists may still be available at the same time." : "This is a consultation request, not a confirmed appointment. Please coordinate and confirm directly with the client."}`;
 
   try {
     await transporter.sendMail({
@@ -1036,7 +1079,9 @@ ${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is con
   if (payload.formVariant === "welcome" || payload.bookedSlot) {
     // Only the durable notification-claim owner sends the visitor receipt.
     // Keep intake successful if SMTP fails after the clinic has been notified.
-    const confirmation = payload.bookedSlot ? buildQuizConsultationBookingEmail(payload.firstName, payload.bookedSlot) : buildConsultationConfirmationEmail({
+    const confirmation = payload.bookedSlot && payload.landingConcept && preferredTherapistLabel && payload.consultationLanguage
+      ? buildNamedConsultationEmail({ firstName: payload.firstName, therapistName: preferredTherapistLabel, slot: payload.bookedSlot, language: payload.consultationLanguage, locale: payload.landingLocale || "en", referenceId })
+      : payload.bookedSlot ? buildQuizConsultationBookingEmail(payload.firstName, payload.bookedSlot) : buildConsultationConfirmationEmail({
       firstName: payload.firstName,
       referenceId,
     });

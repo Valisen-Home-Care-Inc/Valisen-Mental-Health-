@@ -1,3 +1,4 @@
+import { isFocusedLandingPath } from "@/lib/paidSearchRoutes";
 import { normalizeGoogleAdsDashboard, type GoogleAdsDashboardData } from "@/lib/googleAdsDashboard";
 import type { GoogleAdsEventExportRow, GoogleAdsJourneyExportRow } from "@/lib/googleAdsExport";
 import { canonicalizeGoogleAdsPath } from "@/lib/googleAdsJourney";
@@ -98,7 +99,7 @@ export function buildGoogleAdsLandingReport(
       section.sessions.add(event.sessionId);
       section.engagedMs += event.engagedMs ?? 0;
     }
-    if (event.event === "page_viewed" && event.path === "/consultation") formOpened.add(event.sessionId);
+    if ((event.event === "page_viewed" && event.path === "/consultation") || (isFocusedLandingPath(event.path) && event.event === "form_started")) formOpened.add(event.sessionId);
     if (event.event === "consultation_step_viewed" && event.formStep === 2) availability.add(event.sessionId);
   }
   const campaignGroups = new Map<string, GoogleAdsJourneyExportRow[]>();
@@ -115,7 +116,7 @@ export function buildGoogleAdsLandingReport(
     ["consultation_cta", "Consultation CTA clicked", kpis.consultationCtaSessions],
     ["consultation_page", "Consultation form opened", formOpened.size],
     ["form_starts", "Form started", kpis.formStarts],
-    ["consultation_step_2", "Availability reached", availability.size],
+    ["consultation_step_2", isFocusedLandingPath(landingPath) ? "Contact details reached" : "Availability reached", availability.size],
     ["consultation_requests", "Confirmed requests", kpis.consultationRequests],
     ["booked_consultations", "Consultations booked", kpis.bookedConsultations],
     ["paid_therapy", "Paid therapy", kpis.paidTherapyConversions],

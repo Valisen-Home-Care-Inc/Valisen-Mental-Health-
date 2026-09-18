@@ -1,4 +1,5 @@
 "use client";
+import { announceConsultationBooked } from "@/lib/useConsultationAvailability";
 
 import { useRef, useState } from "react";
 import { CheckCircle2, LoaderCircle, Phone } from "lucide-react";
@@ -61,6 +62,7 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
       const reference = confirmedConsultationReferenceFromResponse(body);
       if (!response.ok || !reference) throw new Error(body?.error || "We couldn't book your consultation. Please try again.");
       setBooked(reference);
+      announceConsultationBooked();
       onInteraction("booking_completed");
       onBooked(reference);
     } catch (caught) {

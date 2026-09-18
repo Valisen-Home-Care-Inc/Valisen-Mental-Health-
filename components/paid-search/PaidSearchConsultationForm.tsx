@@ -1,4 +1,5 @@
 "use client";
+import { announceConsultationBooked } from "@/lib/useConsultationAvailability";
 
 import Link from "next/link";
 import { Check, Clock3, LoaderCircle, ShieldCheck } from "lucide-react";
@@ -392,6 +393,7 @@ export default function PaidSearchConsultationForm({
       if (!response.ok || !body?.ok) throw new Error(body?.error || "Something went wrong. Please try again.");
       const reference = confirmedConsultationReferenceFromResponse(body);
       if (!reference) throw new Error("We could not confirm your request. Please try again.");
+      announceConsultationBooked();
       stageWelcomeThankYou(
         reference,
         data.slot.kind === "specific" ? slotLabelFromSelection(data.slot) : undefined,

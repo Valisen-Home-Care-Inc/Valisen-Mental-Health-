@@ -58,6 +58,10 @@ const nextConfig = {
         ],
       },
       {
+        source: "/welcome/:path+",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
         source: "/thank-you",
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0" },

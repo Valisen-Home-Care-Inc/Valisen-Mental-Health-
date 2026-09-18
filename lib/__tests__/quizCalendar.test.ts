@@ -32,7 +32,7 @@ describe("staff-managed quiz calendar", () => {
   it("validates the same preset slots and supplies a canonical Toronto label", () => {
     expect(parseQuizConsultationSlot("2026-09-08", "9:00 AM", now)).toMatchObject({ date: "2026-09-08", time: "9:00 AM", availability: "morning", label: expect.stringContaining("2026 (Toronto time)") });
   });
-  it.each([["2026-09-07", "3:00 PM"], ["2026-09-12", "9:00 AM"], ["2026-10-08", "9:00 AM"], ["2026-09-31", "9:00 AM"], ["2026-09-08", "9:20 AM"], ["2026-09-08", "<script>"], ["2026-9-8", "9:00 AM"]])("rejects unavailable/invalid slots %s %s", (date, time) => expect(parseQuizConsultationSlot(date, time, now)).toBeNull());
+  it.each([["2026-09-07", "3:00 PM"], ["2026-09-12", "9:00 AM"], ["2026-10-08", "9:00 AM"], ["2026-09-31", "9:00 AM"], ["2026-09-08", "8:40 AM"], ["2026-09-08", "<script>"], ["2026-9-8", "9:00 AM"]])("rejects unavailable/invalid slots %s %s", (date, time) => expect(parseQuizConsultationSlot(date, time, now)).toBeNull());
   it("uses Toronto's date across the UTC midnight boundary", () => {
     expect(torontoCalendarToday(new Date("2026-09-08T01:00:00Z")).getDate()).toBe(7);
   });

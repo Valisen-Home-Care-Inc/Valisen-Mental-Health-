@@ -11,6 +11,10 @@ export const LANDING_BOOKING_CONSENT_VERSION = "landing-consultation-booking-v2"
 
 /** Each row preserves the complete English information in Arabic and Mandarin. */
 const rows: Array<[string, string, string]> = [
+  ["Hello {name},", "مرحبًا {name}،", "{name}，你好："],
+  ["{name} will call the number you provided at your selected time. This introductory conversation is separate from a full therapy session.", "سيتصل بك {name} على الرقم الذي قدّمته في الموعد الذي اخترته. هذه المحادثة التعارفية منفصلة عن جلسة العلاج النفسي الكاملة.", "{name}将在你选择的时间拨打你提供的电话号码。这是一次初步交流，与完整的心理治疗会谈不同。"],
+  ["To change or cancel your consultation, reply to this email or call 613-707-0333.", "لتغيير موعد استشارتك أو إلغائها، يُرجى الرد على هذا البريد الإلكتروني أو الاتصال على 613-707-0333.", "如需更改或取消咨询，请回复此邮件或致电613-707-0333。"],
+  ["To change or cancel your consultation, call 613-707-0333.", "لتغيير موعد استشارتك أو إلغائها، يُرجى الاتصال على 613-707-0333.", "如需更改或取消咨询，请致电613-707-0333。"],
   ["Skip to content", "انتقل إلى المحتوى", "跳转到正文"],
   ["All page concepts", "جميع تصاميم الصفحات", "所有页面设计"],
   ["Design preview", "معاينة التصميم", "设计预览"],

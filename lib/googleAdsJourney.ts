@@ -1,4 +1,5 @@
 import { TRACKED_PUBLIC_PATHS } from "@/lib/funnelPath";
+import { PAID_SEARCH_CONCEPT_PATHS } from "@/lib/paidSearchRoutes";
 import {
   captureGoogleAdsClickAttribution,
   clearStoredGoogleAdsClickAttribution,
@@ -93,6 +94,7 @@ export type GoogleAdsFormFieldId =
 export const GOOGLE_ADS_CONSULTATION_FORM_PATHS = [
   "/consultation",
   "/welcome",
+  ...PAID_SEARCH_CONCEPT_PATHS,
 ] as const;
 
 const EXTRA_GOOGLE_ADS_PATHS = [

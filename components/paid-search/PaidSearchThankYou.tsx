@@ -2,6 +2,7 @@
 
 import { Check, Clock3, Phone } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import CrisisNote from "@/components/CrisisNote";
 import {
@@ -41,7 +42,7 @@ export default function PaidSearchThankYou() {
     <main className="min-h-screen bg-canvas">
       <header className="border-b border-black/[0.07] bg-white/95">
         <div className="container-v flex min-h-[66px] items-center py-2.5 md:min-h-[76px]">
-          <a href="/welcome" className="inline-flex items-center no-underline" aria-label="Valisen Mental Health">
+          <Link href="/welcome" className="inline-flex items-center no-underline" aria-label="Valisen Mental Health">
             <Image
               src="/valisen-logo.png"
               alt="Valisen Mental Health"
@@ -50,7 +51,7 @@ export default function PaidSearchThankYou() {
               className="h-8 w-auto object-contain md:h-10"
               priority
             />
-          </a>
+          </Link>
         </div>
       </header>
 

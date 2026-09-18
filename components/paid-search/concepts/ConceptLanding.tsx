@@ -8,7 +8,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, HeartHand
 import { conceptSessionFee, type PaidSearchConcept } from "@/lib/paidSearchConcepts";
 import ConceptBooking from "./ConceptBooking";
 import ConsultationReminder from "./ConsultationReminder";
-import { PREVIEW_BOOKING_KEY, previewSessionMark, recordConceptPreviewEvent, type PreviewPlacement } from "@/lib/paidSearchPreviewExperience";
+import { PREVIEW_BOOKING_KEY, LIVE_BOOKING_KEY, previewSessionMark, recordConceptPreviewEvent, type PreviewPlacement } from "@/lib/paidSearchPreviewExperience";
 import styles from "./ConceptLanding.module.css";
 import { landingTranslator, type LandingLocale } from "@/lib/paidSearchLocale";
 import { arabicLandingTranslations, mandarinLandingTranslations, translateLandingTree } from "@/lib/paidSearchLanguageContent";
@@ -35,6 +35,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
   const booking = useRef<HTMLElement>(null);
   const [selectedSlug, setSelectedSlug] = useState(originalClinicians[0].slug);
   const [bookingStarted, setBookingStarted] = useState(false);
+  const [bookingLocked, setBookingLocked] = useState(false);
   const startedOnce = useRef(false);
   const earlyBooking = ["free-consultation", "online-therapy"].includes(concept.slug);
   const lead = clinicians[0];
@@ -43,17 +44,17 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
   const maximum = Math.max(...clinicians.map((person) => conceptSessionFee(concept.slug, person).fee));
   const price = minimum === maximum ? `$${minimum}` : `$${minimum}–$${maximum}`;
   const startBooking = useCallback(() => {
-    setBookingStarted(true); previewSessionMark(PREVIEW_BOOKING_KEY);
-    if (!startedOnce.current) { startedOnce.current = true; recordConceptPreviewEvent("booking_started", originalConcept.slug, "booking", locale); }
-  }, [locale, originalConcept.slug]);
+    setBookingStarted(true); previewSessionMark(preview ? PREVIEW_BOOKING_KEY : LIVE_BOOKING_KEY);
+    if (!startedOnce.current) { startedOnce.current = true; recordConceptPreviewEvent("booking_started", originalConcept.slug, "booking", locale, preview); }
+  }, [locale, originalConcept.slug, preview]);
   function choose(slug?: string, placement: PreviewPlacement = "hero") {
-    if (slug) setSelectedSlug(slug);
-    recordConceptPreviewEvent("cta_clicked", concept.slug, placement, locale);
+    if (slug && !bookingLocked) setSelectedSlug(slug);
+    recordConceptPreviewEvent("cta_clicked", concept.slug, placement, locale, preview);
     startBooking();
     booking.current?.scrollIntoView({ behavior: "instant", block: "start" });
     booking.current?.focus({ preventScroll: true });
   }
-  const bookingForm = <ConceptBooking conceptSlug={originalConcept.slug} clinicians={originalClinicians} selectedSlug={selectedSlug} onTherapistChange={setSelectedSlug} onBookingStart={startBooking} locale={locale} />;
+  const bookingForm = <ConceptBooking conceptSlug={originalConcept.slug} clinicians={originalClinicians} selectedSlug={selectedSlug} onTherapistChange={setSelectedSlug} onBookingStart={startBooking} locale={locale} preview={preview} onBookingLockChange={setBookingLocked} />;
   const faqs = [...concept.faqs,
     { question: "What happens in the free consultation?", answer: "Your selected therapist calls you at your chosen date and time for a free 20-minute conversation. Ask about their approach, discuss what you’re looking for, and decide whether you’d like to work together. This is separate from a full therapy session." },
     { question: "How much do therapy sessions cost?", answer: `${t("Paid therapy sessions are {price} CAD per 50 minutes.", { price })} ${concept.slug === "couples" ? t("Total for both partners.") + " " : ""}${t("The initial 20-minute consultation is free.")}` },
@@ -67,7 +68,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
       <a href="#top" aria-label={t("Back to top")}><Image src="/valisen-logo.png" alt={t("Valisen Mental Health")} width={950} height={330} className={styles.logo} priority /></a>
       <nav aria-label={t("Page sections")}><a href="#your-therapist">{t("Your therapist")}</a><a href="#our-approach">{t("Our approach")}</a><a href="#fees-and-questions">{t("Fees & FAQs")}</a></nav>
       <a href="#consultation" className={styles.headerCta} onClick={(event) => { event.preventDefault(); choose(undefined, "header"); }}>{t("Free consultation")}<ArrowRight size={15} /></a>
-      {nativeLocale !== "en" ? <div className={styles.languageToggle} role="group" aria-label="Language / اللغة / 语言" dir="ltr"><button type="button" lang={nativeLocale} aria-pressed={locale === nativeLocale} onClick={() => setLocale(nativeLocale)}>{nativeLocale === "ar" ? "العربية" : "中文"}</button><button type="button" lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}>{"English"}</button></div> : null}
+      {nativeLocale !== "en" ? <div className={styles.languageToggle} role="group" aria-label="Language / اللغة / 语言" dir="ltr"><button type="button" disabled={bookingLocked} lang={nativeLocale} aria-pressed={locale === nativeLocale} onClick={() => setLocale(nativeLocale)}>{nativeLocale === "ar" ? "العربية" : "中文"}</button><button type="button" disabled={bookingLocked} lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}>{"English"}</button></div> : null}
     </div></header>
     <main id="main-content">
       <section id="landing-hero" className={`${styles.hero} ${earlyBooking ? styles.heroWithBooking : ""}`} aria-labelledby="landing-heading"><div className={`${styles.container} ${styles.heroGrid}`}>
@@ -139,6 +140,6 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
       <details id="privacy-information" className={styles.privacy}><summary>{t("Privacy information")}</summary><p>{t(preview ? "This is a design preview. The booking demonstration keeps entered details in the page only. It does not send a consultation request, reserve an appointment, or save details to the CRM." : "Your contact details are used to arrange and contact you about your consultation. Read our privacy policy for details.")}</p>{!preview ? <Link href="/privacy-policy">{t("Privacy information")}</Link> : null}</details>
       <div className={styles.footerBottom}><span>© {new Date().getFullYear()}{" "}{t("Valisen Mental Health")}</span><span>{t("Virtual therapy for adults in Ontario")}</span>{preview ? <Link href="/ads-preview">{t("Back to all concepts")}<ArrowRight size={12} /></Link> : null}</div>
     </div></footer>
-    <ConsultationReminder conceptSlug={concept.slug} locale={locale} therapistName={selected.name.split(" ")[0]} bookingRef={booking} bookingStarted={bookingStarted} onChoose={(placement) => choose(undefined, placement)} />
+    <ConsultationReminder preview={preview} conceptSlug={concept.slug} locale={locale} therapistName={selected.name.split(" ")[0]} bookingRef={booking} bookingStarted={bookingStarted} onChoose={(placement) => choose(undefined, placement)} />
   </div>;
 }

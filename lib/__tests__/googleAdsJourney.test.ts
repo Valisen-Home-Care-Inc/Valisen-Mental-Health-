@@ -59,7 +59,7 @@ describe("Google Ads journey boundaries", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
-        "supabase/migrations/20260901000000_google_ads_welcome_tracking_hotfix.sql",
+        "supabase/migrations/20260917000000_focused_google_ads_landings.sql",
       ),
       "utf8",
     );

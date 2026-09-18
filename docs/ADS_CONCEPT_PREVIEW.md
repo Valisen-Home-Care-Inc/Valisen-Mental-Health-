@@ -1,5 +1,9 @@
 # Google Ads concept review
 
+Commercial launch supersedes the original preview-only rollout notes below.
+See [GOOGLE_ADS_LAUNCH.md](GOOGLE_ADS_LAUNCH.md) for live routes, shared calendars,
+tracking, the applied database migrations, and current release status.
+
 Share the gallery at https://valisenmentalhealth.com/ads-preview.
 Each of the 15 concepts is available at `/ads-preview/{slug}`.
 

@@ -13,6 +13,7 @@ type TurnstileApi = {
       size: "normal" | "compact" | "flexible";
       appearance: "always" | "execute" | "interaction-only";
       execution: "render" | "execute";
+      language?: string;
       callback: (token: string) => void;
       "expired-callback": () => void;
       "error-callback": () => void;
@@ -39,6 +40,8 @@ export default function TurnstileWidget({
   resetKey = 0,
   execution = "render",
   executeKey = 0,
+  language,
+  messages,
 }: {
   action: string;
   onToken: (token: string | null) => void;
@@ -46,6 +49,8 @@ export default function TurnstileWidget({
   resetKey?: number;
   execution?: "render" | "execute";
   executeKey?: number;
+  language?: string;
+  messages?: { unavailable: string; failed: string; label: string };
 }) {
   const reactId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +79,7 @@ export default function TurnstileWidget({
       size: "flexible",
       appearance: execution === "execute" ? "execute" : "always",
       execution,
+      language,
       callback: (token) => {
         setChallengeError(false);
         onToken(token);
@@ -99,7 +105,7 @@ export default function TurnstileWidget({
       pendingExecutionRef.current = false;
       window.turnstile.execute(containerRef.current);
     }
-  }, [action, execution, onError, onToken, siteKey]);
+  }, [action, execution, language, onError, onToken, siteKey]);
 
   useEffect(() => {
     if (scriptReady || window.turnstile) renderWidget();
@@ -126,7 +132,7 @@ export default function TurnstileWidget({
   if (!siteKey) {
     return (
       <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
-        Secure verification is temporarily unavailable. Please call 613-707-0333.
+        {messages?.unavailable ?? "Secure verification is temporarily unavailable. Please call 613-707-0333."}
       </div>
     );
   }
@@ -144,11 +150,11 @@ export default function TurnstileWidget({
         id={`turnstile-${reactId.replace(/:/g, "")}`}
         ref={containerRef}
         className="min-h-[65px] w-full overflow-hidden rounded-xl"
-        aria-label="Automated spam protection"
+        aria-label={messages?.label ?? "Automated spam protection"}
       />
       {challengeError ? (
         <p role="alert" className="mt-2 text-[12px] text-red-700">
-          Verification could not load. Check your connection and try again.
+          {messages?.failed ?? "Verification could not load. Check your connection and try again."}
         </p>
       ) : null}
     </div>

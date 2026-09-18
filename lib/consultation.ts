@@ -1,3 +1,5 @@
+import { ALL_CONSULTATION_THERAPISTS, consultationTimeLabel, scheduledConsultationMinutes, type ConsultationTherapist } from "@/lib/consultationSchedules";
+
 export const CONSULTATION_AVAILABILITY_WINDOWS = {
   morning: {
     time: "9AM – 12PM",
@@ -36,17 +38,7 @@ export const CONSULTATION_DAYS_LABEL = "Monday to Sunday";
 export type ConsultationAvailability =
   keyof typeof CONSULTATION_AVAILABILITY_WINDOWS;
 
-/**
- * Fixed time-of-day options shown in the "/welcome" slot picker's time grid,
- * on 20-minute increments to match the actual length of the free
- * consultation call advertised elsewhere on the site. There is no
- * scheduling system behind this yet, so these are the same hardcoded
- * options every selectable day rather than real per-day or per-therapist
- * availability. Each maps back onto an existing {@link ConsultationAvailability}
- * bucket so nothing downstream (validation, the CRM record, the Sheet
- * export, the notification email) needs to change to support a specific
- * time being requested.
- */
+/** Legacy display buckets. Use getAvailableTimeSlotsForDate for bookable times. */
 export const CONSULTATION_TIME_SLOTS: ReadonlyArray<{
   time: string;
   availability: ConsultationAvailability;
@@ -110,7 +102,7 @@ export function consultationDateKey(value: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** How far out the fake calendar offers days at all — a plausibility bound, not real availability data. */
+/** Booking horizon, interpreted as calendar dates in Toronto. */
 export const CONSULTATION_BOOKING_WINDOW_DAYS = 30;
 
 export type ConsultationCalendarCell = {
@@ -119,23 +111,16 @@ export type ConsultationCalendarCell = {
   dayOfMonth: number;
   /** Whether this cell belongs to the month being displayed (vs. a leading/trailing filler day). */
   inDisplayedMonth: boolean;
-  /** Weekday, not in the past, and within the booking window — the only signal this calendar shows. */
+  /** Future date with scheduled shifts in this pool, within the booking horizon. */
   selectable: boolean;
 };
 
-/**
- * A standard Sunday-first month grid for `year`/`month` (0-11), always in
- * full rows of 7 so the layout never reflows. Weekends are shown but always
- * closed (the clinic doesn't offer weekend consultations) rather than
- * omitted from the grid. Deliberately exposes only one signal per day —
- * selectable or not — rather than simulating booked/pending/partially-booked
- * states, since there's no real scheduling system behind this to make those
- * states true.
- */
+/** Sunday-first month grid. Dates with no shifts in this pool are disabled. */
 export function getConsultationCalendarMonth(
   year: number,
   month: number,
   now: Date = new Date(),
+  pool: readonly ConsultationTherapist[] = ALL_CONSULTATION_THERAPISTS,
 ): ConsultationCalendarCell[] {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const windowEnd = new Date(today);
@@ -155,65 +140,28 @@ export function getConsultationCalendarMonth(
       continue;
     }
     const cellDate = new Date(year, month, dayNum);
-    const dow = cellDate.getDay();
-    const isWeekday = dow !== 0 && dow !== 6;
+    const hasShifts = scheduledConsultationMinutes(consultationDateKey(cellDate), pool).length > 0;
     const isStrictlyFuture = cellDate.getTime() > today.getTime();
     const withinWindow = cellDate.getTime() <= windowEnd.getTime();
     cells.push({
       date: consultationDateKey(cellDate),
       dayOfMonth: cellDate.getDate(),
       inDisplayedMonth: true,
-      selectable: isWeekday && isStrictlyFuture && withinWindow,
+      selectable: hasShifts && isStrictlyFuture && withinWindow,
     });
   }
   return cells;
 }
 
-/**
- * A fixed weekly availability pattern, indexed by `Date#getDay()`
- * (0=Sunday..6=Saturday). Each entry is a list of `[startIndex, endIndex]`
- * indices into {@link CONSULTATION_TIME_SLOTS}. There is no real scheduling
- * system behind this — it's the same shape every week, not per-therapist or
- * per-date data — but it reads as a realistic recurring schedule (busier
- * some days, a single slot on others, closed weekends) rather than either
- * "wide open every day" or randomized noise.
- */
-function range(start: number, end: number): number[] {
-  const out: number[] = [];
-  for (let i = start; i <= end; i++) out.push(i);
-  return out;
-}
-
-/** Every `step`-th index from `start` to `end` inclusive — a full span, thinned out. */
-function stepRange(start: number, end: number, step: number): number[] {
-  const out: number[] = [];
-  for (let i = start; i <= end; i += step) out.push(i);
-  return out;
-}
-
-const WEEKLY_AVAILABILITY_INDICES: ReadonlyArray<ReadonlyArray<number>> = [
-  [], // Sunday — closed
-  range(18, 32), // Monday — 3:00 PM to 7:40 PM
-  stepRange(0, 32, 2), // Tuesday — full 9:00 AM to 7:40 PM span, every other slot
-  [...range(0, 11), ...range(24, 29)], // Wednesday — 9:00 AM-12:40 PM, and 5:00-6:40 PM
-  range(21, 29), // Thursday — 4:00 PM to 6:40 PM
-  [19], // Friday — a single slot, 3:20 PM
-  [], // Saturday — closed
-];
-
-/**
- * The available times for a given date, per the fixed weekly pattern above.
- * Deterministic by day of week (every Tuesday looks the same), not a claim
- * about real bookings — nothing labels a time as "taken" or references
- * other clients.
- */
+/** Real weekly shifts; pooled appointments do not promise a specific therapist. */
 export function getAvailableTimeSlotsForDate(
   isoDate: string,
+  pool: readonly ConsultationTherapist[] = ALL_CONSULTATION_THERAPISTS,
 ): typeof CONSULTATION_TIME_SLOTS {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  const keep = new Set(WEEKLY_AVAILABILITY_INDICES[date.getDay()]);
-  return CONSULTATION_TIME_SLOTS.filter((_, index) => keep.has(index));
+  return scheduledConsultationMinutes(isoDate, pool).map((minutes) => ({
+    time: consultationTimeLabel(minutes),
+    availability: minutes < 720 ? "morning" : minutes < 960 ? "afternoon" : "late_afternoon",
+  }));
 }
 
 /** Human-readable label for an ISO date, e.g. "Tuesday, September 9". */
