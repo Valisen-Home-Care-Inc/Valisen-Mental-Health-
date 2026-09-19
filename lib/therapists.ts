@@ -318,6 +318,7 @@ export const therapists: Therapist[] = [
   {
     slug: "wilfred-bengnwi",
     name: "Wilfred Bengnwi",
+    registration: { college: "CRPO", number: "14462" },
     photo: "/wilfred-bengnwi.png",
     credentials: "RP, M.A., PhD",
     credentialSummary: "Registered Psychotherapist",
