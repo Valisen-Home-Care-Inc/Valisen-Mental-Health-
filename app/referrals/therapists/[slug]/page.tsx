@@ -36,6 +36,7 @@ export default async function ReferralTherapistPage({ params }: Props) {
             <p className={styles.eyebrow}>Healthcare referral · Clinician profile</p>
             <h1>{t.name}</h1>
             <p className={styles.profileCredential}>{t.credentials}</p>
+            {t.registration && <p className={styles.hint}>{t.registration.college} registration #{t.registration.number}</p>}
             <p className={styles.lead}>{t.cardStatement}</p>
             <div className={styles.availability}><span aria-hidden="true" />{t.acceptingNewClients ? "Accepting new clients" : "Contact for availability"}</div>
             <p className={styles.hint}>Appointment times are confirmed during referral coordination.</p>

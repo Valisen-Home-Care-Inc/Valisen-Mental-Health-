@@ -62,6 +62,7 @@ export async function buildReferralGuide(): Promise<Uint8Array> {
     if (y < 190) { page = pdf.addPage([612, 792]); y = 730; }
     line(t.name, 15, bold, teal);
     line(t.credentials, 11, bold);
+    if (t.registration) line(t.registration.college + " registration #" + t.registration.number, 10);
     line("Languages: " + t.languages.join(", "));
     line("Support: " + t.specialties.slice(0, 3).join(", "));
     line(formatTherapySession(t) + " | " + (t.acceptingNewClients ? "Accepting new clients" : "Contact for availability"), 10);

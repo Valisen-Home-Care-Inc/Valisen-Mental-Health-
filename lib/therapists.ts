@@ -69,6 +69,8 @@ export type Therapist = {
   slug: string;
   name: string;
   credentials: string;
+  /** Clinic-supplied college registration; string preserves leading zeroes. */
+  registration?: { college: "CRPO" | "OCSWSSW"; number: string };
   credentialSummary: string;
   initials: string;
   availability: string;
@@ -162,6 +164,7 @@ export const therapists: Therapist[] = [
   {
     slug: "dayong-quan",
     name: "Dayong Quan",
+    registration: { college: "CRPO", number: "13374" },
     credentials: "Registered Psychotherapist, MACP",
     credentialSummary: "Registered Psychotherapist",
     initials: "DQ",
@@ -455,6 +458,7 @@ export const therapists: Therapist[] = [
   {
     slug: "meryem-ibrahim",
     name: "Meryem Ibrahim",
+    registration: { college: "CRPO", number: "21069" },
     credentials: "Registered Psychotherapist (Qualifying)",
     credentialSummary: "Registered Psychotherapist (Qualifying)",
     initials: "MI",
@@ -620,6 +624,7 @@ export const therapists: Therapist[] = [
   {
     slug: "tim-kahtava",
     name: "Tim Kahtava",
+    registration: { college: "CRPO", number: "005895" },
     credentials: "Registered Psychotherapist",
     credentialSummary: "Registered Psychotherapist",
     initials: "TK",
@@ -764,6 +769,7 @@ export const therapists: Therapist[] = [
   {
     slug: "ryann-simpson",
     name: "Ryann Simpson",
+    registration: { college: "OCSWSSW", number: "846418" },
     credentials: "Registered Social Worker (RSW)",
     credentialSummary: "Registered Social Worker",
     initials: "RS",
