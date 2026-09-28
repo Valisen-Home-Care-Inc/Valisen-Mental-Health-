@@ -1,4 +1,4 @@
-# Meryem's Muslim and Arabic Google Ads group
+# Meryem's Muslim and Arabic Google Ads groups
 
 The clinic confirmed on September 27, 2026 that Meryem Ibrahim offers couples and
 marriage therapy and explicitly faith-integrated Islamic counselling. The new
@@ -13,11 +13,20 @@ Online delivery across Ontario, including Ottawa and Toronto, is explicit.
 | https://valisenmentalhealth.com/welcome/muslim-marriage | 6 | Muslim couples / Islamic marriage counselling |
 | https://valisenmentalhealth.com/welcome/arabic | 5 | Arabic-speaking therapist; existing translated page |
 
-The 30 supplied keywords appear verbatim in `lib/paidSearchKeywordMap.json`, under
-`03 - Muslim & Arabic Therapy`. `/ads-preview/keyword-map` downloads all 83 mapped
-keywords across three groups. The original 53 keywords and paused exclusions are
+The 30 supplied keywords appear verbatim in `lib/paidSearchKeywordMap.json`.
+On September 28, the owner split them into `03 - Muslim & Islamic Therapy`
+(25 keywords across the three Muslim-focused pages) and `04 - Arabic Therapy`
+(5 keywords using `/welcome/arabic`). `/ads-preview/keyword-map` downloads all 83
+mapped keywords across four groups. The original 53 keywords and paused exclusions are
 preserved. Campaign settings are managed in Google Ads; this release does not
 change bids, audiences or campaign configuration.
+
+The existing CRM accepts both ad-group IDs and labels from the `vmh_adgroupid`
+and `vmh_adgroup` suffix parameters without a code or database migration. Keep
+plain underscores in parameter names, with no backslashes or leading question
+mark. Google expands the ValueTrack placeholders on ad clicks. The existing
+text sanitizer removes ampersands from displayed labels; the group IDs and
+separate attribution remain intact. Historical sessions retain their original labels.
 
 ## Shared calendar
 

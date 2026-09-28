@@ -5,7 +5,7 @@ import { eligibleConsultationTherapists, scheduledConsultationMinutes } from "@/
 import mapping from "@/lib/paidSearchKeywordMap.json";
 
 const slugs = ["muslim-therapy", "female-muslim-therapist", "muslim-marriage"];
-describe("Meryem's third ad group", () => {
+describe("Meryem's Muslim and Arabic ad groups", () => {
   it.each(slugs)("uses only Meryem's shared weekly capacity on %s", (slug) => {
     expect(getPaidSearchConcept(slug)?.therapists.map((row) => row.slug)).toEqual(["meryem-ibrahim"]);
     const pool = consultationPoolForConcept(slug)!;
@@ -22,13 +22,14 @@ describe("Meryem's third ad group", () => {
     expect(conceptSessionFee("muslim-therapy", { fee: 180, duration: 50 })).toEqual({ fee: 180, duration: 50 });
   });
   it("maps all 30 supplied exact keywords to their appropriate intent", () => {
-    const rows = mapping.filter((row) => row.adGroup === "03 - Muslim & Arabic Therapy");
+    const rows = mapping.filter((row) => ["03 - Muslim & Islamic Therapy", "04 - Arabic Therapy"].includes(row.adGroup));
     const expected = ["arabic speaking therapist ottawa", "arabic therapist", "arabic therapist near me", "arabic therapist online", "female muslim therapist", "find muslim therapist", "hijabi therapist", "islamic counselling near me", "islamic counsellor", "islamic female therapist", "islamic marriage counselling", "islamic therapist", "islamic therapist near me", "marriage counseling for muslims", "marriage counseling muslim", "muslim counselling toronto", "muslim counsellor", "muslim couples counselling", "muslim couples therapist", "muslim female counsellor", "muslim female therapist", "muslim female therapist near me", "muslim marriage counseling", "muslim therapist near me", "muslim therapist online", "muslim therapist ottawa", "muslim therapist toronto", "muslim therapy", "online muslim therapist", "therapist arabic"];
     expect(rows.map((row) => row.keyword).sort()).toEqual(expected.map((keyword) => `[${keyword}]`).sort());
     for (const row of rows) {
       expect(row.matchType).toBe("Exact match");
       const expectedSlug = /couples|marriage/.test(row.keyword) ? "muslim-marriage" : /female|hijabi/.test(row.keyword) ? "female-muslim-therapist" : /arabic/.test(row.keyword) ? "arabic" : "muslim-therapy";
       expect(row.slug).toBe(expectedSlug);
+      expect(row.adGroup).toBe(expectedSlug === "arabic" ? "04 - Arabic Therapy" : "03 - Muslim & Islamic Therapy");
     }
   });
 });
