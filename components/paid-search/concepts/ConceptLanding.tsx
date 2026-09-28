@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, HeartHandshake, MessageCircle, Phone, ShieldCheck, Video } from "lucide-react";
-import { conceptSessionFee, type PaidSearchConcept } from "@/lib/paidSearchConcepts";
+import { conceptSessionFee, isCouplesConcept, type PaidSearchConcept } from "@/lib/paidSearchConcepts";
 import ConceptBooking from "./ConceptBooking";
 import ConsultationReminder from "./ConsultationReminder";
 import { PREVIEW_BOOKING_KEY, LIVE_BOOKING_KEY, previewSessionMark, recordConceptPreviewEvent, type PreviewPlacement } from "@/lib/paidSearchPreviewExperience";
@@ -57,7 +57,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
   const bookingForm = <ConceptBooking conceptSlug={originalConcept.slug} clinicians={originalClinicians} selectedSlug={selectedSlug} onTherapistChange={setSelectedSlug} onBookingStart={startBooking} locale={locale} preview={preview} onBookingLockChange={setBookingLocked} />;
   const faqs = [...concept.faqs,
     { question: "What happens in the free consultation?", answer: "Your selected therapist calls you at your chosen date and time for a free 20-minute conversation. Ask about their approach, discuss what you’re looking for, and decide whether you’d like to work together. This is separate from a full therapy session." },
-    { question: "How much do therapy sessions cost?", answer: `${t("Paid therapy sessions are {price} CAD per 50 minutes.", { price })} ${concept.slug === "couples" ? t("Total for both partners.") + " " : ""}${t("The initial 20-minute consultation is free.")}` },
+    { question: "How much do therapy sessions cost?", answer: `${t("Paid therapy sessions are {price} CAD per 50 minutes.", { price })} ${isCouplesConcept(concept.slug) ? t("Total for both partners.") + " " : ""}${t("The initial 20-minute consultation is free.")}` },
     { question: "Can I use my workplace benefits or insurance?", answer: "Receipts are provided for reimbursement where applicable. Coverage depends on your plan and the clinician’s designation. Check whether your plan covers an RP, RP (Qualifying), or RSW, as appropriate, before booking paid sessions." },
   ];
 
@@ -79,7 +79,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
           <div className={styles.heroTherapist}><Image src={lead.photo} alt={lead.name} width={80} height={96} /><div><strong>{lead.name}</strong><span>{lead.role}</span><span>{lead.reasons[0]}</span></div></div>
           <a href="#consultation" className={styles.primaryButton} onClick={(event) => { event.preventDefault(); choose(); }}>{earlyBooking ? t("Choose a consultation time") : concept.cta} <ArrowRight size={18} /></a>
           <p className={styles.heroReassurance}>{t("20 minutes · Speak directly with your therapist · No obligation")}</p>
-          <p className={styles.heroFee}>{t("Paid sessions: {price} CAD / {duration} minutes", { price, duration: 50 })}{concept.slug === "couples" ? <> · {t("Total for both partners")}</> : null}</p>
+          <p className={styles.heroFee}>{t("Paid sessions: {price} CAD / {duration} minutes", { price, duration: 50 })}{isCouplesConcept(concept.slug) ? <> · {t("Total for both partners")}</> : null}</p>
           {concept.slug === "adhd" ? <p className={styles.scopeNote}>{t("ADHD therapy and practical support. No diagnostic assessment or medication prescribing.")}</p> : null}
           <a className={styles.meetLink} href="#your-therapist"><span className={styles.avatarStack}>{clinicians.slice(0, 3).map((person) => <Image key={person.slug} src={person.photo} alt="" width={38} height={38} />)}</span><span>{clinicians.length === 1 ? t("Meet {name}", { name: lead?.name.split(" ")[0] || "" }) : t("Meet your therapists")}<ArrowDown size={13} /></span></a>
         </div>
@@ -109,7 +109,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
           <ul className={styles.fitReasons}>{person.reasons.map((reason) => <li key={reason}><Check size={15} /><span>{reason}</span></li>)}</ul>
           <div className={styles.visibleQualification}>{["Training", "Degree", "Experience", "Client Population"].map((label) => person.qualifications.find((qualification) => qualification.label === t(label))?.value).find(Boolean) || person.role}</div>
           <details className={styles.qualifications}><summary>{t("Qualifications & background")}<ChevronDown size={14} /></summary><dl>{person.qualifications.map((qualification) => <div key={`${qualification.label}:${qualification.value}`}><dt>{qualification.label}</dt><dd>{qualification.value}</dd></div>)}</dl></details>
-          <div className={styles.profileBottom}><span>{t("{price} CAD / {duration} min", { price: `$${conceptSessionFee(concept.slug, person).fee}`, duration: conceptSessionFee(concept.slug, person).duration })}{concept.slug === "couples" ? <small>{t("Total for both partners")}</small> : null}</span><button type="button" onClick={() => choose(person.slug, "therapist")}>{t("Book a free call with {name}", { name: person.name.split(" ")[0] })}<ArrowRight size={14} /></button></div>
+          <div className={styles.profileBottom}><span>{t("{price} CAD / {duration} min", { price: `$${conceptSessionFee(concept.slug, person).fee}`, duration: conceptSessionFee(concept.slug, person).duration })}{isCouplesConcept(concept.slug) ? <small>{t("Total for both partners")}</small> : null}</span><button type="button" onClick={() => choose(person.slug, "therapist")}>{t("Book a free call with {name}", { name: person.name.split(" ")[0] })}<ArrowRight size={14} /></button></div>
         </article>)}</div>
       </div></section>
 
@@ -121,7 +121,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
       <section id="fees-and-questions" tabIndex={-1} className={`${styles.section} ${styles.faqSection}`}><div className={`${styles.container} ${styles.faqGrid}`}>
         <div className={styles.feeCopy}><p className={styles.eyebrow}>{t("A clear next step")}</p><h2>{t("Meet first.")}<br /><em>{t("Decide together.")}</em></h2><p>{t("Know the cost and the process before committing to a paid session.")}</p>
           <div className={styles.priceRow}><span>{t("First phone consultation")}<small>{t("20 minutes · No obligation")}</small></span><strong>{t("Free")}</strong></div>
-          <div className={styles.priceRow}><span>{t("Therapy sessions")}<small>{concept.slug === "couples" ? t("50 minutes · Total for both partners") : t("Featured clinicians · 50 minutes")}</small></span><strong><bdi>{price} CAD</bdi></strong></div>
+          <div className={styles.priceRow}><span>{t("Therapy sessions")}<small>{isCouplesConcept(concept.slug) ? t("50 minutes · Total for both partners") : t("Featured clinicians · 50 minutes")}</small></span><strong><bdi>{price} CAD</bdi></strong></div>
           <p className={styles.insuranceNote}><ShieldCheck size={16} />{t("Receipts for insurance reimbursement where applicable. Confirm your coverage and clinician’s designation with your insurer.")}</p>
         </div>
         <div className={styles.faqList}><p className={styles.eyebrow}>{t("Good questions, clear answers")}</p>{faqs.map((faq) => <details key={faq.question}><summary>{t(faq.question)}<span aria-hidden="true">+</span></summary><p>{t(faq.answer)}</p></details>)}</div>

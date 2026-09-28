@@ -199,6 +199,20 @@ describe("consultation submission boundary", () => {
     expect(flowMocks.sendMail.mock.calls[1][0].html).toContain('dir="rtl"');
     expect(await response.json()).not.toHaveProperty("capacityTherapistId");
   });
+  it.each(["muslim-therapy", "female-muslim-therapist", "muslim-marriage"])("reserves only Meryem and preserves the requested language on %s", async (landingConcept) => {
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: true, capacityTherapistId: "meryem-ibrahim" });
+    const response = await POST(request(landingBooking({ landingConcept, landingLocale: "en",
+      consultationLanguage: "Arabic", consentLanguage: LANDING_BOOKING_CONSENT.en,
+      reason: landingConcept === "muslim-marriage" ? "Couples Therapy" : "Not Sure" })));
+    expect(response.status).toBe(200);
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ pool: ["meryem-ibrahim"], time: "9:20 AM" }));
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ preferredTherapist: "Meryem Ibrahim" }));
+  });
+  it.each(["muslim-therapy", "female-muslim-therapist", "muslim-marriage"])("rejects a different therapist on %s before booking", async (landingConcept) => {
+    const response = await POST(request(landingBooking({ landingConcept, preferredTherapist: "wilfred-bengnwi" })));
+    expect(response.status).toBe(400);
+    expect(flowMocks.claimConsultationSlot).not.toHaveBeenCalled();
+  });
   it("books Ryann for OCD using only her capacity", async () => {
     flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: true, capacityTherapistId: "ryann-simpson" });
     const response = await POST(request(landingBooking({ landingConcept: "ocd", landingLocale: "en", preferredTherapist: "ryann-simpson", consultationLanguage: "English", consultationTime: "5:00 PM", consentLanguage: LANDING_BOOKING_CONSENT.en })));

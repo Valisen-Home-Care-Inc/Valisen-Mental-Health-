@@ -24,6 +24,7 @@
     "screenshot": "node screenshot.js"
   },
   "dependencies": {
+    "fflate": "0.8.3",
     "googleapis": "^171.4.0",
     "lucide-react": "^1.11.0",
     "next": "16.3.0",

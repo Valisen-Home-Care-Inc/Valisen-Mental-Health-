@@ -480,7 +480,7 @@ export const therapists: Therapist[] = [
     therapySessionDurationMinutes: THERAPY_SESSION_DURATION_MINUTES,
     formats: ["Virtual"],
     jurisdictions: ["Ontario"],
-    populationsServed: ["Individual adults (18+)"],
+    populationsServed: ["Individual adults (18+)", "Couples"],
     approachStyles: ["Practical / structured", "Reflective / exploratory"],
     matching: {
       gender: "woman",
@@ -512,6 +512,8 @@ export const therapists: Therapist[] = [
       "Stress and burnout",
       "Grief",
       "Relationship challenges",
+      "Couples and marriage counselling",
+      "Faith-integrated Islamic counselling",
       "Life transitions",
       "Culturally responsive therapy",
     ],
@@ -594,7 +596,7 @@ export const therapists: Therapist[] = [
         label: "Registration",
         value: "Registered Psychotherapist (Qualifying)",
       },
-      { label: "Client Population", value: "Individual adults (18+)" },
+      { label: "Client Population", value: "Individual adults (18+) and couples" },
       { label: "Languages", value: "English and Arabic" },
       {
         label: "Approaches",

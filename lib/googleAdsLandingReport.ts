@@ -35,14 +35,28 @@ export function buildGoogleAdsLandingReport(
   journeys: GoogleAdsJourneyExportRow[],
   timeline: GoogleAdsEventExportRow[],
   range: { from: string; to: string },
-  landingPath: string,
+  landingPath: string | null,
   opportunityKeys: ReadonlyMap<string, string> = new Map(),
 ): GoogleAdsDashboardData {
   const inRange = journeys.filter((row) => row.startedAt >= range.from && row.startedAt < range.to);
   const landingPaths = googleAdsLandingPaths([
-    ...inRange.map((row) => row.landingPath), landingPath,
+    ...inRange.map((row) => row.landingPath), ...(landingPath ? [landingPath] : []),
   ]);
-  const selected = inRange.filter((row) => row.landingPath === landingPath);
+  const allSessions = Array.from(new Map(inRange.filter(isRecordedGoogleAdsSession).map((row) => [row.sessionId, row])).values());
+  const byLanding = new Map<string, GoogleAdsJourneyExportRow[]>();
+  for (const row of allSessions) {
+    const group = byLanding.get(row.landingPath) ?? [];
+    group.push(row);
+    byLanding.set(row.landingPath, group);
+  }
+  const landingSummaries = landingPaths.map((path) => {
+    const rows = byLanding.get(path) ?? [];
+    return { path, sessions: rows.length,
+      averageEngagedMs: rows.length ? Math.round(rows.reduce((sum, row) => sum + row.engagedMs, 0) / rows.length) : 0,
+      consultationRequests: rows.filter((row) => row.consultationSubmitted).length,
+      lastSeenAt: rows.map((row) => row.lastSeenAt).sort().at(-1) };
+  });
+  const selected = landingPath === null ? inRange : inRange.filter((row) => row.landingPath === landingPath);
   const sessions = Array.from(new Map(selected.filter(isRecordedGoogleAdsSession).map((row) => [row.sessionId, row])).values());
   const sessionIds = new Set(sessions.map((row) => row.sessionId));
   const events = Array.from(new Map(timeline.filter((event) => sessionIds.has(event.sessionId))
@@ -117,13 +131,13 @@ export function buildGoogleAdsLandingReport(
     ["consultation_cta", "Consultation CTA clicked", kpis.consultationCtaSessions],
     ["consultation_page", "Consultation form opened", formOpened.size],
     ["form_starts", "Form started", kpis.formStarts],
-    ["consultation_step_2", isFocusedLandingPath(landingPath) ? "Contact details reached" : "Availability reached", availability.size],
+    ["consultation_step_2", landingPath === null ? "Second form step reached" : isFocusedLandingPath(landingPath) ? "Contact details reached" : "Availability reached", availability.size],
     ["consultation_requests", "Confirmed requests", kpis.consultationRequests],
     ["booked_consultations", "Consultations booked", kpis.bookedConsultations],
     ["paid_therapy", "Paid therapy", kpis.paidTherapyConversions],
   ];
   return normalizeGoogleAdsDashboard({
-    range, landingPath, landingPaths,
+    range, landingPath, landingPaths, landingSummaries,
     excludedEntryRequests: selected.filter((row) => !isRecordedGoogleAdsSession(row)).length,
     kpis,
     funnel: stages.map(([key, label, count]) => ({ key, label, count,
@@ -134,7 +148,9 @@ export function buildGoogleAdsLandingReport(
       averageEngagedMs: Math.round((pageEngagement.get(path)?.engagedMs ?? 0) / views.sessions.size),
       exits: pageExits.get(path)?.events ?? 0,
       consultationCtaSessions: pageCtas.get(path)?.sessions.size ?? 0,
-      consultationRequests: path === landingPath ? kpis.consultationRequests : 0,
+      consultationRequests: landingPath === null
+        ? sessions.filter((row) => row.landingPath === path && row.consultationSubmitted).length
+        : path === landingPath ? kpis.consultationRequests : 0,
     })).sort((a, b) => b.sessions - a.sessions || b.views - a.views || a.path.localeCompare(b.path)),
     sections: Array.from(sectionViews, ([key, views]) => {
       const [path, sectionId] = JSON.parse(key) as [string, string];

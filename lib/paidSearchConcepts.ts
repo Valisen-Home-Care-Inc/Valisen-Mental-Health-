@@ -1,5 +1,6 @@
 import { getTherapistBySlug, type Therapist } from "@/lib/therapists";
 import { ALL_CONSULTATION_THERAPISTS, type ConsultationTherapist } from "@/lib/consultationSchedules";
+import { meryemPaidSearchConcepts } from "@/lib/meryemPaidSearchConcepts";
 
 export type TherapistFit = { slug: string; heading: string; description: string; reasons: string[] };
 export type PaidSearchConcept = {
@@ -23,6 +24,7 @@ export type PaidSearchConcept = {
   bookingHeading: string;
   language?: { label: string; code: string; heading: string; translation: string };
   suggestedKeywords?: string[];
+  service?: "couples";
 };
 
 const meryemAnxiety: TherapistFit = {
@@ -101,7 +103,7 @@ export const paidSearchConcepts: PaidSearchConcept[] = [
     bookingHeading: "Talk about what you’d like to change.",
   },
   {
-    slug: "couples", label: "Couples therapy", collection: "campaign", tone: "clay",
+    slug: "couples", label: "Couples therapy", collection: "campaign", tone: "clay", service: "couples",
     eyebrow: "Couples therapy in Ontario",
     headline: "Less arguing.", emphasis: "More understanding.",
     introduction: "The same argument. The growing distance. The things that never quite get said. Work with a couples therapist who helps you slow down the pattern and find a more useful conversation—together.",
@@ -350,6 +352,7 @@ export const paidSearchConcepts: PaidSearchConcept[] = [
     bookingHeading: "Take the next step at your pace.",
     suggestedKeywords: ["trauma informed therapist Ontario", "online trauma therapy Ontario"],
   },
+  ...meryemPaidSearchConcepts,
 ];
 
 export function getPaidSearchConcept(slug: string) {
@@ -372,7 +375,11 @@ export function consultationPoolForConcept(slug?: string): ConsultationTherapist
 
 export const conceptFinalPath = (slug: string) => `/welcome/${slug}`;
 
+export function isCouplesConcept(slug: string): boolean {
+  return getPaidSearchConcept(slug)?.service === "couples";
+}
+
 /** Couples pricing explicitly confirmed by the clinic for these concepts. */
 export function conceptSessionFee(conceptSlug: string, clinician: { fee: number; duration: number }) {
-  return conceptSlug === "couples" ? { fee: 200, duration: 50 } : { fee: clinician.fee, duration: clinician.duration };
+  return isCouplesConcept(conceptSlug) ? { fee: 200, duration: 50 } : { fee: clinician.fee, duration: clinician.duration };
 }

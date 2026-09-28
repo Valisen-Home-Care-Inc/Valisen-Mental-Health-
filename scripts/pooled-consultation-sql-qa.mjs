@@ -51,6 +51,17 @@ try {
   assert.equal((await claim(saturday,'1:55 PM',['tim-kahtava'])).accepted,true);
   assert.equal((await claim(saturday,'2:15 PM',['tim-kahtava'])).accepted,false);
   assert.equal((await claim(sunday,'9:00 AM',['meryem-ibrahim'])).accepted,true);
+  // All Arabic/Muslim pages use Meryem's same capacity. General welcome/quiz
+  // retain other clinicians on Tuesday, while Sunday has only Meryem.
+  assert.ok((await blocked(sunday, ['meryem-ibrahim'])).includes('9:00 AM'));
+  assert.ok((await blocked(sunday, all)).includes('9:00 AM'));
+  const tuesday=await nextDate(2);
+  assert.equal((await claim(tuesday,'9:00 AM',['meryem-ibrahim'])).accepted,true);
+  assert.equal((await claim(tuesday,'9:00 AM',['meryem-ibrahim'])).accepted,false);
+  assert.ok((await blocked(tuesday, ['meryem-ibrahim'])).includes('9:00 AM'));
+  assert.ok(!(await blocked(tuesday, all)).includes('9:00 AM'));
+  assert.equal((await claim(tuesday,'9:00 AM',['wilfred-bengnwi'])).accepted,true);
+  assert.ok((await blocked(tuesday, all)).includes('9:00 AM'));
   assert.equal((await claim(sunday,'9:00 AM',['dayong-quan'])).accepted,false);
   const friday=await nextDate(5);
   await db.query(`insert into public.consultation_slot_bookings(slot_date,slot_time,client_submission_id,consultation_reference_id,source) values($1::date,'9:00 AM','legacy-submission-0001','VC-FFFFFFFFFFFFFFFFFFFFFFFF','welcome')`,[friday]);

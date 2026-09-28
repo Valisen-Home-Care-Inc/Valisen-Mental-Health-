@@ -21,6 +21,20 @@ function report(rows: unknown[], events: unknown[], path = "/welcome") {
 }
 
 describe("Google Ads final URL reporting", () => {
+  it("shows activity for every URL without mixing the selected report, counting entry-only traffic, or leaving the date range", () => {
+    const rows = [session(1, "/welcome/muslim-therapy", { consultationSubmitted: true }),
+      session(2, "/welcome/muslim-therapy", { engagedMs: 4_000 }),
+      session(3, "/welcome/female-muslim-therapist"),
+      session(4, "/welcome/muslim-marriage", { eventCount: 0 }),
+      session(5, "/welcome/muslim-marriage", { startedAt: range.to })];
+    const data = report([...rows, rows[0]], [], "/welcome/female-muslim-therapist");
+    expect(data.kpis.sessions).toBe(1);
+    expect(data.landingSummaries?.find((row) => row.path === "/welcome/muslim-therapy")).toMatchObject({ sessions: 2, averageEngagedMs: 10_000, consultationRequests: 1 });
+    expect(data.landingSummaries?.find((row) => row.path === "/welcome/female-muslim-therapist")?.sessions).toBe(1);
+    expect(data.landingSummaries?.find((row) => row.path === "/welcome/muslim-marriage")?.sessions).toBe(0);
+    expect(data.landingSummaries?.find((row) => row.path === "/welcome")?.sessions).toBe(0);
+  });
+
   it("separates focused destinations and labels the named-booking details step", () => {
     const named = session(1, "/welcome/ocd", { formStarted: true });
     const data = report([named, session(2, "/welcome/anxiety"), session(3)], [

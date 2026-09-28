@@ -12,7 +12,9 @@ try {
  await db.exec(field.slice(field.indexOf('create or replace function'),field.indexOf('-- Add a durable ordered summary')));
  const migration=await fs.readFile('supabase/migrations/20260917000000_focused_google_ads_landings.sql','utf8');
  await db.exec(migration); await db.exec(migration);
- const slugs=['anxiety','depression','cbt','couples','ocd','panic','social-anxiety','online-therapy','psychotherapists','free-consultation','mandarin','arabic','adhd','perfectionism','trauma'];
+ const meryemMigration=await fs.readFile('supabase/migrations/20260927000000_meryem_google_ads_landings.sql','utf8');
+ await db.exec(meryemMigration); await db.exec(meryemMigration);
+ const slugs=['anxiety','depression','cbt','couples','ocd','panic','social-anxiety','online-therapy','psychotherapists','free-consultation','mandarin','arabic','adhd','perfectionism','trauma','muslim-therapy','female-muslim-therapist','muslim-marriage'];
  let i=0;
  for (const slug of slugs) {
   const id=String(++i).padStart(20,'0'), path='/welcome/'+slug, now=new Date().toISOString();
@@ -21,7 +23,7 @@ try {
   await db.query('select public.ingest_google_ads_events($1,$2::timestamptz,$3,$4::jsonb)',values);
   await db.query('select public.ingest_google_ads_events($1,$2::timestamptz,$3,$4::jsonb)',values);
  }
- assert.equal((await db.query('select count(*)::int as count from public.google_ads_events')).rows[0].count,75);
+ assert.equal((await db.query('select count(*)::int as count from public.google_ads_events')).rows[0].count,slugs.length*5);
  assert.equal((await db.query("select public.is_google_ads_tracked_path('/welcome/unapproved') as allowed")).rows[0].allowed,false);
- console.log('PASS PostgreSQL: all 15 final URLs accept form events, retries deduplicate, unknown paths stay rejected, migration reruns safely.');
+ console.log(`PASS PostgreSQL: all ${slugs.length} final URLs accept form events, retries deduplicate, unknown paths stay rejected, migrations rerun safely.`);
 } finally { await db.close(); }

@@ -10,7 +10,7 @@ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'nu
 const get=k=>Number(parts.find(p=>p.type===k).value); const monday=new Date(get('year'),get('month')-1,get('day')+1);
 while(monday.getDay()!==1)monday.setDate(monday.getDate()+1);
 const date=`${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
-const slugs=['anxiety','depression','cbt','couples','ocd','panic','social-anxiety','online-therapy','psychotherapists','free-consultation','mandarin','arabic','adhd','perfectionism','trauma'];
+const slugs=['anxiety','depression','cbt','couples','ocd','panic','social-anxiety','online-therapy','psychotherapists','free-consultation','mandarin','arabic','adhd','perfectionism','trauma','muslim-therapy','female-muslim-therapist','muslim-marriage'];
 const receipt='v1.'+'a'.repeat(120)+'.'+'b'.repeat(43);
 async function pageFor(route,ads=false) {
  const page=await browser.newPage(); page.setDefaultTimeout(25000); await page.setViewport({width:390,height:844});
@@ -66,12 +66,31 @@ try {
   assert.equal(await page.$$eval('h1',items=>items.length),1);
   assert.equal(await page.$('[class*="reviewBar"]'),null);
   assert.equal(await page.$('[class*="demoNote"]'),null);
-  for(const width of [1440,430,390,360]){await page.setViewport({width,height:900});await overflow(page,slug+width);}
-  if(['ocd','arabic','mandarin','couples'].includes(slug))await page.screenshot({path:`artifacts/ads-concepts/live-${slug}-360.png`,fullPage:true});
+  for(const width of [1440,430,390,360]){
+   await page.setViewport({width,height:900});await overflow(page,slug+width);
+   if(['muslim-therapy','female-muslim-therapist','muslim-marriage'].includes(slug)&&[1440,390].includes(width))await page.screenshot({path:`artifacts/ads-concepts/${slug}-${width}.png`,fullPage:true});
+  }
+  if(['muslim-therapy','female-muslim-therapist','muslim-marriage'].includes(slug))await page.screenshot({path:`artifacts/ads-concepts/live-${slug}-360.png`,fullPage:true});
   assert.ok(await page.$('#consultation [class*="calendar"] button:not([disabled])'),slug+' bookable date');
   await page.close();
  }
- if(process.env.QA_BOOKING_ONLY !== '1')console.log('PASS all 15 live destinations: no preview controls, four viewport widths, live availability.');
+ if(process.env.QA_BOOKING_ONLY !== '1')console.log('PASS all 18 live destinations: no preview controls, four viewport widths, live availability.');
+ for(const slug of ['muslim-therapy','female-muslim-therapist','muslim-marriage']) {
+  const page=await pageFor('/welcome/'+slug);
+  assert.equal(await page.$eval('[class*="heroPortrait"]',el=>el.alt),'Meryem Ibrahim');
+  assert.equal(await page.$('#consultation select[aria-label="Choose your therapist"]'),null);
+  await page.select('#consultation select[aria-label="Consultation language"]','Arabic');
+  if(slug==='muslim-marriage')assert.ok((await page.$eval('#consultation',el=>el.textContent)).includes('$200'));
+  await choose(page);await fill(page);await finish(page);
+  assert.equal(posts.at(-1).preferredTherapist,'meryem-ibrahim');
+  assert.equal(posts.at(-1).landingConcept,slug);
+  assert.equal(posts.at(-1).consultationLanguage,'Arabic');
+  assert.equal(posts.at(-1).reason,slug==='muslim-marriage'?'Couples Therapy':'Not Sure');
+  const weekday=new Date(posts.at(-1).consultationDate+'T12:00:00Z').getUTCDay();
+  assert.ok([0,2].includes(weekday));
+  await page.close();
+ }
+ console.log('PASS all three Meryem bookings: named therapist, Sunday/Tuesday shifts, Arabic call language, couples service and pricing.');
  const ocd=await pageFor('/welcome/ocd'),couples=await pageFor('/welcome/couples'),general=await pageFor('/welcome');
  await choose(ocd,true);await fill(ocd);failOnce=true;await ocd.click('#consultation button[type="submit"]');await ocd.waitForSelector('#consultation [role="alert"]');
  assert.equal(await ocd.$eval('input[name="firstName"]',el=>el.disabled),true,'ambiguous retry locks appointment');

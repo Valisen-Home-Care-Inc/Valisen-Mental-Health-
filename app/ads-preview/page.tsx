@@ -8,13 +8,13 @@ export const metadata: Metadata = {
   description: "Review focused Google Ads landing-page concepts for Valisen Mental Health.",
   openGraph: {
     title: "Valisen | Google Ads Landing Page Concepts",
-    description: "Explore 15 focused landing-page designs, including Arabic and Mandarin. Interactive previews for team review.",
+    description: "Explore focused landing-page designs, including Muslim therapy, Arabic and Mandarin. Interactive previews for team review.",
     url: "https://valisenmentalhealth.com/ads-preview",
   },
   twitter: {
     card: "summary",
     title: "Valisen | Google Ads Landing Page Concepts",
-    description: "Explore 15 focused landing-page designs. Interactive previews for team review.",
+    description: "Explore focused landing-page designs. Interactive previews for team review.",
   },
   robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };

@@ -26,7 +26,9 @@ import { useRef, useState } from "react";
 import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
-import { DEFAULT_GOOGLE_ADS_LANDING_PATH, googleAdsLandingPaths } from "@/lib/googleAdsLandingPaths";
+import GoogleAdsLandingActivity from "./GoogleAdsLandingActivity";
+import GoogleAdsFullExportButton from "./GoogleAdsFullExportButton";
+import { DEFAULT_GOOGLE_ADS_LANDING_PATH } from "@/lib/googleAdsLandingPaths";
 import {
   googleAdsCampaignLabel,
   googleAdsEventLabel,
@@ -274,6 +276,7 @@ export default function GoogleAdsDashboardClient({
   const [error, setError] = useState(initialError);
   const [scope, setScope] = useState<DashboardScope>("live");
   const [landingPath, setLandingPath] = useState(DEFAULT_GOOGLE_ADS_LANDING_PATH);
+  const [landingSummaries, setLandingSummaries] = useState(initialData?.landingSummaries);
   const [landingPaths, setLandingPaths] = useState(initialData?.landingPaths ?? [DEFAULT_GOOGLE_ADS_LANDING_PATH]);
   const [range, setRange] = useState<CheckpointDatePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
@@ -286,6 +289,7 @@ export default function GoogleAdsDashboardClient({
 
   async function loadData(nextRange = range, nextScope = scope, nextLandingPath = landingPath) {
     const requestId = ++requestSequence.current;
+    if (nextRange !== range || nextScope !== scope || nextRange === "custom") setLandingSummaries(undefined);
     setLoading(true);
     setError(null);
     try {
@@ -314,10 +318,12 @@ export default function GoogleAdsDashboardClient({
         throw new Error("The selected final URL could not be loaded. Please refresh.");
       }
       setData(normalized);
+      setLandingSummaries(normalized.landingSummaries);
       setLandingPaths(normalized.landingPaths ?? [DEFAULT_GOOGLE_ADS_LANDING_PATH]);
       setLastUpdated(normalized.generatedAt);
     } catch (caught) {
       if (requestId !== requestSequence.current) return;
+      setLandingSummaries(undefined);
       setError(
         caught instanceof Error
           ? caught.message
@@ -466,29 +472,12 @@ export default function GoogleAdsDashboardClient({
         </div>
       </div>
 
-      <div className="mt-6 rounded-[16px] border border-[#b8d2cc] bg-white p-3 shadow-sm">
-        <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[1.5px] text-[#667471]">Final URL</p>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Google Ads final URL tabs">
-          {googleAdsLandingPaths([...landingPaths, landingPath]).map((path) => (
-            <button
-              key={path}
-              type="button"
-              aria-pressed={landingPath === path}
-              onClick={() => changeLandingPath(path)}
-              title={finalUrlLabel(path)}
-              className={`min-h-10 max-w-full break-all rounded-[10px] px-4 py-2 text-left text-[12px] font-semibold transition ${
-                landingPath === path ? "bg-[#1e5f5a] text-white" : "bg-[#f1f5f3] text-[#53625f] hover:bg-[#e5eeea]"
-              }`}
-            >
-              {path === "/" ? "valisenmentalhealth.com/" : path}
-            </button>
-          ))}
-        </div>
-        <p className="mt-3 px-1 text-[11px] leading-5 text-[#667471]" aria-live="polite">
-          Showing journeys that started at {finalUrlLabel(landingPath)}.
-          {data?.excludedEntryRequests ? ` ${formatCount(data.excludedEntryRequests)} entry requests without recorded activity are excluded.` : ""}
-        </p>
-      </div>
+      <GoogleAdsFullExportButton range={range} scope={scope} customFrom={customFrom} customTo={customTo} />
+      <GoogleAdsLandingActivity paths={landingPaths} summaries={landingSummaries} selected={landingPath} onSelect={changeLandingPath} loading={loading} />
+      <p className="mt-3 px-1 text-[11px] leading-5 text-[#667471]" aria-live="polite">
+        Showing journeys that started at {finalUrlLabel(landingPath)}.
+        {data?.excludedEntryRequests ? ` ${formatCount(data.excludedEntryRequests)} entry requests without recorded activity are excluded.` : ""}
+      </p>
 
       {range === "custom" ? (
         <div className="mt-4 flex flex-wrap items-end gap-3 rounded-[14px] border border-black/[0.07] bg-white p-4 shadow-sm">

@@ -142,8 +142,8 @@ try {
   await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
   await navigate('/ads-preview');
   const slugs = await page.$$eval('a[href^="/ads-preview/"]', (links) => [...new Set(links.map((link) => link.getAttribute('href')).filter((href) => href !== '/ads-preview/keyword-map'))]);
-  assert.equal(slugs.length, 15);
-  for (const [label, count] of [['Current keywords', 10], ['Language & niche', 5], ['All concepts', 15]]) {
+  assert.equal(slugs.length, 18);
+  for (const [label, count] of [['Current keywords', 13], ['Language & niche', 5], ['All concepts', 18]]) {
     await clickText('[aria-label="Filter landing concepts"] button', label);
     await page.waitForFunction((count) => document.querySelectorAll('a[href^="/ads-preview/"]:not([download])').length === count, {}, count);
   }
@@ -164,15 +164,15 @@ try {
     console.log(`PASS ${route}: six responsive sizes`);
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 }); await booking(route);
   }
+  }
   const keywordResponse = await fetch(`${base}/ads-preview/keyword-map`); assert.equal(keywordResponse.status, 200);
-  const csv = await keywordResponse.text(); assert.equal(csv.trim().split('\r\n').length, 54);
+  const csv = await keywordResponse.text(); assert.equal(csv.trim().split('\r\n').length, 84);
   assert.ok(!csv.includes('""book a therapist""') && !csv.includes('""therapist ontario""'), 'Paused keywords omitted');
   for (const keyword of ['[book a psychotherapist]', '[online psychotherapist ontario]']) assert.ok(csv.split('\r\n').find((row) => row.includes(keyword)).includes('/welcome/psychotherapists'));
-  }
   await reminderChecks();
   const missing = await page.goto(`${base}/ads-preview/not-a-concept`, { waitUntil: 'networkidle0' }); assert.equal(missing.status(), 404);
   assert.deepEqual(errors, [], 'Runtime errors'); assert.deepEqual(prohibited, [], 'No production analytics or booking requests');
-  console.log(process.env.QA_REMINDER_ONLY === '1' ? 'Reminder checks passed; zero lead or tracking requests.' : 'All 15 previews passed; zero lead or tracking requests.');
+  console.log(process.env.QA_REMINDER_ONLY === '1' ? 'Keyword map and reminder checks passed; zero lead or tracking requests.' : 'All 18 previews passed; zero lead or tracking requests.');
 } finally {
   await fs.writeFile(path.join(output, 'refinement-qa.json'), JSON.stringify({ base, errors, prohibited, warnings }, null, 2));
   await browser.close();

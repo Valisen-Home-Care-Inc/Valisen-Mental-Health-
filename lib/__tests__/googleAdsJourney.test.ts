@@ -59,13 +59,14 @@ describe("Google Ads journey boundaries", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
-        "supabase/migrations/20260917000000_focused_google_ads_landings.sql",
+        "supabase/migrations/20260927000000_meryem_google_ads_landings.sql",
       ),
       "utf8",
     );
     for (const path of GOOGLE_ADS_TRACKED_PATHS) {
       expect(migration, `missing SQL path ${path}`).toContain(`'${path}'`);
     }
+    expect(GOOGLE_ADS_TRACKED_PATHS).not.toContain("/referrals");
   });
 
   it("ships a closed, value-free consultation field-entry migration", () => {

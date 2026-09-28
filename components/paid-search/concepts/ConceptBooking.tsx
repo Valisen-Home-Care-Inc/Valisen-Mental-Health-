@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronLeft, ChevronRight, 
 import { CONSULTATION_BOOKING_WINDOW_DAYS, getAvailableTimeSlotsForDate, getConsultationCalendarMonth, isValidConsultationPhone } from "@/lib/consultation";
 import { torontoCalendarToday } from "@/lib/quizConsultation";
 import type { ConsultationTherapist } from "@/lib/consultationSchedules";
-import { conceptSessionFee } from "@/lib/paidSearchConcepts";
+import { conceptSessionFee, isCouplesConcept } from "@/lib/paidSearchConcepts";
 import { landingTranslator, LANDING_BOOKING_CONSENT, localeTag, localizedTime, type LandingLocale } from "@/lib/paidSearchLocale";
 import { recordConceptPreviewEvent } from "@/lib/paidSearchPreviewExperience";
 import { arabicLandingTranslations, mandarinLandingTranslations } from "@/lib/paidSearchLanguageContent";
@@ -104,7 +104,7 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
       {step === "time" ? <div>
         <h3 className={styles.bookingTitle}>{t("Choose your consultation.")}</h3>
         {clinicians.length > 1 ? <label className={styles.field}>{t("Your therapist")}<select aria-label={t("Choose your therapist")} value={selectedSlug} onChange={(event) => { onBookingStart(); onTherapistChange(event.target.value); }}>{clinicians.map((candidate) => <option key={candidate.slug} value={candidate.slug}>{t(candidate.name)}</option>)}</select></label> : <p className={styles.selectedClinician}>{personName} · {t(person.role)}</p>}
-        <p className={styles.bookingHint}>{t("Paid sessions: {price} CAD / {duration} minutes", { price: `$${fee.fee}`, duration: fee.duration })}{conceptSlug === "couples" ? ` · ${t("Total for both partners")}` : ""}</p>
+        <p className={styles.bookingHint}>{t("Paid sessions: {price} CAD / {duration} minutes", { price: `$${fee.fee}`, duration: fee.duration })}{isCouplesConcept(conceptSlug) ? ` · ${t("Total for both partners")}` : ""}</p>
         {person.languages.length > 1 ? <label className={styles.field}>{t("Consultation language")}<select aria-label={t("Consultation language")} value={language} onChange={(event) => { setConsultationLanguage(event.target.value); onBookingStart(); }}>{person.languages.map((value) => <option key={value} value={value}>{t(value)}</option>)}</select></label> : null}
         {summary}
         {!preview && availability.status !== "ready" ? <p role="status" className={styles.calendarHint}>{t(availability.status === "checking" ? "Checking availability…" : "Live availability is temporarily unavailable. Please try again.")}{availability.status === "unavailable" ? <button type="button" className={styles.textButton} onClick={() => void availability.refresh()}>{t("Retry")}</button> : null}</p> : null}

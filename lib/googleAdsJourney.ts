@@ -104,7 +104,8 @@ const EXTRA_GOOGLE_ADS_PATHS = [
 ] as const;
 
 export const GOOGLE_ADS_TRACKED_PATHS = [
-  ...TRACKED_PUBLIC_PATHS,
+  // The provider portal has its own isolated flow and is not an Ads journey.
+  ...TRACKED_PUBLIC_PATHS.filter((path) => path !== "/referrals"),
   ...EXTRA_GOOGLE_ADS_PATHS,
 ] as const;
 

@@ -1,5 +1,11 @@
 # Approved Google Ads landing pages
 
+September 27 extension: three Meryem-focused destinations bring the collection to
+18 pages and the keyword map to 83 keywords across three groups. See
+[Meryem's Google Ads group](MERYEM_GOOGLE_ADS.md) for the new URLs, confirmed scope,
+shared availability, CRM activity overview and complete export. The original
+September 17 launch details follow.
+
 The owner approved commercial launch of the 15 designs. Production destinations
 are `https://valisenmentalhealth.com/welcome/{slug}`:
 

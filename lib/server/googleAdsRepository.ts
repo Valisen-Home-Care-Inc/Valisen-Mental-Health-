@@ -304,7 +304,7 @@ export async function fetchGoogleAdsReportRows(from: string, to: string, test: b
   return { journeys: normalizeGoogleAdsJourneyExportRows(journeys), events: normalizeGoogleAdsEventExportRows(events) };
 }
 
-async function fetchGoogleAdsOpportunityKeys(journeys: ReturnType<typeof normalizeGoogleAdsJourneyExportRows>) {
+export async function fetchGoogleAdsOpportunityKeys(journeys: ReturnType<typeof normalizeGoogleAdsJourneyExportRows>) {
   const references = Array.from(new Set(journeys.filter((row) => row.consultationSubmitted)
     .map((row) => row.consultationReferenceId).filter((reference): reference is string => Boolean(reference))));
   const keys = new Map<string, string>();

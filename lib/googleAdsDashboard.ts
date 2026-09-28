@@ -157,10 +157,19 @@ export type GoogleAdsJourneySummary = {
   events: GoogleAdsJourneyEvent[];
 };
 
+export type GoogleAdsLandingSummary = {
+  path: string;
+  sessions: number;
+  averageEngagedMs: number;
+  consultationRequests: number;
+  lastSeenAt?: string;
+};
+
 export type GoogleAdsDashboardData = {
   generatedAt: string;
   landingPath?: string;
   landingPaths?: string[];
+  landingSummaries?: GoogleAdsLandingSummary[];
   excludedEntryRequests?: number;
   range: { from: string; to: string };
   kpis: GoogleAdsDashboardKpis;
@@ -868,7 +877,15 @@ export function normalizeGoogleAdsDashboard(
     ...(typeof source.landingPath === "string" ? {
       landingPath: path(source.landingPath),
       landingPaths: googleAdsLandingPaths([path(source.landingPath), ...array(source.landingPaths).map(path)]),
-      excludedEntryRequests: count(source.excludedEntryRequests),
+    } : {}),
+    ...(source.excludedEntryRequests !== undefined ? { excludedEntryRequests: count(source.excludedEntryRequests) } : {}),
+    ...(Array.isArray(source.landingSummaries) ? {
+      landingSummaries: source.landingSummaries.map((value) => {
+        const row = record(value);
+        return { path: path(row.path), sessions: count(row.sessions),
+          averageEngagedMs: milliseconds(row.averageEngagedMs), consultationRequests: count(row.consultationRequests),
+          ...(optionalDate(row.lastSeenAt) ? { lastSeenAt: optionalDate(row.lastSeenAt) } : {}) };
+      }),
     } : {}),
     range: normalizedRange,
     kpis,

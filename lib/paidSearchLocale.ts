@@ -150,6 +150,7 @@ const rows: Array<[string, string, string]> = [
   ["Languages", "اللغات", "语言"],
   ["Approaches", "المناهج العلاجية", "治疗方法"],
   ["Individual adults (18+)", "بالغون أفراد (18 عامًا فأكثر)", "18岁及以上的成年个体"],
+  ["Individual adults (18+) and couples", "الأفراد البالغون (18 عامًا فأكثر) والأزواج", "18岁及以上的成年个体及伴侣"],
   ["English and Arabic", "الإنجليزية والعربية", "英语和阿拉伯语"],
   ["CBT, DBT, solution-focused therapy, trauma-informed care, and culturally responsive care", "العلاج المعرفي السلوكي (CBT)، والعلاج السلوكي الجدلي (DBT)، والعلاج المركّز على الحلول، والرعاية المراعية للصدمات، والرعاية المستجيبة ثقافيًا", "认知行为治疗（CBT）、辩证行为治疗（DBT）、焦点解决治疗、创伤知情照护及注重文化背景的照护"],
   ["Master of Arts in Counseling Psychology, Yorkville University", "ماجستير الآداب في علم النفس الإرشادي، جامعة يوركفيل", "约克维尔大学咨询心理学文学硕士"],

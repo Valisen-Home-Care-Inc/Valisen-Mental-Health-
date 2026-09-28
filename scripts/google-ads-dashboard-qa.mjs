@@ -4,6 +4,8 @@ import { createHmac, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
+import { strFromU8, unzipSync } from "fflate";
 import puppeteer from "puppeteer";
 
 const port = Number(process.env.CRM_QA_PORT || 3311);
@@ -15,10 +17,10 @@ const payload = Buffer.from(JSON.stringify({ sub: "checkpoint-admin", iat: now, 
   nonce: randomBytes(16).toString("base64url") })).toString("base64url");
 const unsigned = `v1.${payload}`;
 const cookie = `__Host-vmh_checkpoint_admin=${unsigned}.${createHmac("sha256", secret).update(unsigned).digest("base64url")}`;
-const startedAt = new Date(Date.now() - 3600_000).toISOString();
+const startedAt = new Date(Date.now() - 1000).toISOString();
 const state = { section: "google_ads", activeSince: "2026-01-01T00:00:00.000Z", updatedAt: startedAt };
 const landingPaths = ["anxiety", "depression", "cbt", "couples", "ocd", "panic", "social-anxiety",
-  "online-therapy", "psychotherapists", "free-consultation", "mandarin", "arabic", "adhd", "perfectionism", "trauma"]
+  "online-therapy", "psychotherapists", "free-consultation", "mandarin", "arabic", "adhd", "perfectionism", "trauma", "muslim-therapy", "female-muslim-therapist", "muslim-marriage"]
   .map((slug) => `/welcome/${slug}`);
 const journey = (id, landingPath, engagedMs, eventCount = 2) => ({
   sessionId: `gas-00000000-0000-4000-8000-${String(id).padStart(12, "0")}`,
@@ -30,7 +32,7 @@ const journey = (id, landingPath, engagedMs, eventCount = 2) => ({
 const fixtures = [journey(1, "/welcome", 15000), journey(2, "/welcome", 2000),
   journey(3, "/welcome", 0, 0), journey(4, "/welcome", 0, 0), journey(5, "/welcome", 0, 0),
   journey(6, "/", 90000), journey(7, "/services", 25000),
-  ...landingPaths.map((path, index) => journey(index + 8, path, (index + 1) * 1000))];
+  ...landingPaths.map((path, index) => journey(index + 8, path, (index + 1) * 1000)), journey(100, "/about", 0, 0)];
 const timeline = fixtures.filter((row) => row.eventCount > 0).map((row) => ({
   sessionId: row.sessionId, sessionStartedAt: row.startedAt, occurredAt: row.startedAt,
   sequence: 1, event: "page_viewed", path: row.landingPath,
@@ -82,6 +84,13 @@ try {
   console.log("Local fixture server ready; launching browser.");
   browser = await puppeteer.launch({ headless: true, timeout: 120000, protocolTimeout: 120000 });
   const page = await browser.newPage();
+  await mkdir("artifacts/google-ads", { recursive: true });
+  const cdp = await page.createCDPSession();
+  await cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: resolve("artifacts/google-ads") });
+  await page.evaluateOnNewDocument(() => {
+    const create = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = (blob) => { window.qaExportBlob = blob; return create(blob); };
+  });
   page.setDefaultTimeout(60000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -97,14 +106,23 @@ try {
   console.log("Dashboard loaded; checking URL tabs.");
   const tabs = '[aria-label="Google Ads final URL tabs"]';
   const assertPinnedTabs = async () => {
-    const paths = await page.$$eval(`${tabs} button`, (nodes) => nodes.map((node) => node.textContent));
-    assert.deepEqual(paths.slice(0, 16), ["/welcome", ...landingPaths]);
+    const paths = await page.$$eval(`${tabs} button`, (nodes) => nodes.map((node) => node.dataset.landingPath));
+    assert.deepEqual(paths.slice(0, landingPaths.length + 1), ["/welcome", ...landingPaths]);
     assert.equal(new Set(paths).size, paths.length);
   };
   await page.waitForSelector(tabs);
   await assertPinnedTabs();
-  assert.equal(await page.$eval(`${tabs} button[aria-pressed="true"]`, (node) => node.textContent), "/welcome");
-  assert.equal(await page.$eval(`${tabs} button:first-child`, (node) => node.textContent), "/welcome");
+  assert.equal(await page.$eval(`${tabs} button[aria-pressed="true"]`, (node) => node.dataset.landingPath), "/welcome");
+  assert.equal(await page.$eval(`${tabs} button:first-child`, (node) => node.dataset.landingPath), "/welcome");
+  assert.equal(await page.$eval(`${tabs} button[data-landing-path="/welcome"] [data-metric="visits"]`, (node) => node.textContent), "2");
+  assert.equal(await page.$eval(`${tabs} button[data-landing-path="/welcome/muslim-therapy"] [data-metric="visits"]`, (node) => node.textContent), "1");
+  const activeOnly = '[aria-label="Landing-page activity"] input[type="checkbox"]';
+  await page.$eval(activeOnly, (node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.click(activeOnly);
+  assert.equal(await page.$(`${tabs} button[data-landing-path="/about"]`), null);
+  await page.$eval(activeOnly, (node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.click(activeOnly);
+  assert(await page.$(`${tabs} button[data-landing-path="/about"]`));
   assert(await page.evaluate(() => document.body.innerText.includes("3 entry requests without recorded activity are excluded")));
   assert(await page.evaluate(() => document.body.innerText.includes("Welcome campaign")));
   assert.equal(await page.evaluate(() => document.body.innerText.includes("Home campaign")), false);
@@ -134,11 +152,23 @@ try {
     assert.equal(data.kpis.averageEngagedMs, (index + 1) * 1000);
     assert.deepEqual(data.recentSessions.map((row) => row.sessionId), [fixtures[index + 7].sessionId]);
     await page.waitForFunction((campaign) => document.body.innerText.includes(campaign), {}, `Focused campaign ${index + 8}`);
-    assert.equal(await page.$eval(`${tabs} button[aria-pressed="true"]`, (node) => node.textContent), path);
+    assert.equal(await page.$eval(`${tabs} button[aria-pressed="true"]`, (node) => node.dataset.landingPath), path);
     assert.equal(await page.evaluate(() => document.body.innerText.includes("Welcome campaign")), false);
     await assertPinnedTabs();
     console.log(`Verified ${path}`);
   }
+  // The prominent export ignores the selected URL and includes every URL.
+  await page.evaluate(() => Array.from(document.querySelectorAll("button")).find((node) => node.textContent === "Export all Google Ads data").click());
+  await page.waitForFunction(() => document.body.innerText.includes("Downloaded all landing pages"));
+  const archive = unzipSync(new Uint8Array(await page.evaluate(async () => Array.from(new Uint8Array(await window.qaExportBlob.arrayBuffer())))));
+  const full = JSON.parse(strFromU8(archive["report.json"]));
+  assert.equal(full.dashboard.kpis.sessions, landingPaths.length + 4);
+  assert.equal(full.dashboard.excludedEntryRequests, 4);
+  assert(strFromU8(archive["journeys.csv"]).includes(fixtures[0].sessionId));
+  assert(strFromU8(archive["journeys.csv"]).includes(fixtures[7].sessionId));
+  await page.evaluate(() => Array.from(document.querySelectorAll("button")).find((node) => node.textContent === "Today").click());
+  await page.waitForNetworkIdle();
+  assert.equal(await page.$eval(`${tabs} button[data-landing-path="/welcome"] [data-metric="visits"]`, (node) => node.textContent), "2");
   await page.click(`${tabs} button:first-child`);
   await page.waitForFunction(() => document.body.innerText.includes("Welcome campaign"));
   await mkdir("artifacts/google-ads", { recursive: true });
@@ -150,8 +180,16 @@ try {
   await page.waitForFunction(() => document.body.innerText.includes("Test QA data only") && !document.body.innerText.includes("Welcome campaign"));
   await assertPinnedTabs();
   await page.click(`${tabs} button[title="valisenmentalhealth.com/welcome/ocd"]`);
-  await page.waitForFunction(() => document.querySelector('[aria-label="Google Ads final URL tabs"] button[aria-pressed="true"]')?.textContent === "/welcome/ocd"
+  await page.waitForFunction(() => document.querySelector('[aria-label="Google Ads final URL tabs"] button[aria-pressed="true"]')?.getAttribute("data-landing-path") === "/welcome/ocd"
     && document.body.innerText.includes("No recent ad sessions"));
+  await assertPinnedTabs();
+  await page.waitForSelector(`${activeOnly}:not([disabled])`);
+  await page.$eval(activeOnly, (node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.click(activeOnly);
+  await page.waitForFunction(() => document.querySelectorAll('[aria-label="Google Ads final URL tabs"] button').length === 0);
+  await page.$eval(activeOnly, (node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.click(activeOnly);
+  await page.waitForFunction(() => document.querySelectorAll('[aria-label="Google Ads final URL tabs"] button').length > 0);
   await assertPinnedTabs();
   await page.evaluate(() => Array.from(document.querySelectorAll("button")).find((node) => node.textContent === "7 days").click());
   await page.waitForNetworkIdle();
@@ -160,7 +198,7 @@ try {
   await page.reload({ waitUntil: "networkidle0" });
   await assertPinnedTabs();
   assert.deepEqual(errors, []);
-  console.log("PASS all 15 permanent URL tabs, isolated metrics and sessions, exports, legacy URLs, empty QA scope, date ranges, initial reporting failure, desktop/mobile layout, no browser errors");
+  console.log("PASS all 18 permanent URL filters, isolated metrics and sessions, exports, legacy URLs, empty QA scope, date ranges, initial reporting failure, desktop/mobile layout, no browser errors");
 } finally {
   await browser?.close();
   server.kill();

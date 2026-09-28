@@ -5,6 +5,7 @@ import { LANDING_BOOKING_CONSENT, LANDING_BOOKING_CONSENT_VERSION, type LandingL
 import { activeGoogleAdsSessionId, getGoogleAdsJourneyToken, googleAdsThankYouUrl, isGoogleAdsJourneyActive, stageGoogleAdsInternalNavigation } from "@/lib/googleAdsJourney";
 import { flushGoogleAdsEvents, getGoogleAdsCampaignAttribution, recordGoogleAdsEvent, startGoogleAdsTracking } from "@/lib/googleAdsTracking";
 import { announceConsultationBooked } from "@/lib/useConsultationAvailability";
+import { isCouplesConcept } from "@/lib/paidSearchConcepts";
 import { stageNamedConsultationConfirmation } from "@/lib/namedConsultationConfirmation";
 
 export type NamedBookingDetails = {
@@ -57,7 +58,7 @@ export function useNamedConsultationBooking(onLock: (locked: boolean) => void, o
         consultationDate: details.date, consultationTime: details.time,
         clientSubmissionId: crypto.randomUUID(), formStartedAt: startedAt.current,
         firstName: details.firstName.trim(), lastName: "", email: details.email.trim(), phone: details.phone.trim(),
-        reason: details.conceptSlug === "couples" ? "Couples Therapy" : "Not Sure",
+        reason: isCouplesConcept(details.conceptSlug) ? "Couples Therapy" : "Not Sure",
         days: CONSULTATION_DAYS, timeOfDay: details.availability,
         consent: details.consent, consentLanguage: LANDING_BOOKING_CONSENT[details.locale], consentVersion: LANDING_BOOKING_CONSENT_VERSION,
         source: ads ? "google_ads" : "paid_search_landing", website: details.website,

@@ -3,6 +3,7 @@ export const PAID_SEARCH_CONCEPT_SLUGS = [
   "anxiety", "depression", "cbt", "couples", "ocd", "panic", "social-anxiety",
   "online-therapy", "psychotherapists", "free-consultation", "mandarin", "arabic",
   "adhd", "perfectionism", "trauma",
+  "muslim-therapy", "female-muslim-therapist", "muslim-marriage",
 ] as const;
 export const PAID_SEARCH_CONCEPT_PATHS = PAID_SEARCH_CONCEPT_SLUGS.map((slug) => `/welcome/${slug}`);
 export function isFocusedLandingPath(path: string): boolean {
