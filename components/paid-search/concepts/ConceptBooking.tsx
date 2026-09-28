@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Phone } from "lucide-react";
 import { CONSULTATION_BOOKING_WINDOW_DAYS, getAvailableTimeSlotsForDate, getConsultationCalendarMonth, isValidConsultationPhone } from "@/lib/consultation";
 import { torontoCalendarToday } from "@/lib/quizConsultation";
 import type { ConsultationTherapist } from "@/lib/consultationSchedules";
 import { conceptSessionFee, isCouplesConcept } from "@/lib/paidSearchConcepts";
+import { formatReferralPhone } from "@/lib/phoneFormatting";
 import { landingTranslator, LANDING_BOOKING_CONSENT, localeTag, localizedTime, type LandingLocale } from "@/lib/paidSearchLocale";
 import { recordConceptPreviewEvent } from "@/lib/paidSearchPreviewExperience";
 import { arabicLandingTranslations, mandarinLandingTranslations } from "@/lib/paidSearchLanguageContent";
@@ -34,6 +35,14 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
   const card = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const firstField = useRef<HTMLInputElement>(null);
+  const phoneSelection = useRef<{ input: HTMLInputElement; caret: number } | null>(null);
+  useLayoutEffect(() => {
+    const selection = phoneSelection.current;
+    phoneSelection.current = null;
+    if (selection && document.activeElement === selection.input) {
+      selection.input.setSelectionRange(selection.caret, selection.caret);
+    }
+  }, [contact]);
   const previousSlug = useRef(selectedSlug);
   const [website, setWebsite] = useState("");
   const availability = useConsultationAvailability(conceptSlug, 0, preview, selectedSlug);
@@ -66,6 +75,11 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
   const weekdayLabels = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(localeTag(locale), { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2026, 8, 13 + i))));
   const number = (value: number) => new Intl.NumberFormat(localeTag(locale), { useGrouping: false }).format(value);
   function updateContact(field: "firstName" | "email" | "phone", value: string) { setContact((current) => ({ ...current, [field]: value })); }
+  function updatePhone(input: HTMLInputElement, value: string, caret: number) {
+    const result = formatReferralPhone(value, caret);
+    phoneSelection.current = { input, caret: result.caret };
+    updateContact("phone", result.formatted);
+  }
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!event.currentTarget.checkValidity() || !contact.firstName.trim() || !isValidConsultationPhone(contact.phone) || !contact.consent) {
@@ -126,7 +140,17 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
         <h3 className={styles.bookingTitle}>{t("Where can we reach you?")}</h3>{preview ? <p className={styles.bookingHint}>{t("Use sample details to try this design preview.")}</p> : null}
         <label className={styles.field}>{t("First name")}<input ref={firstField} name="firstName" data-google-ads-field-id="first-name" disabled={live.locked} autoComplete="given-name" required maxLength={80} placeholder={t("Your first name")} value={contact.firstName} onChange={(event) => updateContact("firstName", event.target.value)} /></label>
         <label className={styles.field}>{t("Email address")}<input name="email" data-google-ads-field-id="email" disabled={live.locked} type="email" autoComplete="email" required maxLength={254} placeholder="you@example.com" dir="ltr" value={contact.email} onChange={(event) => updateContact("email", event.target.value)} /></label>
-        <label className={styles.field}>{t("Phone number")}<input name="phone" data-google-ads-field-id="phone" disabled={live.locked} type="tel" autoComplete="tel" required maxLength={30} placeholder="(613) 555-0100" dir="ltr" value={contact.phone} onChange={(event) => updateContact("phone", event.target.value)} /></label>
+        <label className={styles.field}>{t("Phone number")}<input name="phone" data-google-ads-field-id="phone" disabled={live.locked} type="tel" inputMode="tel" autoComplete="tel" required maxLength={14} placeholder="(613) 555-0100" dir="ltr" value={contact.phone}
+          onChange={(event) => updatePhone(event.target, event.target.value, event.target.selectionStart ?? event.target.value.length)}
+          onPaste={(event) => {
+            // Normalize the full paste before the browser's character limit can truncate a +1 number.
+            event.preventDefault();
+            const input = event.currentTarget;
+            const pasted = event.clipboardData.getData("text");
+            const start = input.selectionStart ?? input.value.length;
+            const end = input.selectionEnd ?? start;
+            updatePhone(input, input.value.slice(0, start) + pasted + input.value.slice(end), start + pasted.length);
+          }} /></label>
         <label className={styles.consent}><input type="checkbox" data-google-ads-field-id="consent" disabled={live.locked} required checked={contact.consent} onChange={(event) => setContact((current) => ({ ...current, consent: event.target.checked }))} /><span>{LANDING_BOOKING_CONSENT[locale]} <a href="#privacy-information">{t("Privacy information")}</a></span></label>
         {!preview ? <><div hidden aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label></div><TurnstileWidget action="consultation_request" execution="execute" executeKey={live.executeKey} resetKey={live.resetKey} onToken={live.onToken} onError={live.onVerificationError} language={locale === "zh-Hans" ? "zh-cn" : locale} messages={{ unavailable: t("Secure verification is temporarily unavailable. Please call 613-707-0333."), failed: t("Verification could not load. Check your connection and try again."), label: t("Automated spam protection") }} /></> : null}
         <button type="submit" disabled={Boolean(live.busy)} className={styles.primaryButton}>{live.busy ? t(live.busy === "verifying" ? "Verifying…" : "Booking…") : t("Book a free call with {name}", { name: personName.split(" ")[0] })}<ArrowRight size={17} /></button>
