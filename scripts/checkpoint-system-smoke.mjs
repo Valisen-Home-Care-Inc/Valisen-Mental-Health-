@@ -2,13 +2,15 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHmac, randomBytes } from "node:crypto";
 import puppeteer from "puppeteer";
+import QRCode from "qrcode";
 
 const baseUrl = process.env.SITE_URL || "http://localhost:3000";
 const adminPassword = process.env.CHECKPOINT_QA_ADMIN_PASSWORD || "";
 const adminSessionSecret = process.env.CHECKPOINT_QA_ADMIN_SESSION_SECRET || "";
+const adminOnly = process.env.CHECKPOINT_QA_ADMIN_ONLY === "1";
 const outputDir = path.resolve("artifacts", "checkpoints");
 
-const codes = Array.from({ length: 10 }, (_, index) =>
+const codes = Array.from({ length: 25 }, (_, index) =>
   `VMH-${String(index + 1).padStart(2, "0")}`,
 );
 const events = [
@@ -115,8 +117,10 @@ const daily = Array.from({ length: 30 }, (_, index) => ({
   therapistIntent: index % 4,
   consultationsSubmitted: index % 8 === 0 ? 1 : 0,
 }));
-const detailCheckpoint = checkpoints[3];
-const detailFixture = {
+function detailFixtureFor(code) {
+  const detailCheckpoint = checkpoints.find((checkpoint) => checkpoint.code === code);
+  if (!detailCheckpoint) throw new Error(`Unknown fixture checkpoint ${code}`);
+  return {
   generatedAt,
   range: dateRange,
   checkpoint: {
@@ -186,8 +190,9 @@ const detailFixture = {
     therapistIntent: index % 3,
     consultationsSubmitted: index === 4 ? 2 : 0,
   })),
-  leads: dashboardFixture.leads,
-};
+  leads: dashboardFixture.leads.filter((lead) => lead.checkpointCode === code),
+  };
+}
 
 function createAdminSessionToken(secret) {
   if (Buffer.byteLength(secret, "utf8") < 32) {
@@ -262,12 +267,37 @@ async function auditLayout(page, label) {
 }
 
 async function intercept(page, state) {
+  // Chromium does not expose Blob beacon bodies through request.postData.
+  // Observe the original payload without replacing beacon delivery.
+  await page.exposeFunction("checkpointQaBeacon", (payload) => {
+    state.eventBodies.push(JSON.parse(payload));
+  });
+  await page.evaluateOnNewDocument(() => {
+    const sendBeacon = navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon = (url, data) => {
+      if (new URL(url, location.href).pathname === "/api/checkpoint-events" && data instanceof Blob) {
+        void data.text().then((payload) => window.checkpointQaBeacon(payload));
+      }
+      return sendBeacon(url, data);
+    };
+  });
   await page.setRequestInterception(true);
-  page.on("request", (request) => {
+  page.on("request", async (request) => {
     const url = new URL(request.url());
+    if (url.pathname === "/api/consultation-slots") {
+      void request.respond({ status: 200, contentType: "application/json", body: '{"booked":[],"calendarVersion":"therapist-capacity-v2"}' });
+      return;
+    }
+    if (url.pathname === "/api/funnel-events") {
+      void request.respond({ status: 204, body: "" });
+      return;
+    }
     if (url.pathname === "/api/checkpoint-events") {
       try {
-        state.eventBodies.push(JSON.parse(request.postData() || "{}"));
+        if (request.resourceType() !== "ping") {
+          const postData = request.postData() ?? await request.fetchPostData();
+          state.eventBodies.push(JSON.parse(postData || "{}"));
+        }
       } catch {
         state.eventBodies.push({ invalid: true });
       }
@@ -302,11 +332,18 @@ async function intercept(page, state) {
       });
       return;
     }
-    if (url.pathname === "/api/admin/checkpoints/VMH-04" && request.method() === "GET") {
+    if (url.pathname === "/api/admin/checkpoints/reporting-periods") {
+      void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({
+        data: { section: "checkpoints", activeSince: "2026-08-01T00:00:00.000Z", archives: [] },
+      }) });
+      return;
+    }
+    const detailCode = url.pathname.match(/^\/api\/admin\/checkpoints\/(VMH-\d{2})$/)?.[1];
+    if (detailCode && codes.includes(detailCode) && request.method() === "GET") {
       void request.respond({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ data: detailFixture }),
+        body: JSON.stringify({ data: detailFixtureFor(detailCode) }),
       });
       return;
     }
@@ -323,8 +360,121 @@ async function intercept(page, state) {
   });
 }
 
+async function waitForEvent(state, event, code) {
+  const deadline = Date.now() + 10_000;
+  while (!state.eventBodies.some((body) => body.event === event && body.checkpointCode === code)) {
+    if (Date.now() >= deadline) throw new Error(`${code} did not emit ${event}.`);
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
+  }
+}
+
+async function auditCheckpointRoutes() {
+  for (const [index, code] of codes.entries()) {
+    console.log(`Auditing ${code}${index >= 10 ? " through consultation handoff" : " landing"}...`);
+    const page = await browser.newPage();
+    const state = {
+      consoleErrors: [],
+      pageErrors: [],
+      failedRequests: [],
+      eventBodies: [],
+      marketingRequests: [],
+    };
+    try {
+      installDiagnostics(page, state);
+      await intercept(page, state);
+      await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
+      const response = await page.goto(`${baseUrl}/c/${code}`, {
+        waitUntil: "networkidle2",
+        timeout: 60_000,
+      });
+      if (response?.status() !== 200) throw new Error(`${code} returned ${response?.status()}.`);
+      await page.waitForFunction(
+        (expectedCode) => document.querySelector("footer")?.textContent?.includes(`Checkpoint ${expectedCode}`),
+        {},
+        code,
+      );
+      await waitForEvent(state, "landing_view", code);
+      const robots = await page.$eval('meta[name="robots"]', (meta) => meta.getAttribute("content"));
+      if (!robots?.includes("noindex") || !robots.includes("nofollow")) {
+        throw new Error(`${code} is missing its private search indexing policy.`);
+      }
+      await auditLayout(page, `${code}-landing-390`);
+
+      // Exercise every newly added code using the unchanged four-question quiz.
+      // Network writes are mocked; this verifies client attribution and event
+      // contracts without adding synthetic sessions or leads to the database.
+      if (index >= 10) {
+        await page.click("button");
+        for (let step = 1; step <= 4; step += 1) {
+          await page.waitForFunction(
+            (expectedStep) => new RegExp(`${expectedStep} of 4`).test(document.body.innerText) &&
+              Boolean(document.querySelector("fieldset button:not([disabled])")),
+            {},
+            step,
+          );
+          const buttons = await page.$$("fieldset button");
+          await buttons[step === 4 ? 3 : index % buttons.length].click();
+        }
+        await page.waitForSelector('a[href="/consultation?source=mental_battery_checkpoint"]');
+        await waitForEvent(state, "result_viewed", code);
+        await auditLayout(page, `${code}-result-390`);
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: "networkidle2", timeout: 60_000 }),
+          page.click('a[href="/consultation?source=mental_battery_checkpoint"]'),
+        ]);
+        await page.waitForSelector("form");
+        await waitForEvent(state, "consultation_started", code);
+
+        const context = await page.evaluate(() =>
+          JSON.parse(sessionStorage.getItem("valisen.mental-battery.session.v1") || "null"),
+        );
+        if (
+          context?.checkpointCode !== code ||
+          context?.sessionId !== state.eventBodies[0]?.sessionId ||
+          context?.placementId !== "2f310000-0000-4000-8000-000000000001"
+        ) {
+          throw new Error(`${code} did not preserve its anonymous attribution during consultation handoff.`);
+        }
+        const expectedEvents = [
+          "landing_view", "checkin_started", "checkin_completed", "result_viewed",
+          "intent_talk_soon_selected", "consultation_cta_clicked", "therapist_cta_clicked",
+          "consultation_started",
+        ];
+        for (const event of expectedEvents) {
+          const count = state.eventBodies.filter((body) => body.event === event).length;
+          if (count !== 1) throw new Error(`${code} emitted ${count} ${event} events instead of one: ${JSON.stringify(state.eventBodies)}`);
+        }
+        const stepEvents = state.eventBodies.filter((body) => body.event === "checkin_step_completed");
+        if (stepEvents.length !== 4 || stepEvents.some((body, step) => body.stepNumber !== step + 1)) {
+          throw new Error(`${code} did not track each of its four steps exactly once.`);
+        }
+      }
+
+      const sessionIds = new Set(state.eventBodies.map((body) => body.sessionId));
+      const eventIds = new Set(state.eventBodies.map((body) => body.eventId));
+      if (sessionIds.size !== 1 || eventIds.size !== state.eventBodies.length) {
+        throw new Error(`${code} emitted duplicate event IDs or changed its tracking session.`);
+      }
+      for (const body of state.eventBodies) {
+        if (
+          body.checkpointCode !== code ||
+          Object.keys(body).some((key) => !["checkpointCode", "event", "eventId", "sessionId", "stepNumber"].includes(key))
+        ) {
+          throw new Error(`${code} emitted unexpected attribution or event fields: ${JSON.stringify(body)}`);
+        }
+      }
+      if (state.marketingRequests.length || state.consoleErrors.length || state.pageErrors.length) {
+        throw new Error(`${code} browser/privacy audit failed: ${JSON.stringify(state)}`);
+      }
+    } finally {
+      await page.close();
+    }
+  }
+}
+
 try {
-  for (const width of [375, 390, 430, 1440]) {
+  if (!adminOnly) await auditCheckpointRoutes();
+  for (const width of adminOnly ? [] : [375, 390, 430, 1440]) {
     console.log(`Auditing public checkpoint at ${width}px...`);
     const page = await browser.newPage();
     await page.setCacheEnabled(false);
@@ -551,7 +701,7 @@ try {
 
   const unknownPage = await browser.newPage();
   await unknownPage.setCacheEnabled(false);
-  const unknownResponse = await unknownPage.goto(`${baseUrl}/c/VMH-11`, {
+  const unknownResponse = await unknownPage.goto(`${baseUrl}/c/VMH-26`, {
     waitUntil: "domcontentloaded",
   });
   if (unknownResponse?.status() !== 404) {
@@ -613,6 +763,31 @@ try {
       throw new Error(`Admin sign-in did not redirect: ${page.url()}\n${message}`);
     }
     await page.waitForFunction(() => document.body.innerText.includes("Checkpoint comparison"), { timeout: 60_000 });
+    await Promise.all([
+      page.waitForResponse((response) => new URL(response.url()).pathname === "/api/admin/checkpoints/dashboard"),
+      page.click('button[aria-label="Refresh checkpoint analytics"]'),
+    ]);
+    await page.waitForFunction(
+      (expectedCount) => document.querySelectorAll('section[aria-labelledby="checkpoint-grid-title"] article').length === expectedCount,
+      {},
+      codes.length,
+    );
+    const dashboardAudit = await page.evaluate((expectedCodes) => {
+      const fleet = document.querySelector('section[aria-labelledby="checkpoint-grid-title"]');
+      const comparison = document.querySelector('section[aria-labelledby="comparison-title"]');
+      return {
+        cards: fleet?.querySelectorAll("article").length,
+        rows: comparison?.querySelectorAll("tbody tr").length,
+        missingControls: expectedCodes.filter((code) =>
+          !fleet?.querySelector(`a[href="/admin/checkpoints/${code}"]`) ||
+          !fleet.querySelector(`a[href="/api/admin/checkpoints/${code}/qr"]`) ||
+          !fleet.querySelector(`button[aria-label="Copy permanent URL for ${code}"]`) ||
+          !fleet.querySelector(`button[aria-label="Move ${code}"]`)),
+      };
+    }, codes);
+    if (dashboardAudit.cards !== codes.length || dashboardAudit.rows !== codes.length || dashboardAudit.missingControls.length) {
+      throw new Error(`Checkpoint CRM fleet is incomplete: ${JSON.stringify(dashboardAudit)}`);
+    }
 
     for (const width of [1366, 1440, 1920]) {
       await page.setViewport({ width, height: 1000, deviceScaleFactor: 1 });
@@ -623,16 +798,47 @@ try {
       });
     }
 
-    await page.goto(`${baseUrl}/admin/checkpoints/VMH-04`, {
-      waitUntil: "domcontentloaded",
-      timeout: 60_000,
-    });
-    await page.waitForFunction(() => document.body.innerText.includes("Placement history"), { timeout: 60_000 });
-    await auditLayout(page, "admin-detail-1440");
-    await page.screenshot({
-      path: path.join(outputDir, "admin-detail-1440.png"),
-      fullPage: true,
-    });
+    await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
+    for (const code of ["VMH-04", ...codes.slice(10)]) {
+      console.log(`Auditing CRM detail for ${code}...`);
+      await page.goto(`${baseUrl}/admin/checkpoints/${code}`, {
+        waitUntil: "domcontentloaded",
+        timeout: 60_000,
+      });
+      await page.waitForFunction(() => document.body.innerText.includes("Placement history"), { timeout: 60_000 });
+      await page.waitForFunction((expectedCode) =>
+        document.querySelector("main h1")?.textContent === expectedCode &&
+        document.body.innerText.includes(`https://valisenmentalhealth.com/c/${expectedCode}`) &&
+        Boolean(document.querySelector(`a[href="/api/admin/checkpoints/${expectedCode}/qr"]`)),
+      {}, code);
+      await auditLayout(page, `admin-detail-${code}-1440`);
+      if (code === "VMH-04" || code === "VMH-25") {
+        await page.screenshot({
+          path: path.join(outputDir, `admin-detail-${code}-1440.png`),
+          fullPage: true,
+        });
+      }
+    }
+
+    // These requests reach the real authenticated QR API (not the fixtures).
+    // Verify that every generated SVG encodes its permanent production URL.
+    for (const code of codes) {
+      const response = await fetch(`${baseUrl}/api/admin/checkpoints/${code}/qr`, {
+        headers: { Cookie: localAdminSessionCookie },
+      });
+      const expectedSvg = await QRCode.toString(`https://valisenmentalhealth.com/c/${code}`, {
+        type: "svg", errorCorrectionLevel: "H", margin: 4, width: 1024,
+        color: { dark: "#153F3EFF", light: "#FFFFFFFF" },
+      });
+      if (
+        response.status !== 200 ||
+        !response.headers.get("content-type")?.includes("image/svg+xml") ||
+        !response.headers.get("content-disposition")?.includes(`${code}-mental-battery-qr.svg`) ||
+        await response.text() !== expectedSvg
+      ) {
+        throw new Error(`${code} did not return its canonical authenticated QR download.`);
+      }
+    }
     if (state.marketingRequests.length) {
       throw new Error(`Admin attempted marketing requests: ${state.marketingRequests.join(", ")}`);
     }

@@ -211,7 +211,7 @@ export default function DashboardClient({
             Checkpoint performance
           </h1>
           <p className="mt-2 max-w-[660px] text-[13px] leading-5 text-[#667471]">
-            Compare anonymous sessions, check-in engagement, consultation CTA activity, and voluntarily submitted consultations across all ten permanent checkpoints.
+            Compare anonymous sessions, check-in engagement, consultation CTA activity, and voluntarily submitted consultations across all permanent checkpoints.
           </p>
         </div>
 
@@ -321,7 +321,7 @@ export default function DashboardClient({
 
           <section className="mt-8" aria-labelledby="checkpoint-grid-title">
             <div className="mb-4 flex items-end justify-between gap-4">
-              <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Fleet overview</p><h2 id="checkpoint-grid-title" className="mt-1 text-[22px] font-semibold tracking-[-0.6px]">All ten checkpoints</h2></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Fleet overview</p><h2 id="checkpoint-grid-title" className="mt-1 text-[22px] font-semibold tracking-[-0.6px]">All {data.checkpoints.length} checkpoints</h2></div>
               <p className="hidden text-[10.5px] text-[#7d8986] sm:block">Permanent URLs never change</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

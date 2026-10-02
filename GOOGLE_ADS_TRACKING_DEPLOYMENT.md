@@ -28,13 +28,13 @@ in journey events.
 
 ### September 2026 accuracy update
 
-- **Every signed click is counted at click time.** The `/welcome` page now
+- **Signed entry requests are saved at click time.** The `/welcome` page now
   redirects a real Google click on the server (before any HTML is sent) and the
-  signer creates the CRM session row immediately. A visitor who leaves before
-  scripts run still appears as an ad session ("left before the page loaded").
-  Previously a session only existed once the browser had hydrated React and
-  flushed its first event batch, which is where most of the gap between Google's
-  click count and the CRM came from.
+  signer creates the CRM session row immediately. The current final-URL
+  dashboard counts a session only after recorded browser activity or a
+  confirmed consultation. Requests without either are shown separately as
+  excluded entry requests. Saving a row at click time does not itself increase
+  the displayed Ad sessions total.
 - **One bad event no longer drops the batch.** The event endpoint keeps the
   valid events and discards only the malformed one; a device whose clock is
   wrong has its timestamps corrected server-side instead of being rejected.
@@ -299,13 +299,79 @@ The browser QA writes screenshots and a report to `artifacts/google-ads/`.
 Production still needs a real Turnstile submission, Supabase/CRM verification,
 and Tag Assistant because local mocks cannot prove live Google attribution.
 
-To reconcile the CRM with Google Ads, compare the **Ad sessions** card for
-**Today** (Toronto time, same as the Google Ads account) with Google's
-**Clicks**. Google counts a click the moment it is billed; the CRM counts it
-when the signed redirect reaches the server. Clicks that never reach the site
-(the visitor cancels during the network round trip), clicks Google later
-classifies as invalid, and browsers that block all first-party requests remain
-the only expected differences.
+To compare the CRM with Google Ads, match the date range, account timezone,
+final URL tab, **Live campaign** scope, and the CRM reporting-period cutoff.
+The **Ad sessions** card counts journeys with recorded browser activity or a
+confirmed consultation; entry requests without either are listed separately
+above the report. These are different measures from Google's **Clicks**, and
+the CRM does not import Google's click totals. Google also documents why a
+click may not produce a recorded visit, including leaving before tracking
+loads: [Clicks and sessions discrepancies](https://support.google.com/google-ads/answer/14452452?hl=en).
+
+### October 2, 2026 production tracking audit
+
+The final-URL report counted **Consultation form opened** for `/consultation`
+page views and focused-page booking starts. The inline `/welcome` form sends
+`consultation_step_viewed` for step 1, but that signal was omitted from the
+funnel calculation. The report now includes it, once per session, preserving
+the original final URL and the separate Live/Test QA scopes. Existing stored
+step-view events can contribute immediately; no event backfill is needed.
+The audited September 3–October 2 UTC window had 148 live `/welcome` sessions
+with this signal, all omitted from that funnel stage before the fix.
+
+Session totals, entry-only exclusions, event ingestion, attribution rules, and
+Google conversion-tag behavior were left unchanged. The audit reviewed the
+signer, browser queue, event endpoint, export-backed reporting, and regression
+coverage, followed by read-only production Supabase checks around
+2026-10-02 04:00–04:09 UTC. No visitor contact details or raw event records
+were returned by those audit queries.
+
+Findings:
+
+- From September 3 at 04:00 UTC, the CRM export RPCs returned all **314 journey
+  records and 3,403 stored events**, matching direct database counts. Stored
+  event counts and engagement totals also matched their underlying events.
+- **223 journeys had recorded activity**; 91 were entry requests without
+  recorded browser events. Most exclusions came from the older `/welcome`
+  traffic. Do not add them to visit counts without evidence of a visit.
+- Since September 12 at 04:00 UTC, all **122 recorded sessions** had their
+  opening page/journey events and continuous recorded event sequences. Nine
+  further entry requests had no browser events. The earlier missing-opening
+  pattern was absent from this recent cohort. This does not prove that a final
+  event or an entirely blocked visit could never be lost.
+- All **54 recorded sessions on the newer focused landing pages** had campaign,
+  ad-group, and keyword attribution. `/welcome` received no new entries after
+  September 19 at 02:51 UTC in the checked data; later traffic belongs to the
+  separate `/welcome/...` tabs. Use the existing all-URL activity overview to
+  find the destination, then inspect its tab.
+- The one all-time non-test Google Ads consultation request had its verified
+  journey link. There were no orphaned Ads requests in that check.
+- Required seed, ingestion, export, and Live/Test dashboard RPCs and
+  attribution columns were installed. Anonymous roles could neither ingest
+  directly into the database nor export journeys; the service role could ingest.
+  The active reporting cutoff was August 24, before the audited cohort.
+- Migration history omits several manually installed Ads changes, but their
+  actual functions and columns are present. No historical migrations were
+  rerun or unrelated schema changes applied during this audit.
+
+The remaining entry-only gap cannot be assigned to Google or the website from
+CRM data alone. Possible causes include early departure, blocked JavaScript or
+storage, and failed delivery before any event was saved. Google Ads account
+click totals, network/server logs for those entries, and live GTM configuration
+were not available. No speculative ingestion or attribution changes were made.
+
+Validation: 755 unit tests and the production build passed on the current
+production branch. Browser checks covered signed entry, Meta isolation,
+cross-page continuity, confirmation retries, duplicate conversion prevention,
+and a focused Arabic booking through its neutral confirmation page. The
+broader landing script rendered all 18 destinations and completed the three
+Meryem booking fixtures; its separate fixed-Monday shared-calendar scenario
+timed out, so the Ads conversion scenario was run and passed independently.
+
+Missing campaign/ad-group labels require the configured final URL suffix to
+reach the site. A missing matched keyword alone does not prove tracking failed:
+Google can leave ValueTrack parameters empty when a value is unavailable.
+See [Google's ValueTrack documentation](https://support.google.com/google-ads/answer/2375447?hl=en).
 
 Finally, this is behavioral analytics on mental-health pages that may later be
 linked to a voluntarily submitted consultation. Before ad spend, have the

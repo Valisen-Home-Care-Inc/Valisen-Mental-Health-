@@ -1,12 +1,12 @@
 # Mental Battery Checkpoints
 
-This document is the operational and deployment guide for Valisen's ten
+This document is the operational and deployment guide for Valisen's 25
 permanent NFC/QR Mental Battery Checkpoints.
 
 ## Architecture
 
 - **Public experience:** Next.js App Router pages at `/c/VMH-01` through
-  `/c/VMH-10`.
+  `/c/VMH-25`.
 - **Anonymous event intake:** `POST /api/checkpoint-events`.
 - **Source of truth:** Supabase PostgreSQL, accessed only by server-side Next.js
   route handlers. No Supabase key is shipped to the browser.
@@ -39,6 +39,21 @@ consented consultation manager.
 - `/c/VMH-08`
 - `/c/VMH-09`
 - `/c/VMH-10`
+- `/c/VMH-11`
+- `/c/VMH-12`
+- `/c/VMH-13`
+- `/c/VMH-14`
+- `/c/VMH-15`
+- `/c/VMH-16`
+- `/c/VMH-17`
+- `/c/VMH-18`
+- `/c/VMH-19`
+- `/c/VMH-20`
+- `/c/VMH-21`
+- `/c/VMH-22`
+- `/c/VMH-23`
+- `/c/VMH-24`
+- `/c/VMH-25`
 - `/consultation?source=mental_battery_checkpoint`
 
 Checkpoint and admin routes are excluded from the public sitemap and disallowed
@@ -48,7 +63,7 @@ in `robots.txt`. Checkpoint pages also emit `noindex` metadata and headers.
 
 - `/admin/login`
 - `/admin/checkpoints`
-- `/admin/checkpoints/VMH-01` through `/admin/checkpoints/VMH-10`
+- `/admin/checkpoints/VMH-01` through `/admin/checkpoints/VMH-25`
 
 ### APIs
 
@@ -86,10 +101,22 @@ It also creates service-role-only RPCs:
 - `get_checkpoint_dashboard`
 - `get_checkpoint_detail`
 
-The migration seeds all ten checkpoint records and gives each an initial
+The original migration seeds ten checkpoint records and gives each an initial
 `Unassigned` placement. PostgreSQL exclusion and unique constraints prevent
 overlapping placement intervals. Session placement is immutable after the
 session is created.
+
+The expansion migration is:
+
+```text
+supabase/migrations/20261001000000_expand_mental_battery_checkpoints.sql
+```
+
+Apply it after the existing migrations and before deploying the expanded app.
+It extends both database constraints and all six checkpoint-aware RPC validators,
+then adds VMH-11 through VMH-25 with initial `Unassigned` placements. It preserves
+the existing questions, scoring, events, CRM layout, original checkpoint records,
+and placement histories. Rerunning it does not reset assigned placements.
 
 All five tables have Row Level Security enabled with no browser policies.
 Direct table permissions are revoked. Only the audited RPCs are executable by
@@ -117,7 +144,8 @@ For an emergency one-time setup, the full migration can be run in the Supabase
 SQL Editor, but the CLI workflow is preferred for repeatable environments.
 
 After migration, verify that `public.checkpoints` contains exactly `VMH-01`
-through `VMH-10` and that each has one `Unassigned` placement.
+through `VMH-25`. Each new checkpoint should have one `Unassigned` placement;
+existing assigned placements and historical activity must remain intact.
 
 ### 2. Create a server secret
 

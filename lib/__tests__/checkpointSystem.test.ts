@@ -15,6 +15,7 @@ import {
   type CheckpointMetric,
 } from "@/lib/checkpoints/dashboardMetrics";
 import { validateCheckpointEvent } from "@/lib/checkpoints/eventContract";
+import { CHECKPOINT_CODES } from "@/lib/checkpoints/config";
 import {
   formatTorontoDateTimeInput,
   parseTorontoDateTimeInput,
@@ -30,6 +31,21 @@ const SESSION_ID = "f27de343-dd23-48d7-988a-30ef6a97f31c";
 const EVENT_ID = "a6309e4f-ae6d-4524-b310-0cd7c10567ab";
 
 describe("checkpoint event boundary", () => {
+  it.each(CHECKPOINT_CODES.slice(10))("accepts tracking and consultation attribution for %s", (checkpointCode) => {
+    expect(validateCheckpointEvent({
+      eventId: EVENT_ID,
+      sessionId: SESSION_ID,
+      checkpointCode,
+      event: "landing_view",
+    })).toEqual({
+      ok: true,
+      value: { eventId: EVENT_ID, sessionId: SESSION_ID, checkpointCode, event: "landing_view" },
+    });
+    const attribution = { source: "mental_battery_checkpoint", checkpointCode, sessionId: SESSION_ID };
+    expect(parseCheckpointConsultationAttribution(attribution)).toEqual(attribution);
+    expect(shouldLoadSiteAnalytics(`/c/${checkpointCode}`)).toBe(false);
+  });
+
   it("accepts only the exact privacy-minimal event shape", () => {
     const accepted = validateCheckpointEvent({
       eventId: EVENT_ID,

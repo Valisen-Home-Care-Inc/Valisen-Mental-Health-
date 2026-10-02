@@ -9,6 +9,21 @@ export const CHECKPOINT_CODES = [
   "VMH-08",
   "VMH-09",
   "VMH-10",
+  "VMH-11",
+  "VMH-12",
+  "VMH-13",
+  "VMH-14",
+  "VMH-15",
+  "VMH-16",
+  "VMH-17",
+  "VMH-18",
+  "VMH-19",
+  "VMH-20",
+  "VMH-21",
+  "VMH-22",
+  "VMH-23",
+  "VMH-24",
+  "VMH-25",
 ] as const;
 
 export type CheckpointCode = (typeof CHECKPOINT_CODES)[number];

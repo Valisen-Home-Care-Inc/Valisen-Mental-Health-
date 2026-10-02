@@ -233,6 +233,11 @@ try {
     ),
     "The entry redirect was not a noindex 302",
   );
+  // Wait for hydration and the asynchronous flush rather than assuming a
+  // development build can always hydrate within the navigation settle delay.
+  for (let attempt = 0; !tracked.googleEventRequests.length && attempt < 40; attempt++) {
+    await delay(250);
+  }
   assert(
     tracked.googleEventRequests.length > 0,
     "The signed journey did not flush an isolated event batch",

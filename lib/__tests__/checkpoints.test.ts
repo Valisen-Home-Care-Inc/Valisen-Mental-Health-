@@ -46,23 +46,49 @@ afterEach(() => {
 });
 
 describe("permanent Mental Battery checkpoints", () => {
-  it("defines exactly ten stable routes without placement information", () => {
-    expect(CHECKPOINT_CODES).toHaveLength(10);
+  it("defines all twenty-five stable routes without placement information", () => {
+    expect(CHECKPOINT_CODES).toEqual(
+      Array.from({ length: 25 }, (_, index) => `VMH-${String(index + 1).padStart(2, "0")}`),
+    );
     expect(checkpointPath("VMH-01")).toBe("/c/VMH-01");
     expect(checkpointPermanentUrl("VMH-10")).toBe(
       "https://valisenmentalhealth.com/c/VMH-10",
     );
+    for (const code of CHECKPOINT_CODES.slice(10)) {
+      expect(isCheckpointCode(code)).toBe(true);
+      expect(checkpointPath(code)).toBe(`/c/${code}`);
+      expect(checkpointPermanentUrl(code)).toBe(`https://valisenmentalhealth.com/c/${code}`);
+    }
     expect(checkpointPermanentUrl("VMH-03")).not.toMatch(/coffee|salon|location/i);
   });
 
   it("rejects unknown and incorrectly-cased checkpoint codes", () => {
     expect(isCheckpointCode("VMH-04")).toBe(true);
-    expect(isCheckpointCode("VMH-11")).toBe(false);
+    expect(isCheckpointCode("VMH-26")).toBe(false);
+    expect(isCheckpointCode("VMH-00")).toBe(false);
+    expect(isCheckpointCode("VMH-1")).toBe(false);
     expect(isCheckpointCode("vmh-04")).toBe(false);
   });
 });
 
 describe("anonymous checkpoint sessions", () => {
+  it("keeps each added checkpoint distinct when a visitor scans another code", () => {
+    const storage = memoryStorage();
+    const randomUUID = vi.fn<() => `${string}-${string}-${string}-${string}-${string}`>();
+    const cryptoSource = {
+      randomUUID,
+      getRandomValues: <T extends ArrayBufferView | null>(array: T) => array,
+    };
+    for (const [index, code] of CHECKPOINT_CODES.slice(10).entries()) {
+      randomUUID.mockReturnValue(`62c9f8d8-50a8-4ab2-9e12-${String(index).padStart(12, "0")}`);
+      const context = getOrCreateCheckpointSession(code, storage, cryptoSource);
+      expect(context.checkpointCode).toBe(code);
+      expect(readCheckpointSession(storage)).toEqual(context);
+      expect(getOrCreateCheckpointSession(code, storage, cryptoSource)).toEqual(context);
+    }
+    expect(randomUUID).toHaveBeenCalledTimes(15);
+  });
+
   it("creates and reuses a cryptographically supplied session UUID", () => {
     const storage = memoryStorage();
     const cryptoSource = {

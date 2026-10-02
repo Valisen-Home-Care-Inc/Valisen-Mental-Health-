@@ -134,6 +134,30 @@ describe("Google Ads final URL reporting", () => {
     expect(converted.kpis.sessions).toBe(1);
   });
 
+  it("counts the inline welcome form opening once per session and preserves final URL isolation", () => {
+    const welcome = session(1);
+    const welcomePageOnly = session(2);
+    const consultation = session(3);
+    const home = session(4, "/");
+    const events = [
+      event(1, welcome.sessionId, "/welcome"),
+      event(2, welcome.sessionId, "/welcome", "consultation_step_viewed", { formStep: 1 }),
+      event(3, welcome.sessionId, "/welcome", "consultation_step_viewed", { formStep: 1 }),
+      event(4, welcome.sessionId, "/consultation"),
+      event(5, welcomePageOnly.sessionId, "/welcome"),
+      event(6, consultation.sessionId, "/consultation"),
+      event(7, home.sessionId, "/welcome", "consultation_step_viewed", { formStep: 1 }),
+    ];
+    const rows = [welcome, welcomePageOnly, consultation, home];
+    expect(report(rows, events).funnel.find((row) => row.key === "consultation_page"))
+      .toMatchObject({ count: 2, sessionRate: 66.7 });
+    expect(report(rows, events, "/").funnel.find((row) => row.key === "consultation_page"))
+      .toMatchObject({ count: 1, sessionRate: 100 });
+
+    const inlineOnly = events.filter((row) => row.path !== "/consultation");
+    expect(report(rows, inlineOnly).funnel.find((row) => row.key === "consultation_page")?.count).toBe(1);
+  });
+
   it("aggregates beyond the recent-session and timeline limits, deduplicating event IDs", () => {
     const rows = Array.from({ length: 1_001 }, (_, index) => session(index));
     const events = Array.from({ length: 251 }, (_, index) => event(index, rows[0].sessionId, "/welcome"));

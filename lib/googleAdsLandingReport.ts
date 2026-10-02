@@ -114,7 +114,11 @@ export function buildGoogleAdsLandingReport(
       section.sessions.add(event.sessionId);
       section.engagedMs += event.engagedMs ?? 0;
     }
-    if ((event.event === "page_viewed" && event.path === "/consultation") || (isFocusedLandingPath(event.path) && event.event === "form_started")) formOpened.add(event.sessionId);
+    if (
+      (event.event === "page_viewed" && event.path === "/consultation") ||
+      (event.event === "consultation_step_viewed" && event.formStep === 1) ||
+      (isFocusedLandingPath(event.path) && event.event === "form_started")
+    ) formOpened.add(event.sessionId);
     if (event.event === "consultation_step_viewed" && event.formStep === 2) availability.add(event.sessionId);
   }
   const campaignGroups = new Map<string, GoogleAdsJourneyExportRow[]>();
