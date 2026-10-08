@@ -9,6 +9,7 @@ import {
   ClipboardList,
   LogOut,
   Megaphone,
+  QrCode,
   RefreshCw,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -38,6 +39,12 @@ const NAVIGATION = [
     label: "Consultations",
     icon: ClipboardList,
     active: (pathname: string) => pathname.startsWith("/admin/checkpoints/consultations"),
+  },
+  {
+    href: "/admin/checkpoints/flyers",
+    label: "Flyers",
+    icon: QrCode,
+    active: (pathname: string) => pathname.startsWith("/admin/checkpoints/flyers"),
   },
 ] as const;
 
