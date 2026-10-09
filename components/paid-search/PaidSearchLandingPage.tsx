@@ -123,9 +123,11 @@ function getPopulationLabel(therapist: Therapist): string {
 export default function PaidSearchLandingPage({
   config,
   landingPath,
+  contactFirst=false,
 }: {
   config: PaidSearchLandingPageConfig;
   landingPath: PaidSearchLandingPath;
+  contactFirst?:boolean;
 }) {
   const therapists = getRelevantTherapists(config);
   const pricing = getSelectedRosterPrice(therapists);
@@ -146,13 +148,13 @@ export default function PaidSearchLandingPage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <LandingHeader />
       <main>
-        <LandingHero config={config} price={pricing.compact} />
+        <LandingHero config={config} price={pricing.compact} contactFirst={contactFirst} />
         <TherapistSection config={config} therapists={therapists} />
         <AboutSection />
         <ServicesSection price={pricing.compact} />
         <HowItWorksSection />
         <FaqSection faqs={faqs} />
-        <ContactSection config={config} />
+        <ContactSection config={config} contactFirst={contactFirst} />
       </main>
       <MinimalFooter />
       <MobileStickyCta />
@@ -211,9 +213,11 @@ function LandingHeader() {
 function LandingHero({
   config,
   price,
+  contactFirst,
 }: {
   config: PaidSearchLandingPageConfig;
   price: string;
+  contactFirst:boolean;
 }) {
   return (
     <section className="relative isolate overflow-hidden bg-canvas" aria-labelledby="landing-heading">
@@ -245,7 +249,7 @@ function LandingHero({
         <div id="contact" className="relative mx-auto w-full max-w-[440px] scroll-mt-28 md:scroll-mt-24">
           <div className="absolute inset-5 rotate-3 rounded-[30px] bg-sage/35" aria-hidden="true" />
           <div className="relative">
-            <PaidSearchConsultationForm instanceId="hero" />
+            <PaidSearchConsultationForm instanceId="hero" contactFirst={contactFirst} />
           </div>
         </div>
       </div>
@@ -432,7 +436,7 @@ function FaqSection({ faqs }: { faqs: LandingFaq[] }) {
   );
 }
 
-function ContactSection({ config }: { config: PaidSearchLandingPageConfig }) {
+function ContactSection({ config,contactFirst }: { config: PaidSearchLandingPageConfig;contactFirst:boolean }) {
   return (
     <section id="final-consultation" className="scroll-mt-28 bg-[#173f3f] py-11 text-white md:scroll-mt-24 md:py-20" aria-labelledby="contact-heading">
       <div className="container-v grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start lg:gap-16">
@@ -450,7 +454,7 @@ function ContactSection({ config }: { config: PaidSearchLandingPageConfig }) {
           </div>
         </div>
         <div className="order-1 lg:order-2">
-          <PaidSearchConsultationForm instanceId="final" />
+          <PaidSearchConsultationForm instanceId="final" contactFirst={contactFirst} />
         </div>
       </div>
     </section>

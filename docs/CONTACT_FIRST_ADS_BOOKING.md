@@ -19,7 +19,9 @@ No visitor-entered values or arbitrary DOM text are sent in journey diagnostics.
 
 ## Deployment
 
-Run `supabase/migrations/20261009000000_contact_first_ads_booking.sql` in Supabase before deploying the application. `artifacts/ads-concepts/LAUNCH_CONTACT_FIRST_BOOKING.sql` is a copy for the SQL Editor. Expected output: `contact_first_status = ready`, `linked_followup_ready = true`, `detailed_tracking_ready = true`.
+Run `supabase/migrations/20261009000000_contact_first_ads_booking.sql` in Supabase to activate the contact-first application flow. `artifacts/ads-concepts/LAUNCH_CONTACT_FIRST_BOOKING.sql` is a copy for the SQL Editor. Expected output: `contact_first_status = ready`, `linked_followup_ready = true`, `detailed_tracking_ready = true`.
+
+The application can be deployed before the SQL: a short cached server-side capability check keeps the existing booking flow when the migration is absent or the check fails. The previous `/welcome` form and a calendar-first named flow remain available. The export and main-website phone/name fixes work independently. Once the migration commits, reloading after about 15 seconds activates contact-first booking automatically. Event ingestion uses legacy control identifiers until the capability is installed, so the rollout does not break existing tracking. A cached contact-first page cannot claim a slot after the capability becomes unavailable.
 
 The migration preserves all existing data, adds a verified follow-up writer and closed control IDs, and makes booked-stage lookup resolve the lead through its request. It is safe to rerun and keeps existing production and Test QA isolation. New forms use consent v3; the server also accepts an already-open v2 booking page during rollout. Continuation signing uses `CONSULTATION_CONTINUATION_SECRET` when configured, otherwise the existing server-only `GOOGLE_ADS_CONVERSION_SECRET` (at least 32 bytes).
 

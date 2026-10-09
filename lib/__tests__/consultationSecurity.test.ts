@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const persistCheckpointConsultation = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/server/contactFirstReadiness",()=>({contactFirstBookingReady:vi.fn(async()=>true)}));
 const flowMocks = vi.hoisted(() => ({
   claimConsultationNotification: vi.fn(),
   claimConsultationSlot: vi.fn(),

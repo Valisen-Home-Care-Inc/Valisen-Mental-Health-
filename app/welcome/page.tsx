@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import PaidSearchLandingPage from "@/components/paid-search/PaidSearchLandingPage";
+import { contactFirstBookingReady } from "@/lib/server/contactFirstReadiness";
 import {
   googleAdsDirectEntryPath,
   type HomepageSearchParams,
@@ -44,5 +45,5 @@ export default async function WelcomeLandingPage({
   // inline pre-hydration bridge in the root layout remains as a fallback.
   const entry = googleAdsDirectEntryPath("/welcome", await searchParams);
   if (entry) redirect(entry);
-  return <PaidSearchLandingPage config={config} landingPath="/welcome" />;
+  return <PaidSearchLandingPage config={config} landingPath="/welcome" contactFirst={await contactFirstBookingReady()} />;
 }

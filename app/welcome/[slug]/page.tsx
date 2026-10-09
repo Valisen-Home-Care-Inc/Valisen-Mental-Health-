@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { contactFirstBookingReady } from "@/lib/server/contactFirstReadiness";
 import { googleAdsDirectEntryPath, type HomepageSearchParams } from "@/lib/googleAdsHomepageEntry";
 import ConceptLanding from "@/components/paid-search/concepts/ConceptLanding";
 import { conceptTherapists, getPaidSearchConcept, paidSearchConcepts } from "@/lib/paidSearchConcepts";
@@ -20,5 +21,5 @@ export default async function FocusedLandingPage({ params, searchParams }: { par
   const entry = googleAdsDirectEntryPath(`/welcome/${concept.slug}`, await searchParams);
   if (entry) redirect(entry);
   const clinicians = conceptTherapists(concept).map(({ therapist, ...fit }) => ({ ...fit, name: therapist.name, role: therapist.credentialSummary, photo: therapist.photo || "/valisen-logo.png", fee: therapist.therapySessionPriceMinimum, duration: therapist.therapySessionDurationMinutes, languages: therapist.languages, qualifications: therapist.credentialsList }));
-  return <ConceptLanding key={concept.slug} concept={concept} clinicians={clinicians} previews={[]} preview={false} />;
+  return <ConceptLanding key={concept.slug} concept={concept} clinicians={clinicians} previews={[]} preview={false} contactFirst={await contactFirstBookingReady()} />;
 }

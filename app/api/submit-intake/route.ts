@@ -61,6 +61,7 @@ import { prepareGoogleAdsConsultationConversion } from "@/lib/server/googleAdsCo
 import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 import { buildConsultationConfirmationEmail } from "@/lib/server/consultationConfirmationEmail";
 import { buildConsultationContactEmail } from "@/lib/server/consultationContactEmail";
+import { contactFirstBookingReady } from "@/lib/server/contactFirstReadiness";
 import { consultationContinuationConfigured, createConsultationContinuation, verifyConsultationContinuation } from "@/lib/server/consultationContinuation";
 import { parseQuizConsultationSlot, QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION, type QuizConsultationSlot } from "@/lib/quizConsultation";
 import { buildQuizConsultationBookingEmail } from "@/lib/server/quizConsultationEmail";
@@ -766,6 +767,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (payload.bookingStage && !consultationContinuationConfigured()) return badRequest("Secure booking is temporarily unavailable. Please call us.", 503);
+  if (payload.bookingStage && !await contactFirstBookingReady()) return badRequest("The consultation form is being updated. Please refresh and try again or call us.",503);
   const ip = requestIp(request);
   if (isRateLimited(`consultation:${ip}`, 5, 60 * 60 * 1000)) {
     return badRequest("Too many requests. Please try again later or call us.", 429);

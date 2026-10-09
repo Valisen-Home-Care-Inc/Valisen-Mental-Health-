@@ -20,11 +20,12 @@ export type ConceptClinician = {
   qualifications: Array<{ label: string; value: string }>;
 };
 
-export default function ConceptLanding({ concept: originalConcept, clinicians: originalClinicians, previews, preview = true }: {
+export default function ConceptLanding({ concept: originalConcept, clinicians: originalClinicians, previews, preview = true, contactFirst = true }: {
   concept: PaidSearchConcept;
   clinicians: ConceptClinician[];
   previews: Array<{ slug: string; label: string }>;
   preview?: boolean;
+  contactFirst?: boolean;
 }) {
   const router = useRouter();
   const nativeLocale: LandingLocale = originalConcept.slug === "arabic" ? "ar" : originalConcept.slug === "mandarin" ? "zh-Hans" : "en";
@@ -54,7 +55,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
     booking.current?.scrollIntoView({ behavior: "instant", block: "start" });
     booking.current?.focus({ preventScroll: true });
   }
-  const bookingForm = <ConceptBooking conceptSlug={originalConcept.slug} clinicians={originalClinicians} selectedSlug={selectedSlug} onTherapistChange={setSelectedSlug} onBookingStart={startBooking} locale={locale} preview={preview} onBookingLockChange={setBookingLocked} />;
+  const bookingForm = <ConceptBooking conceptSlug={originalConcept.slug} clinicians={originalClinicians} selectedSlug={selectedSlug} onTherapistChange={setSelectedSlug} onBookingStart={startBooking} locale={locale} preview={preview} contactFirst={contactFirst} onBookingLockChange={setBookingLocked} />;
   const faqs = [...concept.faqs,
     { question: "What happens in the free consultation?", answer: "Your selected therapist calls you at your chosen date and time for a free 20-minute conversation. Ask about their approach, discuss what you’re looking for, and decide whether you’d like to work together. This is separate from a full therapy session." },
     { question: "How much do therapy sessions cost?", answer: `${t("Paid therapy sessions are {price} CAD per 50 minutes.", { price })} ${isCouplesConcept(concept.slug) ? t("Total for both partners.") + " " : ""}${t("The initial 20-minute consultation is free.")}` },
@@ -129,7 +130,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
 
       {!earlyBooking ? <section ref={booking} id="consultation" tabIndex={-1} className={styles.bookingSection} aria-labelledby="booking-heading"><div className={`${styles.container} ${styles.bookingGrid}`}>
         <div className={styles.bookingCopy}><p className={styles.eyebrow}><span className={styles.eyebrowLine} />{t("Let’s talk")}</p><h2 id="booking-heading">{concept.bookingHeading}</h2><p>{t("Book a free 20-minute phone call directly with your selected therapist. The date and time you choose are when you’ll speak together.")}</p>
-          <ol className={styles.bookingSteps}><li><span>1</span><div><strong>{t("Share your contact details.")}</strong><p>{t("No detailed personal history needed here.")}</p></div></li><li><span>2</span><div><strong>{t("Choose a time now")}</strong><p>{t("Choose an available time to book your call. Otherwise, our team will help you arrange a time.")}</p></div></li><li><span>3</span><div><strong>{t("Speak directly with your therapist.")}</strong><p>{t("Ask about their approach and decide whether you’d like to work together.")}</p></div></li></ol>
+          <ol className={styles.bookingSteps}><li><span>1</span><div><strong>{t(contactFirst ? "Share your contact details." : "Choose your therapist and time.")}</strong><p>{t(contactFirst ? "No detailed personal history needed here." : "Compare the people on this page, then choose an available time.")}</p></div></li><li><span>2</span><div><strong>{t(contactFirst ? "Choose a time now" : "Share your contact details.")}</strong><p>{t(contactFirst ? "Choose an available time to book your call. Otherwise, our team will help you arrange a time." : "No detailed personal history needed here.")}</p></div></li><li><span>3</span><div><strong>{t("Speak directly with your therapist.")}</strong><p>{t("Ask about their approach and decide whether you’d like to work together.")}</p></div></li></ol>
           <div className={styles.bookingHuman}><MessageCircle size={24} strokeWidth={1.4} /><p>{t("An introduction, not a full therapy session.")}<br /><strong>{t("No obligation to continue.")}</strong></p></div>
         </div>
         {bookingForm}

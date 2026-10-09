@@ -1,4 +1,6 @@
 import type { CampaignAttribution } from "@/lib/campaignAttribution";
+import { contactFirstBookingReady } from "@/lib/server/contactFirstReadiness";
+import { isGoogleAdsBookingControl } from "@/lib/googleAdsBookingControls";
 import type { GoogleAdsValueTrackAttribution } from "@/lib/googleAdsEntry";
 import type { GoogleAdsEventRecord } from "@/lib/server/googleAdsEventContract";
 import { buildGoogleAdsLandingReport } from "@/lib/googleAdsLandingReport";
@@ -24,7 +26,10 @@ export async function persistGoogleAdsEventBatch(input: {
     p_session_key: input.sessionId,
     p_session_started_at: input.sessionStartedAt,
     p_landing_path: input.landingPath,
-    p_events: input.events,
+    p_events: await contactFirstBookingReady() ? input.events : input.events.map(event=> {
+      if(!isGoogleAdsBookingControl(event.targetId))return event;
+      return event.event === "consultation_cta_clicked" ? {...event,targetId:undefined,targetPath:"/consultation"} : {...event,targetId:"button"};
+    }),
   });
   await maybePruneGoogleAdsAnalytics();
   return result;
