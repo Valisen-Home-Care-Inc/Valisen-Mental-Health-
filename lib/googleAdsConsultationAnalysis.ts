@@ -2,6 +2,7 @@ import { GOOGLE_ADS_BOOKING_CONTROLS, isGoogleAdsBookingControl } from "@/lib/go
 import { googleAdsEventLabel } from "@/lib/googleAdsDashboard";
 import type { GoogleAdsEventExportRow, GoogleAdsJourneyExportRow } from "@/lib/googleAdsExport";
 import { isRecordedGoogleAdsSession } from "@/lib/googleAdsLandingReport";
+import { isFocusedLandingPath } from "@/lib/paidSearchRoutes";
 
 export type ConsultationAnalysisFilter = "all" | "cta" | "started";
 export function consultationEventDescription(event: GoogleAdsEventExportRow) {
@@ -18,9 +19,11 @@ export function buildGoogleAdsConsultationAnalysis(journeys: GoogleAdsJourneyExp
   const unique = [...new Map(journeys.filter((row) => row.landingPath === landingPath && isRecordedGoogleAdsSession(row)).map((row) => [row.sessionId, row])).values()];
   const sessions = unique.filter((row) => filter === "cta" ? row.consultationCtaClicked : filter === "started" ? row.formStarted : row.consultationCtaClicked || row.formStarted || row.consultationSubmitted).map((row) => {
     const events = [...new Map((bySession.get(row.sessionId) || []).map((event) => [event.eventId || JSON.stringify(event), event])).values()].sort((a,b) => a.occurredAt.localeCompare(b.occurredAt) || a.sequence-b.sequence);
-    const contactFirst = events.some((event) => event.targetId === "contact-submit");
+    const contactFirst = events.some((event) => event.targetId === "contact-submit" ||
+      (isFocusedLandingPath(row.landingPath) && event.event === "consultation_submitted" && event.formStep === 1));
     const contactSaved = contactFirst && (row.consultationSubmitted || events.some((event) => event.event === "consultation_submitted" && event.formStep === 1));
-    const calendarOpened = events.some((event) => event.targetId === "calendar-open");
+    const calendarOpened = events.some((event) => event.targetId === "calendar-open" ||
+      (isFocusedLandingPath(row.landingPath) && contactFirst && event.event === "consultation_step_viewed" && event.formStep === 2));
     const booked = row.booked || events.some((event) => event.event === "consultation_submitted" && event.formStep === 2 && contactFirst);
     const relevant = events.filter((event) => event.event.startsWith("consultation_") || event.event.startsWith("form_") || isGoogleAdsBookingControl(event.targetId));
     const last = relevant.at(-1);

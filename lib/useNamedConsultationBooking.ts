@@ -120,7 +120,7 @@ export function useNamedConsultationBooking(onLock: (locked: boolean) => void, o
     }
   }
   useEffect(() => { sendRef.current = send; });
-  return { busy, locked, error, reference, contactReference, executeKey, resetKey, onToken, onVerificationError, submit: send };
+  return { busy, locked, error, reference, contactReference, executeKey, resetKey, onToken, onVerificationError, clearError:()=>setError(""), submit: send };
 }
 
 async function completeAdsConversion(saved: Record<string, unknown>, referenceId: string, receipt: unknown) {

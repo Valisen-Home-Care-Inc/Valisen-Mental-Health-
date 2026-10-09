@@ -475,6 +475,19 @@
 .profileBottom button { min-height: 44px; line-height: 1.5; text-align: start; }
 .bookingSummary { display: flex; flex-direction: column; gap: 5px; background: #eaf0e6; border: 1px solid #cfdbca; border-radius: 7px; padding: 14px; margin: 15px 0; font-size: 13px; line-height: 1.7; color: #314d3e; }
 .bookingSummary strong { font-weight: 600; font-size: 14px; }
+.savedNotice { display: flex; align-items: center; gap: 7px; color: #365a43; background: #eaf0e6; border-radius: 5px; padding: 9px 11px; margin: 0 0 13px; font-size: 12px; }
+.savedNotice svg { flex-shrink: 0; }
+.calendarIntroduction { font-size: 13px; line-height: 1.6; color: #62735d; margin: 0 0 14px; }
+.calendarTimezone { font-size: 12px; font-weight: 600; margin: 10px 0; color: #52665a; }
+.calendarHelp { margin-top: 13px; border-top: 1px solid #d3dccd; padding-top: 10px; }
+.calendarHelp > p, .schedulingHelp > p { font-size: 12px; line-height: 1.65; color: #62735d; margin: 6px 0 12px; }
+.calendarHelp .textButton, .schedulingHelp .textButton { min-height: 44px; text-align: start; }
+.calendarPricing { font-size: 12px; color: #62735d; }
+.calendarPricing summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.calendarPricing summary::after { content: "+"; margin-inline-start: auto; font-size: 16px; }
+.calendarPricing[open] summary::after { content: "−"; }
+.calendarPricing p { margin: 4px 0 8px; line-height: 1.6; }
+.inlineVerification [id^="turnstile-"] { min-height: 0; }
 .selectedClinician { font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
 .bookingAssistance { border-top: 1px solid #d3dccd; margin-top: 20px; padding-top: 13px; font-size: 12px; color: #52665a; }
 .bookingAssistance summary { cursor: pointer; min-height: 44px; }

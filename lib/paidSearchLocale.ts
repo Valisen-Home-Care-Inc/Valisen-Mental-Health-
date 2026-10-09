@@ -17,6 +17,16 @@ export const LEGACY_LANDING_BOOKING_CONSENT = {
 
 /** Each row preserves the complete English information in Arabic and Mandarin. */
 const rows: Array<[string, string, string]> = [
+  ["Your details are saved.", "تم حفظ بياناتك.", "你的联系信息已保存。"],
+  ["Choose a time for your free consultation", "اختر موعدًا لاستشارتك المجانية", "选择免费咨询时间"],
+  ["Select an available time to confirm your free {duration}-minute phone call with {name}.", "اختر موعدًا متاحًا لتأكيد مكالمتك الهاتفية المجانية لمدة {duration} دقيقة مع {name}.", "选择一个可用时间，确认与{name}进行免费的{duration}分钟电话咨询。"],
+  ["Have our team help me schedule", "أرغب في أن يساعدني الفريق على ترتيب موعد", "请团队帮我安排时间"],
+  ["If you don’t choose a time now, our team will contact you within 24 hours to help arrange your free consultation.", "إذا لم تختر موعدًا الآن، فسيتواصل معك فريقنا خلال 24 ساعة لمساعدتك على ترتيب استشارتك المجانية.", "如果你现在不选择时间，我们的团队会在24小时内联系你，协助安排免费咨询。"],
+  ["We’ll help you schedule your consultation.", "سنساعدك على ترتيب موعد استشارتك.", "我们会帮你安排咨询时间。"],
+  ["Our team will contact you within 24 hours to help arrange your free 20-minute phone consultation. A date and time have not been booked yet.", "سيتواصل معك فريقنا خلال 24 ساعة لمساعدتك على ترتيب استشارتك الهاتفية المجانية لمدة 20 دقيقة. لم يتم حجز تاريخ ووقت بعد.", "我们的团队会在24小时内联系你，协助安排免费20分钟电话咨询。目前尚未预约日期和时间。"],
+  ["Choose a time instead", "أفضّل اختيار موعد", "我想自己选择时间"],
+  ["Paid therapy session pricing", "رسوم جلسات العلاج النفسي المدفوعة", "付费心理治疗会谈费用"],
+  ["Your consultation request is saved. A date and time have not been booked yet. Our team will contact you within 24 hours to help arrange your free 20-minute phone consultation.", "تم حفظ طلب استشارتك. لم يتم حجز تاريخ ووقت بعد. سيتواصل معك فريقنا خلال 24 ساعة لمساعدتك على ترتيب استشارتك الهاتفية المجانية لمدة 20 دقيقة.", "你的咨询申请已保存，目前尚未预约日期和时间。我们的团队会在24小时内联系你，协助安排免费20分钟电话咨询。"],
   ["Full name", "الاسم الكامل", "姓名"],
   ["We’ve received your details.", "لقد تلقّينا بياناتك.", "我们已收到你的联系信息。"],
   ["Your consultation request is saved. A date and time have not been booked yet. Our team will contact you to arrange your free 20-minute phone consultation.", "تم حفظ طلب استشارتك. لم يتم حجز تاريخ ووقت بعد. سيتواصل معك فريقنا لترتيب استشارتك الهاتفية المجانية لمدة 20 دقيقة.", "你的咨询申请已保存，目前尚未预约日期和时间。我们的团队会联系你，安排免费20分钟电话咨询。"],

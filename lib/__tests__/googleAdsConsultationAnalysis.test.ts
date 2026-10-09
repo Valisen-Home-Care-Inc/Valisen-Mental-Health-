@@ -6,6 +6,16 @@ const date="2026-10-09T15:00:00.000Z";
 const row=(extra={})=>({sessionId:id,startedAt:date,lastSeenAt:date,landingPath:"/welcome/arabic",lastPath:"/welcome/arabic",eventCount:3,formStarted:true,consultationCtaClicked:true,...extra});
 const event=(extra={})=>({sessionId:id,sessionStartedAt:date,occurredAt:date,event:"control_clicked",eventId:"gae-11111111-1111-4111-8111-111111111111",sequence:1,path:"/welcome/arabic",targetType:"button",targetId:"contact-submit",elapsedMs:100,...extra});
 describe("consultation engagement analysis",()=>{
+ it("recognizes a saved dedicated request submitted without a mouse click",()=>{
+  const journeys=normalizeGoogleAdsJourneyExportRows([row({consultationSubmitted:true})]);
+  const timeline=normalizeGoogleAdsEventExportRows([event({event:"consultation_submitted",targetType:undefined,targetId:undefined,formStep:1}),event({eventId:"gae-22222222-2222-4222-8222-222222222222",event:"consultation_step_viewed",sequence:2,targetType:undefined,targetId:undefined,formStep:2})]);
+  expect(buildGoogleAdsConsultationAnalysis(journeys,timeline,"/welcome/arabic").totals).toMatchObject({contactSaved:1,calendarOpened:1,booked:0});
+ });
+ it("counts the automatically displayed dedicated calendar without inferring a booking",()=>{
+  const journeys=normalizeGoogleAdsJourneyExportRows([row({consultationSubmitted:true})]);
+  const timeline=normalizeGoogleAdsEventExportRows([event(),event({eventId:"gae-22222222-2222-4222-8222-222222222222",event:"consultation_step_viewed",sequence:2,targetType:undefined,targetId:undefined,formStep:2})]);
+  expect(buildGoogleAdsConsultationAnalysis(journeys,timeline,"/welcome/arabic").totals).toMatchObject({contactSaved:1,calendarOpened:1,booked:0});
+ });
  it("distinguishes a captured contact from an accepted calendar booking",()=>{
   const journeys=normalizeGoogleAdsJourneyExportRows([row({consultationSubmitted:true,consultationReferenceId:"VC-111111111111111111111111"})]);
   const timeline=normalizeGoogleAdsEventExportRows([event(),event({eventId:"gae-22222222-2222-4222-8222-222222222222",event:"consultation_submitted",sequence:2,targetType:undefined,targetId:undefined,formStep:1}),event({eventId:"gae-33333333-3333-4333-8333-333333333333",sequence:3,targetId:"calendar-open"})]);

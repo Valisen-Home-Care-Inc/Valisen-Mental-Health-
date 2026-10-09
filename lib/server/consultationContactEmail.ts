@@ -1,10 +1,12 @@
 import { escapeHtml } from "@/lib/quizLead";
 import { landingTranslator, type LandingLocale } from "@/lib/paidSearchLocale";
 
-export function buildConsultationContactEmail(firstName: string, reference: string, locale: LandingLocale = "en") {
+export function buildConsultationContactEmail(firstName: string, reference: string, locale: LandingLocale = "en", dedicatedLanding = false) {
   const t = landingTranslator(locale);
   const title = t("We’ve received your details.");
-  const message = t("Your consultation request is saved. A date and time have not been booked yet. Our team will contact you to arrange your free 20-minute phone consultation.");
+  const message = t(dedicatedLanding
+    ? "Your consultation request is saved. A date and time have not been booked yet. Our team will contact you within 24 hours to help arrange your free 20-minute phone consultation."
+    : "Your consultation request is saved. A date and time have not been booked yet. Our team will contact you to arrange your free 20-minute phone consultation.");
   const help = t("To contact the clinic, reply to this email or call 613-707-0333.");
   return {
     subject: `${title} | Valisen`,

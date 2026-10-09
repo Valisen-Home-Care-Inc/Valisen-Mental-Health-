@@ -14,10 +14,12 @@ import TurnstileWidget from "@/components/TurnstileWidget";
 import { useConsultationAvailability } from "@/lib/useConsultationAvailability";
 import { useNamedConsultationBooking } from "@/lib/useNamedConsultationBooking";
 import { recordGoogleAdsEvent } from "@/lib/googleAdsTracking";
+import { CONSULTATION_DURATION_MINUTES } from "@/lib/therapists";
 import styles from "./ConceptLanding.module.css";
 
 export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, onTherapistChange, onBookingStart, locale, preview = true, contactFirst = true, onBookingLockChange }: { conceptSlug: string; clinicians: ConceptClinician[]; selectedSlug: string; onTherapistChange: (slug: string) => void; onBookingStart: () => void; locale: LandingLocale; preview?: boolean; contactFirst?: boolean; onBookingLockChange: (locked: boolean) => void }) {
   const t = landingTranslator(locale, locale === "ar" ? arabicLandingTranslations : locale === "zh-Hans" ? mandarinLandingTranslations : {});
+  const immediateCalendar = contactFirst && !preview;
   const person = clinicians.find((item) => item.slug === selectedSlug) || clinicians[0];
   const personName = t(person.name);
   const pool: ConsultationTherapist[] = [person.slug as ConsultationTherapist];
@@ -35,6 +37,8 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
   const language = person.languages.includes(consultationLanguage) ? consultationLanguage : person.languages[0];
   const card = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const calendarHeading = useRef<HTMLHeadingElement>(null);
+  const helpHeading = useRef<HTMLHeadingElement>(null);
   const firstField = useRef<HTMLInputElement>(null);
   const phoneSelection = useRef<{ input: HTMLInputElement; caret: number } | null>(null);
   useLayoutEffect(() => {
@@ -53,7 +57,11 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
   const blocked = (value: string, slotTime: string) => availability.booked.has(`${value}|${slotTime}`);
   const dayFull = (value: string) => getAvailableTimeSlotsForDate(value, pool).every((slot) => blocked(value, slot.time));
   useEffect(() => { if (live.reference) { setError(""); setStep("complete"); } }, [live.reference]);
-  useEffect(() => { if (live.contactReference && !contactAccepted.current) { contactAccepted.current = true; setError(""); setStep("received"); } }, [live.contactReference]);
+  useEffect(() => {
+    if (!live.contactReference || contactAccepted.current) return;
+    contactAccepted.current = true; setError(""); setStep(immediateCalendar ? "time" : "received");
+    if (immediateCalendar) recordGoogleAdsEvent("consultation_step_viewed", { formStep:2 });
+  }, [live.contactReference, immediateCalendar]);
   useEffect(() => { setToday(torontoCalendarToday()); }, []);
   useEffect(() => {
     if (previousSlug.current === selectedSlug) return;
@@ -65,10 +73,12 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
     if (contactAccepted.current || !contactFirst) setStep("time"); setError("");
   }, [selectedSlug, date, time, contactFirst]);
   useEffect(() => {
-    if (step !== "time") card.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    if (step !== "time" || (immediateCalendar && contactAccepted.current)) card.current?.scrollIntoView({ block: "start", behavior: "instant" });
     if (step === "details") firstField.current?.focus({ preventScroll: true });
     if (step === "complete") heading.current?.focus({ preventScroll: true });
-  }, [step]);
+    if (step === "time" && immediateCalendar && contactAccepted.current) calendarHeading.current?.focus({ preventScroll: true });
+    if (step === "later" && immediateCalendar) helpHeading.current?.focus({ preventScroll:true });
+  }, [step, immediateCalendar]);
   const displayMonth = today ? new Date(today.getFullYear(), today.getMonth() + month, 1) : null;
   const lastDay = today ? new Date(today.getFullYear(), today.getMonth(), today.getDate() + CONSULTATION_BOOKING_WINDOW_DAYS) : null;
   const lastMonth = today && lastDay ? (lastDay.getFullYear() - today.getFullYear()) * 12 + lastDay.getMonth() - today.getMonth() : 0;
@@ -108,48 +118,52 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
   }
   function bookTime() {
     const slot = getAvailableTimeSlotsForDate(date, pool).find((item) => item.time === time);
-    if (!slot || availability.status !== "ready" || blocked(date, time)) { setError("Choose a date and time to continue."); if (!preview) recordGoogleAdsEvent("consultation_validation_failed", { formStep: 2, targetType: "form_field", targetId: "availability" }); void availability.refresh(); return; }
+    if (!slot || (!live.locked && (availability.status !== "ready" || blocked(date, time)))) { setError("Choose a date and time to continue."); if (!preview) recordGoogleAdsEvent("consultation_validation_failed", { formStep: 2, targetType: "form_field", targetId: "availability" }); void availability.refresh(); return; }
     if(!contactFirst) { setError("");setStep("details");if(!preview)recordGoogleAdsEvent("consultation_step_viewed",{formStep:2});return; }
     if (preview) { setStep("complete"); return; }
     setError(""); void live.submit({ conceptSlug, therapistSlug: selectedSlug, locale, language, stage: "booking", date, time, availability: slot.availability, ...contact, website });
   }
-  function openCalendar() { setStep("time"); if (!preview) recordGoogleAdsEvent("consultation_step_viewed", { formStep: 2 }); }
+  function openCalendar() { setError(""); live.clearError(); setStep("time"); if (!preview) recordGoogleAdsEvent("consultation_step_viewed", { formStep: 2 }); }
+  function askClinicHelp() { setError(""); live.clearError(); setStep("later"); }
+  const savedNotice = <p className={styles.savedNotice} role="status"><CheckCircle2 size={16} aria-hidden="true" />{t("Your details are saved.")}</p>;
+  const paidPricing = <details className={styles.calendarPricing}><summary>{t("Paid therapy session pricing")}</summary><p>{t("Paid sessions: {price} CAD / {duration} minutes", { price:`$${fee.fee}`, duration:fee.duration })}{isCouplesConcept(conceptSlug) ? ` · ${t("Total for both partners")}` : ""}</p><p>{t("The initial 20-minute consultation is free.")}</p></details>;
   const summary = <div className={styles.bookingSummary} aria-label={t("Consultation summary")}>
     <strong>{t("Free 20-minute phone call with {name}", { name: personName })}</strong>
     <span>{dateLabel ? <>{dateLabel}{time ? <> · <bdi>{localizedTime(time, locale)}</bdi></> : null} · {t("Toronto time")}</> : t(contactFirst ? "Share your details first. You can choose a time afterward." : "Choose a date and time below.")}</span>
     <span>{t("Consultation language")}: <b>{t(language)}</b></span>
   </div>;
   return <div ref={card} className={styles.bookingCard} data-booking-step={step}>
-    <div className={styles.bookingMeta}><span><Phone size={14} />{t("Phone consultation")}</span><span><Clock3 size={14} />{t("20 min · Free")}</span></div>
+    {!immediateCalendar || step === "details" ? <div className={styles.bookingMeta}><span><Phone size={14} />{t("Phone consultation")}</span><span><Clock3 size={14} />{t("20 min · Free")}</span></div> : null}
     {preview ? <p className={styles.demoNote}>{t("Design preview · No booking will be made")}</p> : null}
     {step === "complete" ? <div className={styles.confirmation} role="status"><CheckCircle2 size={45} strokeWidth={1.4} />
-      <p className={styles.eyebrow}>{t(preview ? "Confirmation preview" : "Your consultation is booked.")}</p>
-      <h3 ref={heading} tabIndex={-1}>{t("Your call with {name}", { name: personName })}</h3>
+      {!immediateCalendar ? <p className={styles.eyebrow}>{t(preview ? "Confirmation preview" : "Your consultation is booked.")}</p> : null}
+      <h3 ref={heading} tabIndex={-1}>{immediateCalendar ? t("Your consultation is booked.") : t("Your call with {name}", { name: personName })}</h3>
       {summary}
       <p>{t(preview ? "In a live booking, {name} would call the number you provided at this time. This introductory conversation is separate from a full therapy session." : "{name} will call the number you provided at your selected time. This introductory conversation is separate from a full therapy session.", { name: personName })}</p>
-      <p className={styles.confirmationNote}>{preview ? t("This was a preview. Your details were not sent, and no appointment has been booked.") : <>{t("Reference")}: <bdi>{live.reference}</bdi><br />{t("To change or cancel your consultation, call 613-707-0333.")}</>}</p>
+      <p className={styles.confirmationNote}>{preview ? t("This was a preview. Your details were not sent, and no appointment has been booked.") : t("To change or cancel your consultation, call 613-707-0333.")}</p>
       {preview ? <button type="button" className={styles.textButton} onClick={() => { setStep("time"); setError(""); }}>{t("Change therapist or time")}<ArrowRight size={16} /></button> : null}
     </div> : <>
-      {!contactFirst ? <div className={styles.stepLabels} aria-label={t("Booking steps")}><span data-current={step === "time"}><b>{step === "details" ? <Check size={12} /> : number(1)}</b>{t("Choose a time")}</span><i /><span data-current={step === "details"}><b>{number(2)}</b>{t("Your details")}</span></div> : <div className={styles.stepLabels} aria-label={t("Booking steps")}><span data-current={step === "details"}><b>{step !== "details" ? <Check size={12} /> : number(1)}</b>{t("Your details")}</span><i /><span data-current={step === "time"}><b>{number(2)}</b>{t("Choose a time")}</span></div>}
-      {step === "received" || step === "later" ? <div className={styles.confirmation} role="status"><CheckCircle2 size={38} /><h3 tabIndex={-1}>{t("We’ve received your details.")}</h3><p>{t("Your consultation request is saved. A date and time have not been booked yet. Our team will contact you to arrange your free 20-minute phone consultation.")}</p><h4>{t("Want to confirm your call now?")}</h4><p>{t("Choose an available time to book your call. Otherwise, our team will help you arrange a time.")}</p><button type="button" data-google-ads-control-id="calendar-open" className={styles.primaryButton} onClick={openCalendar}>{t("Choose a time now")}<ArrowRight size={17} /></button>{step === "received" ? <button type="button" data-google-ads-control-id="calendar-later" className={styles.textButton} onClick={() => setStep("later")}>{t("I’ll arrange a time with the clinic")}</button> : <p>{t("Your request is saved. We’ll help you arrange a time.")}</p>}{live.contactReference ? <p>{t("Reference")}: <bdi>{live.contactReference}</bdi></p> : null}{preview ? <p className={styles.demoNote}>{t("Preview only. Nothing is sent or saved.")}</p> : null}</div> : step === "time" ? <div data-google-ads-consultation-form={preview ? undefined : "true"}>
-        <h3 className={styles.bookingTitle}>{t("Choose your consultation.")}</h3>{contactFirst ? <p className={styles.bookingHint}>{t("Your details are already saved. Choose a time to confirm your consultation.")}</p> : null}
-        {clinicians.length > 1 ? <label className={styles.field}>{t("Your therapist")}<select data-google-ads-control-id="therapist-select" data-google-ads-field-id="preferred-therapist" disabled={live.locked} aria-label={t("Choose your therapist")} value={selectedSlug} onChange={(event) => { onBookingStart(); onTherapistChange(event.target.value); }}>{clinicians.map((candidate) => <option key={candidate.slug} value={candidate.slug}>{t(candidate.name)}</option>)}</select></label> : <p className={styles.selectedClinician}>{personName} · {t(person.role)}</p>}
-        <p className={styles.bookingHint}>{t("Paid sessions: {price} CAD / {duration} minutes", { price: `$${fee.fee}`, duration: fee.duration })}{isCouplesConcept(conceptSlug) ? ` · ${t("Total for both partners")}` : ""}</p>
+      {(!immediateCalendar || step === "details") && (!contactFirst ? <div className={styles.stepLabels} aria-label={t("Booking steps")}><span data-current={step === "time"}><b>{step === "details" ? <Check size={12} /> : number(1)}</b>{t("Choose a time")}</span><i /><span data-current={step === "details"}><b>{number(2)}</b>{t("Your details")}</span></div> : <div className={styles.stepLabels} aria-label={t("Booking steps")}><span data-current={step === "details"}><b>{step !== "details" ? <Check size={12} /> : number(1)}</b>{t("Your details")}</span><i /><span data-current={step === "time"}><b>{number(2)}</b>{t("Choose a time")}</span></div>)}
+      {immediateCalendar && step === "later" ? <div className={styles.schedulingHelp}>{savedNotice}<h3 ref={helpHeading} tabIndex={-1} className={styles.bookingTitle}>{t("We’ll help you schedule your consultation.")}</h3><p>{t("Our team will contact you within 24 hours to help arrange your free 20-minute phone consultation. A date and time have not been booked yet.")}</p><p>{t("Free 20-minute phone call with {name}", { name:personName })} · {t("Consultation language")}: {t(language)}</p><button type="button" data-google-ads-control-id="calendar-open" className={styles.textButton} onClick={openCalendar}>{t("Choose a time instead")}<ArrowRight size={16}/></button></div> : step === "received" || step === "later" ? <div className={styles.confirmation} role="status"><CheckCircle2 size={38} /><h3 tabIndex={-1}>{t("We’ve received your details.")}</h3><p>{t("Your consultation request is saved. A date and time have not been booked yet. Our team will contact you to arrange your free 20-minute phone consultation.")}</p><h4>{t("Want to confirm your call now?")}</h4><p>{t("Choose an available time to book your call. Otherwise, our team will help you arrange a time.")}</p><button type="button" data-google-ads-control-id="calendar-open" className={styles.primaryButton} onClick={openCalendar}>{t("Choose a time now")}<ArrowRight size={17} /></button>{step === "received" ? <button type="button" data-google-ads-control-id="calendar-later" className={styles.textButton} onClick={() => setStep("later")}>{t("I’ll arrange a time with the clinic")}</button> : <p>{t("Your request is saved. We’ll help you arrange a time.")}</p>}{live.contactReference ? <p>{t("Reference")}: <bdi>{live.contactReference}</bdi></p> : null}{preview ? <p className={styles.demoNote}>{t("Preview only. Nothing is sent or saved.")}</p> : null}</div> : step === "time" ? <div data-google-ads-consultation-form={preview ? undefined : "true"}>
+        {immediateCalendar ? <>{savedNotice}<h3 ref={calendarHeading} tabIndex={-1} className={styles.bookingTitle}>{t("Choose a time for your free consultation")}</h3><p className={styles.calendarIntroduction}>{t("Select an available time to confirm your free {duration}-minute phone call with {name}.", { duration:CONSULTATION_DURATION_MINUTES, name:personName })}</p></> : <h3 className={styles.bookingTitle}>{t("Choose your consultation.")}</h3>}
+        {clinicians.length > 1 ? <label className={styles.field}>{t("Your therapist")}<select data-google-ads-control-id="therapist-select" data-google-ads-field-id="preferred-therapist" disabled={live.locked} aria-label={t("Choose your therapist")} value={selectedSlug} onChange={(event) => { onBookingStart(); onTherapistChange(event.target.value); }}>{clinicians.map((candidate) => <option key={candidate.slug} value={candidate.slug}>{t(candidate.name)}</option>)}</select></label> : !immediateCalendar ? <p className={styles.selectedClinician}>{personName} · {t(person.role)}</p> : null}
+        {!immediateCalendar ? <p className={styles.bookingHint}>{t("Paid sessions: {price} CAD / {duration} minutes", { price: `$${fee.fee}`, duration: fee.duration })}{isCouplesConcept(conceptSlug) ? ` · ${t("Total for both partners")}` : ""}</p> : null}
         {person.languages.length > 1 ? <label className={styles.field}>{t("Consultation language")}<select data-google-ads-control-id="language-select" disabled={live.locked} aria-label={t("Consultation language")} value={language} onChange={(event) => { setConsultationLanguage(event.target.value); onBookingStart(); }}>{person.languages.map((value) => <option key={value} value={value}>{t(value)}</option>)}</select></label> : null}
-        {summary}
+        {immediateCalendar ? <p className={styles.calendarTimezone}>{t("All times shown in Toronto time.")}</p> : summary}
         {!preview && availability.status !== "ready" ? <p role="status" className={styles.calendarHint}>{t(availability.status === "checking" ? "Checking availability…" : "Live availability is temporarily unavailable. Please try again.")}{availability.status === "unavailable" ? <button type="button" className={styles.textButton} onClick={() => void availability.refresh()}>{t("Retry")}</button> : null}</p> : null}
         <div className={styles.monthNav}><button type="button" disabled={live.locked || month === 0} data-google-ads-control-id="calendar-previous-month" aria-label={t("Previous month")} onClick={() => setMonth((current) => Math.max(0, current - 1))}><ChevronLeft size={17} /></button><strong>{monthLabel}</strong><button type="button" disabled={live.locked || month >= lastMonth} data-google-ads-control-id="calendar-next-month" aria-label={t("Next month")} onClick={() => setMonth((current) => Math.min(lastMonth, current + 1))}><ChevronRight size={17} /></button></div>
         <div className={styles.calendar} role="group" aria-label={t("Choose a consultation date")}>
           {weekdayLabels.map((day, index) => <span className={styles.weekday} key={index}>{day}</span>)}
-          {days.map((day, index) => day.inDisplayedMonth ? <button key={day.date} type="button" disabled={live.locked || !day.selectable || availability.status !== "ready" || dayFull(day.date)} aria-pressed={date === day.date} data-google-ads-control-id="calendar-date" data-google-ads-field-id="availability" aria-label={day.date} onClick={() => { onBookingStart(); setDate(day.date); setTime(""); setError(""); setPeriod(getAvailableTimeSlotsForDate(day.date, pool).find((slot) => !blocked(day.date, slot.time))?.availability || "morning"); }}>{number(day.dayOfMonth)}</button> : <span key={`blank-${index}`} />)}
+          {days.map((day, index) => day.inDisplayedMonth ? <button key={day.date} type="button" disabled={live.locked || !day.selectable || availability.status !== "ready" || dayFull(day.date)} aria-pressed={date === day.date} data-google-ads-control-id="calendar-date" data-google-ads-field-id="availability" aria-label={day.date} onClick={() => { onBookingStart(); live.clearError(); setDate(day.date); setTime(""); setError(""); setPeriod(getAvailableTimeSlotsForDate(day.date, pool).find((slot) => !blocked(day.date, slot.time))?.availability || "morning"); }}>{number(day.dayOfMonth)}</button> : <span key={`blank-${index}`} />)}
         </div>
         {date ? <div className={styles.timePicker}>
           <div className={styles.periodTabs} role="group" aria-label={t("Time of day")}>{[["morning", "Morning"], ["afternoon", "Afternoon"], ["late_afternoon", "Evening"]].map(([value, label]) => <button type="button" key={value} disabled={live.locked} data-google-ads-control-id="calendar-period" aria-pressed={period === value} onClick={() => { setPeriod(value); setTime(""); }}>{t(label)}</button>)}</div>
-          <div className={styles.timeGrid} role="group" aria-label={t("Choose a consultation time")}>{slots.map((slot) => <button type="button" key={slot.time} data-google-ads-control-id="calendar-time" data-google-ads-field-id="availability" disabled={live.locked || availability.status !== "ready" || blocked(date, slot.time)} aria-pressed={time === slot.time} onClick={() => { onBookingStart(); setTime(slot.time); setError(""); }}>{localizedTime(slot.time, locale)}</button>)}</div>
+          <div className={styles.timeGrid} role="group" aria-label={t("Choose a consultation time")}>{slots.map((slot) => <button type="button" key={slot.time} data-google-ads-control-id="calendar-time" data-google-ads-field-id="availability" disabled={live.locked || availability.status !== "ready" || blocked(date, slot.time)} aria-pressed={time === slot.time} onClick={() => { onBookingStart(); live.clearError(); setTime(slot.time); setError(""); }}>{localizedTime(slot.time, locale)}</button>)}</div>
           {!slots.length ? <p className={styles.calendarHint}>{t("No times in this part of the day. Choose another time of day.")}</p> : null}
         </div> : <p className={styles.calendarHint}>{t("Choose a date to see consultation times.")}</p>}
         <button type="button" data-google-ads-control-id="calendar-confirm" disabled={Boolean(live.busy)} className={styles.primaryButton} onClick={bookTime}>{live.busy ? t(live.busy === "verifying" ? "Verifying…" : "Booking…") : t(contactFirst ? "Confirm my consultation time" : "Continue")}<ArrowRight size={17} /></button>
         <p className={styles.underButton}>{t("No payment details. No obligation to start therapy.")}</p>
+        {immediateCalendar ? <div className={styles.calendarHelp}><button type="button" data-google-ads-control-id="calendar-later" disabled={live.locked} className={styles.textButton} onClick={askClinicHelp}>{t("Have our team help me schedule")}</button><p>{t("If you don’t choose a time now, our team will contact you within 24 hours to help arrange your free consultation.")}</p>{paidPricing}</div> : null}
       </div> : <form noValidate onSubmit={submit} data-google-ads-consultation-form={preview ? undefined : "true"}>
         {summary}
         {!contactFirst ? <button type="button" disabled={live.locked} className={styles.backButton} onClick={() => { setError("");setStep("time"); }}><ArrowLeft size={14}/>{t("Change therapist or time")}</button> : null}
@@ -172,9 +186,9 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
         <button type="submit" data-google-ads-control-id="contact-submit" disabled={Boolean(live.busy)} className={styles.primaryButton}>{live.busy ? t(live.busy === "verifying" ? "Verifying…" : "Saving your request…") : contactFirst ? t("Request my free consultation") : t("Book a free call with {name}", { name: personName.split(" ")[0] })}<ArrowRight size={17} /></button>
         {preview ? <p className={styles.underButton}>{t("Preview only. Nothing is sent or saved.")}</p> : null}
       </form>}
-      {!preview ? <TurnstileWidget action="consultation_request" execution="execute" executeKey={live.executeKey} resetKey={live.resetKey} onToken={live.onToken} onError={live.onVerificationError} language={locale === "zh-Hans" ? "zh-cn" : locale} messages={{ unavailable: t("Secure verification is temporarily unavailable. Please call 613-707-0333."), failed: t("Verification could not load. Check your connection and try again."), label: t("Automated spam protection") }} /> : null}
+      {!preview ? <div className={immediateCalendar && step !== "details" ? styles.inlineVerification : undefined}><TurnstileWidget action="consultation_request" execution="execute" executeKey={live.executeKey} resetKey={live.resetKey} onToken={live.onToken} onError={live.onVerificationError} language={locale === "zh-Hans" ? "zh-cn" : locale} messages={{ unavailable: t("Secure verification is temporarily unavailable. Please call 613-707-0333."), failed: t("Verification could not load. Check your connection and try again."), label: t("Automated spam protection") }} /></div> : null}
       {error || live.error ? <p role="alert" className={styles.fieldError}>{t(error || live.error)}</p> : null}
-      <details className={styles.bookingAssistance}><summary>{t("Need help choosing, another time, or a different way to connect?")}</summary><p>{t("Contact the clinic to discuss therapist fit, scheduling, or an alternative to a phone consultation.")}</p><a href="mailto:info@valisenmentalhealth.com" onClick={() => recordConceptPreviewEvent("assistance_clicked", conceptSlug, "booking", locale, preview)}>{t("Email the clinic")}<ArrowRight size={14} /></a><a href="tel:6137070333" dir="ltr" onClick={() => recordConceptPreviewEvent("assistance_clicked", conceptSlug, "booking", locale, preview)}>613-707-0333</a></details>
+      {!immediateCalendar || step === "details" ? <details className={styles.bookingAssistance}><summary>{t("Need help choosing, another time, or a different way to connect?")}</summary><p>{t("Contact the clinic to discuss therapist fit, scheduling, or an alternative to a phone consultation.")}</p><a href="mailto:info@valisenmentalhealth.com" onClick={() => recordConceptPreviewEvent("assistance_clicked", conceptSlug, "booking", locale, preview)}>{t("Email the clinic")}<ArrowRight size={14} /></a><a href="tel:6137070333" dir="ltr" onClick={() => recordConceptPreviewEvent("assistance_clicked", conceptSlug, "booking", locale, preview)}>613-707-0333</a></details> : null}
     </>}
   </div>;
 }

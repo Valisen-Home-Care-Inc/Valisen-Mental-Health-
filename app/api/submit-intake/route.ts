@@ -1105,7 +1105,7 @@ ${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is con
   if (payload.formVariant === "welcome" || payload.bookedSlot) {
     // Only the durable notification-claim owner sends the visitor receipt.
     // Keep intake successful if SMTP fails after the clinic has been notified.
-    const confirmation = payload.bookingStage === "contact" ? buildConsultationContactEmail(payload.firstName, referenceId, payload.landingLocale) : payload.bookedSlot && payload.landingConcept && preferredTherapistLabel && payload.consultationLanguage
+    const confirmation = payload.bookingStage === "contact" ? buildConsultationContactEmail(payload.firstName, referenceId, payload.landingLocale,Boolean(payload.landingConcept)) : payload.bookedSlot && payload.landingConcept && preferredTherapistLabel && payload.consultationLanguage
       ? buildNamedConsultationEmail({ firstName: payload.firstName, therapistName: preferredTherapistLabel, slot: payload.bookedSlot, language: payload.consultationLanguage, locale: payload.landingLocale || "en", referenceId })
       : payload.bookedSlot ? buildQuizConsultationBookingEmail(payload.firstName, payload.bookedSlot) : buildConsultationConfirmationEmail({
       firstName: payload.firstName,
