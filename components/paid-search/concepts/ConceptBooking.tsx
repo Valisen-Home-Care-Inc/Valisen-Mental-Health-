@@ -30,6 +30,7 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
   const [time, setTime] = useState("");
   const [period, setPeriod] = useState("morning");
   const [step, setStep] = useState<"time" | "details" | "received" | "later" | "complete">(contactFirst ? "details" : "time");
+  const previousStep = useRef(step);
   const [error, setError] = useState("");
   const [contact, setContact] = useState({ firstName: "", email: "", phone: "", consent: false });
   // Page language and consultation language are independent choices.
@@ -73,6 +74,10 @@ export default function ConceptBooking({ conceptSlug, clinicians, selectedSlug, 
     if (contactAccepted.current || !contactFirst) setStep("time"); setError("");
   }, [selectedSlug, date, time, contactFirst]);
   useEffect(() => {
+    // Initial render must leave visitors at the headline. Move/focus the
+    // panel only after a visitor action actually changes the booking step.
+    if (previousStep.current === step) return;
+    previousStep.current = step;
     if (step !== "time" || (immediateCalendar && contactAccepted.current)) card.current?.scrollIntoView({ block: "start", behavior: "instant" });
     if (step === "details") firstField.current?.focus({ preventScroll: true });
     if (step === "complete") heading.current?.focus({ preventScroll: true });
