@@ -27,6 +27,7 @@ import {
 } from "@/lib/checkpoints/dashboardMetrics";
 import MoveCheckpointDialog from "@/components/checkpoints/admin/MoveCheckpointDialog";
 import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
+import CheckpointExportButton from "@/components/checkpoints/admin/CheckpointExportButton";
 import {
   checkpointPermanentUrl,
   isCheckpointCode,
@@ -237,6 +238,7 @@ export default function DashboardClient({
           <button type="button" onClick={() => void loadData()} disabled={loading} className="grid h-11 w-11 place-items-center rounded-[12px] border border-black/[0.07] bg-white text-[#53625f] shadow-[0_4px_18px_rgba(28,46,43,0.05)] transition hover:text-[#1e5f5a] disabled:opacity-60" aria-label="Refresh checkpoint analytics">
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden="true" />
           </button>
+          <CheckpointExportButton range={range} customFrom={customFrom} customTo={customTo} loading={loading} />
         </div>
       </div>
 
