@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatReferralPhone } from "@/lib/phoneFormatting";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +17,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -160,7 +162,7 @@ function splitFullName(
   value: string,
 ): { firstName: string; lastName: string } | null {
   const parts = value.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
-  if (parts.length < 2) return null;
+  if (parts.length < 1) return null;
   return {
     firstName: parts[0],
     lastName: parts.slice(1).join(" "),
@@ -275,6 +277,11 @@ export default function ConsultationPage() {
   >(null);
   const [checkpointRetryCycle, setCheckpointRetryCycle] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
+  const phoneCaret = useRef<{ input: HTMLInputElement; caret: number } | null>(null);
+  useLayoutEffect(() => {
+    const selection = phoneCaret.current; phoneCaret.current = null;
+    if (selection && document.activeElement === selection.input) selection.input.setSelectionRange(selection.caret, selection.caret);
+  }, [data.phone]);
   const startedRef = useRef(false);
   const formStartedAtRef = useRef(0);
   const submissionIdRef = useRef(makeSubmissionId());
@@ -562,7 +569,7 @@ export default function ConsultationPage() {
   function validateStepOne(): FormErrors {
     const next: FormErrors = {};
     if (!splitFullName(data.fullName)) {
-      next.fullName = "Please enter your first and last name.";
+      next.fullName = "Please enter your name.";
     }
     if (!data.email.trim()) {
       next.email = "Email address is required.";
@@ -654,7 +661,7 @@ export default function ConsultationPage() {
     setSubmitError(null);
     const name = splitFullName(data.fullName);
     if (!name) {
-      showErrors({ fullName: "Please enter your first and last name." }, 1);
+      showErrors({ fullName: "Please enter your name." }, 1);
       setStep(1);
       setSubmitting(false);
       return;
@@ -1019,14 +1026,14 @@ export default function ConsultationPage() {
                           </p>
                         </div>
                         <Field id="full-name" label="Full Name" required error={errors.fullName}>
-                            <input id="full-name" data-google-ads-field-id="full-name" type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => set("fullName", event.target.value)} className={inputClass} placeholder="First and last name" aria-invalid={Boolean(errors.fullName)} />
+                            <input id="full-name" data-google-ads-field-id="full-name" type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => set("fullName", event.target.value)} className={inputClass} placeholder="Full name" aria-invalid={Boolean(errors.fullName)} />
                         </Field>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <Field id="email" label="Email Address" required error={errors.email}>
                             <input id="email" data-google-ads-field-id="email" type="email" inputMode="email" autoComplete="email" maxLength={254} value={data.email} onChange={(event) => set("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)} />
                           </Field>
                           <Field id="phone" label="Phone Number" required error={errors.phone}>
-                            <input id="phone" data-google-ads-field-id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} required value={data.phone} onChange={(event) => set("phone", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} />
+                            <input id="phone" data-google-ads-field-id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={14} required value={data.phone} onChange={(event) => { const input = event.target; const result = formatReferralPhone(input.value, input.selectionStart ?? input.value.length); phoneCaret.current = { input, caret: result.caret }; set("phone", result.formatted); }} onPaste={(event) => { event.preventDefault(); const input = event.currentTarget; const text = event.clipboardData.getData("text"); const start = input.selectionStart ?? input.value.length; const end = input.selectionEnd ?? start; const result = formatReferralPhone(input.value.slice(0, start) + text + input.value.slice(end), start + text.length); phoneCaret.current = { input, caret: result.caret }; set("phone", result.formatted); }} placeholder="(613) 555-0123" className={inputClass} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} />
                           </Field>
                         </div>
                         <Field id="therapy-type" label="What type of therapy are you seeking?" required error={errors.therapyType}>

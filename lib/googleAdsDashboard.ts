@@ -1,4 +1,5 @@
 import { googleAdsLandingPaths } from "@/lib/googleAdsLandingPaths";
+import { GOOGLE_ADS_BOOKING_CONTROLS } from "@/lib/googleAdsBookingControls";
 import {
   GOOGLE_ADS_FORM_FIELD_IDS,
   GOOGLE_ADS_EVENT_NAMES,
@@ -184,6 +185,7 @@ export type GoogleAdsDashboardData = {
 const EVENT_NAMES = new Set<string>(GOOGLE_ADS_EVENT_NAMES);
 const TARGET_TYPES = new Set<string>(GOOGLE_ADS_TARGET_TYPES);
 const TARGET_IDS = new Set<string>([
+  ...Object.keys(GOOGLE_ADS_BOOKING_CONTROLS),
   ...GOOGLE_ADS_FORM_FIELD_IDS,
   "button",
   "submit",

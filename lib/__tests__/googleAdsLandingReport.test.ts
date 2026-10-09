@@ -44,7 +44,7 @@ describe("Google Ads final URL reporting", () => {
     expect(data.kpis.sessions).toBe(1);
     expect(data.landingPaths).toEqual(["/welcome", ...PAID_SEARCH_CONCEPT_PATHS]);
     expect(data.funnel.find((stage) => stage.key === "consultation_page")?.count).toBe(1);
-    expect(data.funnel.find((stage) => stage.key === "consultation_step_2")).toMatchObject({ label: "Contact details reached", count: 1 });
+    expect(data.funnel.find((stage) => stage.key === "consultation_step_2")).toMatchObject({ label: "Second booking step reached", count: 1 });
   });
   it("keeps welcome first and available even with no welcome visits", () => {
     const data = report([session(1, "/")], []);

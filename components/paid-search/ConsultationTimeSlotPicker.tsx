@@ -82,10 +82,10 @@ export default function ConsultationTimeSlotPicker({
                 {CONSULTATION_MONTH_NAMES[viewMonth]} <span>{viewYear}</span>
               </p>
               <div className={styles.monthControls}>
-                <button type="button" onClick={() => goToMonth(-1)} disabled={isCurrentViewToday} aria-label="Previous month" className={styles.monthButton}>
+                <button type="button" onClick={() => goToMonth(-1)} disabled={isCurrentViewToday} data-google-ads-control-id="calendar-previous-month" aria-label="Previous month" className={styles.monthButton}>
                   <ChevronLeft size={18} aria-hidden="true" />
                 </button>
-                <button type="button" onClick={() => goToMonth(1)} disabled={!hasSelectableInView && !nextMonthHasSelectable} aria-label="Next month" className={styles.monthButton}>
+                <button type="button" onClick={() => goToMonth(1)} disabled={!hasSelectableInView && !nextMonthHasSelectable} data-google-ads-control-id="calendar-next-month" aria-label="Next month" className={styles.monthButton}>
                   <ChevronRight size={18} aria-hidden="true" />
                 </button>
               </div>
@@ -98,7 +98,7 @@ export default function ConsultationTimeSlotPicker({
                 if (!cell.date) return <span key={"blank-" + i} aria-hidden="true" />;
                 const isSelected = cell.date === selectedDate;
                 return (
-                  <button key={cell.date} type="button" disabled={!cell.selectable}
+                  <button key={cell.date} data-google-ads-control-id="calendar-date" data-google-ads-field-id="availability" type="button" disabled={!cell.selectable}
                     aria-label={formatConsultationDateLabel(cell.date) + ", " + viewYear}
                     aria-pressed={isSelected}
                     onClick={() => {
@@ -128,7 +128,7 @@ export default function ConsultationTimeSlotPicker({
                     const selected = value?.kind === "specific" && value.date === selectedDate && value.time === time;
                     const booked = bookedSlots.has(`${selectedDate}|${time}`);
                     const disabled = booked || availabilityStatus !== "ready";
-                    return <button key={time} type="button" aria-pressed={selected} disabled={disabled}
+                    return <button key={time} data-google-ads-control-id="calendar-time" data-google-ads-field-id="availability" type="button" aria-pressed={selected} disabled={disabled}
                       aria-label={`${time}${booked ? ", booked" : ""}`}
                       onClick={() => onChange({ kind: "specific", date: selectedDate, time, availability, label: formatPreferredSlotLabel(selectedDate, time) })}
                       className={styles.time + (selected ? " " + styles.selectedTime : "") + (booked ? " " + styles.bookedTime : "")}

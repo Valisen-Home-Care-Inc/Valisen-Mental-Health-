@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { MouseEventHandler, ReactNode } from "react";
+import type { GoogleAdsBookingControl } from "@/lib/googleAdsBookingControls";
 import {
   trackFunnelEvent,
   type FunnelCtaPlacement,
@@ -23,6 +24,7 @@ export default function TrackedLink({
   janeClick = false,
   onClick,
   ariaLabel,
+  googleAdsControlId,
 }: {
   href: string;
   children: ReactNode;
@@ -37,6 +39,7 @@ export default function TrackedLink({
   janeClick?: boolean;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
   ariaLabel?: string;
+  googleAdsControlId?: GoogleAdsBookingControl;
 }) {
   const handleClick: MouseEventHandler<HTMLAnchorElement> = (clickEvent) => {
     trackFunnelEvent(event, {
@@ -69,6 +72,7 @@ export default function TrackedLink({
     onClick: handleClick,
     "aria-label": ariaLabel,
     "data-funnel-tracked": "true",
+    "data-google-ads-control-id": googleAdsControlId,
   };
 
   if (newTab) {

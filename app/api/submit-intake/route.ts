@@ -60,12 +60,14 @@ import { googleAdsSessionIdIsValid } from "@/lib/googleAdsJourney";
 import { prepareGoogleAdsConsultationConversion } from "@/lib/server/googleAdsConsultationConversion";
 import { getVerifiedGoogleAdsJourney } from "@/lib/server/googleAdsRequest";
 import { buildConsultationConfirmationEmail } from "@/lib/server/consultationConfirmationEmail";
+import { buildConsultationContactEmail } from "@/lib/server/consultationContactEmail";
+import { consultationContinuationConfigured, createConsultationContinuation, verifyConsultationContinuation } from "@/lib/server/consultationContinuation";
 import { parseQuizConsultationSlot, QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION, type QuizConsultationSlot } from "@/lib/quizConsultation";
 import { buildQuizConsultationBookingEmail } from "@/lib/server/quizConsultationEmail";
 import { consultationPoolForConcept } from "@/lib/paidSearchConcepts";
 import { getTherapistBySlug } from "@/lib/therapists";
 import { buildNamedConsultationEmail } from "@/lib/server/namedConsultationEmail";
-import { LANDING_BOOKING_CONSENT, LANDING_BOOKING_CONSENT_VERSION, type LandingLocale } from "@/lib/paidSearchLocale";
+import { LANDING_BOOKING_CONSENT, LANDING_BOOKING_CONSENT_VERSION, LEGACY_LANDING_BOOKING_CONSENT, type LandingLocale } from "@/lib/paidSearchLocale";
 import type { ConsultationTherapist } from "@/lib/consultationSchedules";
 import {
   claimConsultationSlot,
@@ -125,6 +127,8 @@ const HEADER_ROW = [
 ];
 
 const ALLOWED_KEYS = new Set([
+  "bookingStage",
+  "continuationToken",
   "formVariant",
   "landingConcept",
   "landingLocale",
@@ -158,6 +162,8 @@ const ALLOWED_KEYS = new Set([
 ]);
 
 type IntakePayload = {
+  bookingStage?: "contact" | "booking";
+  previousContactReference?: string;
   landingConcept?: string;
   landingLocale?: LandingLocale;
   consultationLanguage?: string;
@@ -243,6 +249,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   }
   const isQuizBooking = input.formVariant === "quiz_calendar";
   const isWelcomeBooking = input.formVariant === "welcome";
+  const bookingStage = input.bookingStage;
+  if (bookingStage !== undefined && (!isWelcomeBooking || (bookingStage !== "contact" && bookingStage !== "booking"))) return { error: "Invalid booking stage." };
+  if (input.continuationToken !== undefined && bookingStage !== "booking") return { error: "Invalid booking continuation." };
   const landingConcept = input.landingConcept;
   if (landingConcept !== undefined && (typeof landingConcept !== "string" || !landingConcept || !isWelcomeBooking)) return { error: "Invalid landing calendar." };
   const eligiblePool = consultationPoolForConcept(landingConcept as string | undefined);
@@ -275,9 +284,11 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   if (!isQuizBooking && !isWelcomeBooking && hasConsultationDate) {
     return { error: "Invalid consultation fields." };
   }
-  if (landingConcept && !bookedSlot) return { error: "Please choose an available therapist consultation time." };
-  const consentText = landingConcept ? LANDING_BOOKING_CONSENT[landingLocale] : isQuizBooking ? QUIZ_BOOKING_CONSENT_TEXT : CONSENT_TEXT;
-  const consentVersion = landingConcept ? LANDING_BOOKING_CONSENT_VERSION : isQuizBooking ? QUIZ_BOOKING_CONSENT_VERSION : CONSENT_VERSION;
+  if ((landingConcept && bookingStage !== "contact" || bookingStage === "booking") && !bookedSlot) return { error: "Please choose an available therapist consultation time." };
+  if (bookingStage === "contact" && hasConsultationDate) return { error: "Contact requests cannot reserve an appointment." };
+  const legacyConsent = landingConcept && bookingStage === undefined && input.consentVersion === "landing-consultation-booking-v2";
+  const consentText = landingConcept ? (legacyConsent ? LEGACY_LANDING_BOOKING_CONSENT[landingLocale] : LANDING_BOOKING_CONSENT[landingLocale]) : isQuizBooking ? QUIZ_BOOKING_CONSENT_TEXT : CONSENT_TEXT;
+  const consentVersion = landingConcept ? (legacyConsent ? "landing-consultation-booking-v2" : LANDING_BOOKING_CONSENT_VERSION) : isQuizBooking ? QUIZ_BOOKING_CONSENT_VERSION : CONSENT_VERSION;
   if (!validSubmissionId(input.clientSubmissionId)) {
     return { error: "Invalid submission identifier." };
   }
@@ -286,6 +297,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const lastName = cleanSingleLine(input.lastName, 80);
   const email = cleanSingleLine(input.email, 254).toLowerCase();
   const phone = cleanSingleLine(input.phone, 30);
+  const previousContactReference = bookingStage === "booking"
+    ? verifyConsultationContinuation(input.continuationToken, { firstName, lastName, email, phone, landingConcept: landingConcept as string | undefined }) : null;
+  if (bookingStage === "booking" && !previousContactReference) return { error: "Your saved details could not be verified. Please send your details again." };
   const reason = cleanSingleLine(input.reason, 80);
   const notes = cleanNotes(input.notes);
   // Keep the legacy preferred-slot label for flexible /welcome requests.
@@ -365,9 +379,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   const timeOfDay = input.timeOfDay;
   const expectedDays = CONSULTATION_DAYS;
 
-  // Only the /welcome form accepts a first name without a surname.
+  // A single name is sufficient for a consultation request.
   // The marker also selects the welcome receipt email; it is not stored in the CRM.
-  if (!firstName || (!lastName && input.formVariant !== "welcome" && !isQuizBooking) || !validEmail(email)) {
+  if (!firstName || !validEmail(email)) {
     return { error: "Please provide a valid name and email address." };
   }
   if (!isValidConsultationPhone(phone)) {
@@ -401,6 +415,8 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
 
   return {
     payload: {
+      bookingStage: bookingStage as IntakePayload["bookingStage"],
+      previousContactReference: previousContactReference || undefined,
       clientSubmissionId: input.clientSubmissionId,
       formStartedAt: input.formStartedAt,
       formVariant: isQuizBooking ? "quiz_calendar" : input.formVariant === "welcome" ? "welcome" : undefined,
@@ -413,7 +429,9 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       phone,
       reason,
       preferredTherapist: cleanSingleLine(input.preferredTherapist, 40),
-      notes: bookedSlot
+      notes: bookingStage === "contact"
+        ? `CONTACT DETAILS RECEIVED — DATE/TIME NOT SELECTED. No appointment is reserved. Follow up to arrange the free 20-minute phone call.\n${landingConcept ? `Landing page: /welcome/${landingConcept}. Preferred therapist: ${selectedTherapist?.name}. Consultation language: ${consultationLanguage}.\n` : ""}${notes || ""}`.slice(0, 1500)
+        : bookedSlot
         ? `20-minute phone consultation booked through ${isQuizBooking ? "/quiz" : landingConcept ? `/welcome/${landingConcept}` : "/welcome"}: ${bookedSlot.label}${selectedTherapist ? `\nSelected therapist: ${selectedTherapist.name}. Consultation language: ${consultationLanguage}. Page language: ${landingLocale}. The client speaks directly with this therapist at the selected time.` : ""}${notes ? `\n${notes}` : ""}`.slice(0, 1500)
         : notesWithSlot || undefined,
       days: [...expectedDays],
@@ -497,6 +515,7 @@ async function persistConsultationCrmLead(input: {
       ? input.checkpointPlacementId
       : undefined;
   return upsertConsultationLead({
+      previousContactReference: input.payload.previousContactReference,
       consultationReferenceId: input.referenceId,
       quizReferenceId: input.quizLead?.referenceId,
       clientSubmissionId: input.payload.clientSubmissionId,
@@ -557,8 +576,8 @@ async function consultationSuccessResponse(input: {
     try {
       conversionToken = await prepareGoogleAdsConsultationConversion({
         sessionId: input.payload.googleAdsSessionId,
-        referenceId: input.referenceId,
-        submittedAt: input.submittedAt,
+        referenceId: input.payload.previousContactReference || input.referenceId,
+        submittedAt: input.payload.previousContactReference ? undefined : input.submittedAt,
         journey,
       });
     } catch (error) {
@@ -571,6 +590,7 @@ async function consultationSuccessResponse(input: {
   const response = NextResponse.json(
     {
       ...input.body,
+      ...(input.payload.bookingStage === "contact" ? { bookingStage: "contact", continuationToken: createConsultationContinuation(input.payload, input.referenceId) } : {}),
       ...(input.payload.googleAdsSessionId
         ? {
             googleAdsThankYouReady: Boolean(conversionToken),
@@ -745,6 +765,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (payload.bookingStage && !consultationContinuationConfigured()) return badRequest("Secure booking is temporarily unavailable. Please call us.", 503);
   const ip = requestIp(request);
   if (isRateLimited(`consultation:${ip}`, 5, 60 * 60 * 1000)) {
     return badRequest("Too many requests. Please try again later or call us.", 429);
@@ -907,7 +928,8 @@ export async function POST(request: NextRequest) {
     0,
     Math.round((Date.now() - payload.formStartedAt) / 1000),
   );
-  const availabilityLabel = payload.bookedSlot?.label ||
+  if (payload.previousContactReference) payload.notes = `FOLLOW-UP BOOKING FOR CONTACT REQUEST: ${payload.previousContactReference}\n${payload.notes || ""}`.slice(0, 1500);
+  const availabilityLabel = payload.bookingStage === "contact" ? "Time not selected — follow up to arrange consultation" : payload.bookedSlot?.label ||
     CONSULTATION_AVAILABILITY_WINDOWS[payload.timeOfDay].submissionLabel;
   const checkpoint = await recordCheckpointAttribution(
     payload.checkpointAttribution,
@@ -1023,7 +1045,8 @@ export async function POST(request: NextRequest) {
     tls: ALLOW_SELF_SIGNED_SMTP_CERT ? { rejectUnauthorized: false } : undefined,
   });
 
-  const clinicEmailBody = `New consultation request received at ${timestamp}.
+  const clinicEmailBody = `${payload.bookingStage === "contact" ? "CONTACT DETAILS RECEIVED — NOT YET BOOKED" : payload.previousContactReference ? "FOLLOW-UP — CONSULTATION NOW BOOKED" : "New consultation request"} received at ${timestamp}.
+${payload.previousContactReference ? `Original contact reference: ${payload.previousContactReference}\nThis confirms the time for the earlier contact request; it is the same lead.` : ""}
 
 Reference:               ${referenceId}
 Name:                    ${payload.firstName} ${payload.lastName}
@@ -1049,7 +1072,8 @@ ${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is con
       from: `"Valisen Mental Health" <${process.env.GMAIL_USER}>`,
       to: CLINIC_EMAIL,
       subject: payload.bookedSlot
-        ? `ACTION REQUIRED: Consultation Booked - ${payload.bookedSlot.label} - ${payload.firstName} ${payload.lastName}`.trim()
+        ? `${payload.previousContactReference ? "FOLLOW-UP BOOKED" : "ACTION REQUIRED: Consultation Booked"} - ${payload.bookedSlot.label} - ${payload.firstName} ${payload.lastName}`.trim()
+        : payload.bookingStage === "contact" ? `DETAILS RECEIVED — TIME NOT SELECTED - ${payload.firstName} ${payload.lastName}`.trim()
         : `Consultation Request - ${payload.firstName} ${payload.lastName}`,
       text: clinicEmailBody,
       messageId: `<consultation-${payload.clientSubmissionId}@valisenmentalhealth.com>`,
@@ -1079,7 +1103,7 @@ ${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is con
   if (payload.formVariant === "welcome" || payload.bookedSlot) {
     // Only the durable notification-claim owner sends the visitor receipt.
     // Keep intake successful if SMTP fails after the clinic has been notified.
-    const confirmation = payload.bookedSlot && payload.landingConcept && preferredTherapistLabel && payload.consultationLanguage
+    const confirmation = payload.bookingStage === "contact" ? buildConsultationContactEmail(payload.firstName, referenceId, payload.landingLocale) : payload.bookedSlot && payload.landingConcept && preferredTherapistLabel && payload.consultationLanguage
       ? buildNamedConsultationEmail({ firstName: payload.firstName, therapistName: preferredTherapistLabel, slot: payload.bookedSlot, language: payload.consultationLanguage, locale: payload.landingLocale || "en", referenceId })
       : payload.bookedSlot ? buildQuizConsultationBookingEmail(payload.firstName, payload.bookedSlot) : buildConsultationConfirmationEmail({
       firstName: payload.firstName,
@@ -1108,7 +1132,7 @@ ${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is con
         await transporter.sendMail({
           from: `"Valisen Mental Health" <${process.env.GMAIL_USER}>`,
           to: therapistEmail,
-          subject: `New Valisen Consultation Request - ${referenceId}`,
+          subject: `${payload.bookingStage === "contact" ? "Valisen details received — time not selected" : payload.previousContactReference ? "Valisen follow-up consultation booked" : "New Valisen Consultation Request"} - ${referenceId}`,
           text: `${clinicEmailBody}\n\nPlease follow Valisen's intake process before discussing clinical details.`,
           messageId: `<consultation-therapist-${payload.clientSubmissionId}@valisenmentalhealth.com>`,
         });

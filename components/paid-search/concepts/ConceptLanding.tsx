@@ -67,7 +67,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
     <header className={styles.header}><div className={styles.container}>
       <a href="#top" aria-label={t("Back to top")}><Image src="/valisen-logo.png" alt={t("Valisen Mental Health")} width={950} height={330} className={styles.logo} priority /></a>
       <nav aria-label={t("Page sections")}><a href="#your-therapist">{t("Your therapist")}</a><a href="#our-approach">{t("Our approach")}</a><a href="#fees-and-questions">{t("Fees & FAQs")}</a></nav>
-      <a href="#consultation" className={styles.headerCta} onClick={(event) => { event.preventDefault(); choose(undefined, "header"); }}>{t("Free consultation")}<ArrowRight size={15} /></a>
+      <a href="#consultation" data-google-ads-control-id={preview ? undefined : "header-cta"} className={styles.headerCta} onClick={(event) => { event.preventDefault(); choose(undefined, "header"); }}>{t("Free consultation")}<ArrowRight size={15} /></a>
       {nativeLocale !== "en" ? <div className={styles.languageToggle} role="group" aria-label="Language / اللغة / 语言" dir="ltr"><button type="button" disabled={bookingLocked} lang={nativeLocale} aria-pressed={locale === nativeLocale} onClick={() => setLocale(nativeLocale)}>{nativeLocale === "ar" ? "العربية" : "中文"}</button><button type="button" disabled={bookingLocked} lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}>{"English"}</button></div> : null}
     </div></header>
     <main id="main-content">
@@ -77,7 +77,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
           <h1 id="landing-heading">{concept.headline} <em>{concept.emphasis}</em></h1>
           <p className={styles.heroIntro}>{concept.introduction}</p>
           <div className={styles.heroTherapist}><Image src={lead.photo} alt={lead.name} width={80} height={96} /><div><strong>{lead.name}</strong><span>{lead.role}</span><span>{lead.reasons[0]}</span></div></div>
-          <a href="#consultation" className={styles.primaryButton} onClick={(event) => { event.preventDefault(); choose(); }}>{earlyBooking ? t("Choose a consultation time") : concept.cta} <ArrowRight size={18} /></a>
+          <a href="#consultation" data-google-ads-control-id={preview ? undefined : "hero-cta"} className={styles.primaryButton} onClick={(event) => { event.preventDefault(); choose(); }}>{earlyBooking ? t("Request my free consultation") : concept.cta} <ArrowRight size={18} /></a>
           <p className={styles.heroReassurance}>{t("20 minutes · Speak directly with your therapist · No obligation")}</p>
           <p className={styles.heroFee}>{t("Paid sessions: {price} CAD / {duration} minutes", { price, duration: 50 })}{isCouplesConcept(concept.slug) ? <> · {t("Total for both partners")}</> : null}</p>
           {concept.slug === "adhd" ? <p className={styles.scopeNote}>{t("ADHD therapy and practical support. No diagnostic assessment or medication prescribing.")}</p> : null}
@@ -109,7 +109,7 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
           <ul className={styles.fitReasons}>{person.reasons.map((reason) => <li key={reason}><Check size={15} /><span>{reason}</span></li>)}</ul>
           <div className={styles.visibleQualification}>{["Training", "Degree", "Experience", "Client Population"].map((label) => person.qualifications.find((qualification) => qualification.label === t(label))?.value).find(Boolean) || person.role}</div>
           <details className={styles.qualifications}><summary>{t("Qualifications & background")}<ChevronDown size={14} /></summary><dl>{person.qualifications.map((qualification) => <div key={`${qualification.label}:${qualification.value}`}><dt>{qualification.label}</dt><dd>{qualification.value}</dd></div>)}</dl></details>
-          <div className={styles.profileBottom}><span>{t("{price} CAD / {duration} min", { price: `$${conceptSessionFee(concept.slug, person).fee}`, duration: conceptSessionFee(concept.slug, person).duration })}{isCouplesConcept(concept.slug) ? <small>{t("Total for both partners")}</small> : null}</span><button type="button" onClick={() => choose(person.slug, "therapist")}>{t("Book a free call with {name}", { name: person.name.split(" ")[0] })}<ArrowRight size={14} /></button></div>
+          <div className={styles.profileBottom}><span>{t("{price} CAD / {duration} min", { price: `$${conceptSessionFee(concept.slug, person).fee}`, duration: conceptSessionFee(concept.slug, person).duration })}{isCouplesConcept(concept.slug) ? <small>{t("Total for both partners")}</small> : null}</span><button type="button" data-google-ads-control-id={preview ? undefined : "therapist-cta"} onClick={() => choose(person.slug, "therapist")}>{t("Book a free call with {name}", { name: person.name.split(" ")[0] })}<ArrowRight size={14} /></button></div>
         </article>)}</div>
       </div></section>
 
@@ -129,11 +129,11 @@ export default function ConceptLanding({ concept: originalConcept, clinicians: o
 
       {!earlyBooking ? <section ref={booking} id="consultation" tabIndex={-1} className={styles.bookingSection} aria-labelledby="booking-heading"><div className={`${styles.container} ${styles.bookingGrid}`}>
         <div className={styles.bookingCopy}><p className={styles.eyebrow}><span className={styles.eyebrowLine} />{t("Let’s talk")}</p><h2 id="booking-heading">{concept.bookingHeading}</h2><p>{t("Book a free 20-minute phone call directly with your selected therapist. The date and time you choose are when you’ll speak together.")}</p>
-          <ol className={styles.bookingSteps}><li><span>1</span><div><strong>{t("Choose your therapist and time.")}</strong><p>{t("Compare the people on this page, then choose an available time.")}</p></div></li><li><span>2</span><div><strong>{t("Share your contact details.")}</strong><p>{t("No detailed personal history needed here.")}</p></div></li><li><span>3</span><div><strong>{t("Speak directly with your therapist.")}</strong><p>{t("Ask about their approach and decide whether you’d like to work together.")}</p></div></li></ol>
+          <ol className={styles.bookingSteps}><li><span>1</span><div><strong>{t("Share your contact details.")}</strong><p>{t("No detailed personal history needed here.")}</p></div></li><li><span>2</span><div><strong>{t("Choose a time now")}</strong><p>{t("Choose an available time to book your call. Otherwise, our team will help you arrange a time.")}</p></div></li><li><span>3</span><div><strong>{t("Speak directly with your therapist.")}</strong><p>{t("Ask about their approach and decide whether you’d like to work together.")}</p></div></li></ol>
           <div className={styles.bookingHuman}><MessageCircle size={24} strokeWidth={1.4} /><p>{t("An introduction, not a full therapy session.")}<br /><strong>{t("No obligation to continue.")}</strong></p></div>
         </div>
         {bookingForm}
-      </div></section> : <section className={styles.closingInvitation}><h2>{t("A first conversation. A clearer next step.")}</h2><button type="button" className={styles.primaryButton} onClick={() => choose(undefined, "closing")}>{t("Choose a consultation time")}<ArrowRight size={16} /></button></section>}
+      </div></section> : <section className={styles.closingInvitation}><h2>{t("A first conversation. A clearer next step.")}</h2><button type="button" data-google-ads-control-id={preview ? undefined : "closing-cta"} className={styles.primaryButton} onClick={() => choose(undefined, "closing")}>{t("Request my free consultation")}<ArrowRight size={16} /></button></section>}
     </main>
     <footer className={styles.footer}><div className={styles.container}>
       <div className={styles.footerTop}><Image src="/valisen-logo.png" alt={t("Valisen Mental Health")} width={950} height={330} className={styles.logo} /><p>{t("Thoughtful therapy.")}<br />{t("A human place to begin.")}</p><a href="tel:6137070333"><Phone size={15} />{t("613-707-0333")}</a></div>

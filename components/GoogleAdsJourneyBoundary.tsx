@@ -22,6 +22,7 @@ import {
   type GoogleAdsEventProperties,
 } from "@/lib/googleAdsTracking";
 import { isSensitiveGoogleAdsMarketingPath } from "@/lib/analyticsBoundary";
+import { isGoogleAdsBookingControl, isGoogleAdsBookingCta } from "@/lib/googleAdsBookingControls";
 
 const ACTIVE_WINDOW_MS = 60_000;
 const ENGAGEMENT_INTERVAL_MS = 10_000;
@@ -68,7 +69,7 @@ function consultationFieldId(element: Element): GoogleAdsFormFieldId | null {
 }
 
 function consultationFormField(element: Element): GoogleAdsFormFieldId | null {
-  if (!element.closest("form[data-google-ads-consultation-form='true']")) {
+  if (!element.closest("[data-google-ads-consultation-form='true']")) {
     return null;
   }
   return consultationFieldId(element);
@@ -291,6 +292,12 @@ export default function GoogleAdsJourneyBoundary() {
         actionable.closest("section")?.getAttribute("data-google-ads-section-id") ||
         currentSectionId;
       const ctaPlacement = safePlacement(actionable);
+      const declaredControl = actionable.getAttribute("data-google-ads-control-id");
+      const control = isGoogleAdsBookingControl(declaredControl) ? declaredControl : undefined;
+      if (control && isGoogleAdsBookingCta(control)) {
+        recordPageEvent("consultation_cta_clicked", { sectionId, targetType: "consultation", targetPath: canonicalizeGoogleAdsPath(pathname), targetId: control, ctaPlacement });
+        return;
+      }
 
       if (actionable instanceof HTMLAnchorElement) {
         const rawHref = actionable.getAttribute("href") || "";
@@ -390,9 +397,16 @@ export default function GoogleAdsJourneyBoundary() {
       recordPageEvent("control_clicked", {
         sectionId,
         targetType: "button",
-        targetId: isSubmit ? "submit" : "button",
+        targetId: control || (isSubmit ? "submit" : "button"),
         ctaPlacement,
       });
+    };
+
+    const onChange = (event: Event) => {
+      const element = clickedElement(event.target);
+      if (!(element instanceof HTMLSelectElement)) return;
+      const control = element.getAttribute("data-google-ads-control-id");
+      if (isGoogleAdsBookingControl(control)) recordPageEvent("control_clicked", { targetType: "button", targetId: control, ctaPlacement: safePlacement(element) });
     };
 
     const onPageHide = () => {
@@ -434,6 +448,7 @@ export default function GoogleAdsJourneyBoundary() {
     document.addEventListener("click", onClick, true);
     document.addEventListener("focusin", onFocus, true);
     document.addEventListener("input", onInput, true);
+    document.addEventListener("change", onChange, true);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pagehide", onPageHide);
     window.addEventListener("focus", onWindowFocus);
@@ -455,6 +470,7 @@ export default function GoogleAdsJourneyBoundary() {
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("focusin", onFocus, true);
       document.removeEventListener("input", onInput, true);
+      document.removeEventListener("change", onChange, true);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("focus", onWindowFocus);

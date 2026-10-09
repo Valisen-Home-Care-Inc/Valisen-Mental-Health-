@@ -288,6 +288,7 @@ export async function completeQuizResultEmailDelivery(input: {
 }
 
 export type ConsultationLeadRecordInput = {
+  previousContactReference?: string;
   consultationReferenceId?: string;
   quizReferenceId?: string;
   clientSubmissionId?: string;
@@ -329,7 +330,8 @@ export type ConsultationLeadRecordResult = {
 export async function upsertConsultationLead(
   input: ConsultationLeadRecordInput,
 ): Promise<ConsultationLeadRecordResult> {
-  return callSupabaseRpc("upsert_consultation_lead", {
+  return callSupabaseRpc(input.previousContactReference ? "upsert_consultation_followup" : "upsert_consultation_lead", {
+    ...(input.previousContactReference ? { p_contact_reference: input.previousContactReference } : {}),
     p_consultation_reference_id: input.consultationReferenceId ?? null,
     p_quiz_reference_id: input.quizReferenceId ?? null,
     p_client_submission_id: input.clientSubmissionId ?? null,

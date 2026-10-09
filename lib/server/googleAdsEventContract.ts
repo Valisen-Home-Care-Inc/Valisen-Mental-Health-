@@ -13,6 +13,7 @@ import {
   type GoogleAdsEventName,
   type GoogleAdsTargetType,
 } from "@/lib/googleAdsJourney";
+import { isGoogleAdsBookingControl, isGoogleAdsBookingCta } from "@/lib/googleAdsBookingControls";
 
 const MAX_SESSION_AGE_MS = GOOGLE_ADS_JOURNEY_MAX_AGE_MS;
 const MAX_FUTURE_SKEW_MS = 10 * 60 * 1000;
@@ -200,14 +201,14 @@ function validTargetShape(event: GoogleAdsEventRecord): boolean {
     case "control_clicked":
       return (
         event.targetType === "button" &&
-        (event.targetId === "button" || event.targetId === "submit") &&
+        (event.targetId === "button" || event.targetId === "submit" || isGoogleAdsBookingControl(event.targetId)) &&
         !event.targetPath
       );
     case "consultation_cta_clicked":
       return (
         event.targetType === "consultation" &&
-        Boolean(event.targetPath && CONSULTATION_PATHS.has(event.targetPath)) &&
-        !event.targetId
+        Boolean(event.targetPath && (CONSULTATION_PATHS.has(event.targetPath) || CONSULTATION_FORM_PATHS.has(event.targetPath))) &&
+        (!event.targetId || isGoogleAdsBookingCta(event.targetId))
       );
     case "phone_clicked":
       return event.targetType === "phone" && !event.targetPath && !event.targetId;
@@ -341,6 +342,7 @@ export function parseGoogleAdsEvent(input: unknown): GoogleAdsEventRecord | null
     (targetPath !== undefined && !isTrackedPath(targetPath)) ||
     (targetId !== undefined &&
       !FORM_FIELD_IDS.has(targetId) &&
+      !isGoogleAdsBookingControl(targetId) &&
       targetId !== "button" &&
       targetId !== "submit") ||
     (ctaPlacement !== undefined &&

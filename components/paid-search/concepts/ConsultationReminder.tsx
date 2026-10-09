@@ -57,8 +57,8 @@ export default function ConsultationReminder({ conceptSlug, locale, therapistNam
       <button type="button" className={styles.dismissInvitation} aria-label={t("Dismiss invitation")} onClick={(event) => { recordConceptPreviewEvent("reminder_dismissed", conceptSlug, "reminder", locale, preview); setDesktopVisible(false); if (document.activeElement === event.currentTarget) document.getElementById("fees-and-questions")?.focus({ preventScroll: true }); }}><X size={20} /></button>
       <h2>{t("Meet {name} before deciding.", { name: therapistName })}</h2>
       <p>{t("Book a free 20-minute call to ask questions and see whether working together feels right.")}</p>
-      <button type="button" className={styles.primaryButton} onClick={() => choose("reminder")}>{t("Choose a time")}<ArrowRight size={16} /></button>
+      <button type="button" data-google-ads-control-id={preview ? undefined : "reminder-cta"} className={styles.primaryButton} onClick={() => choose("reminder")}>{t("Request my free consultation")}<ArrowRight size={16} /></button>
     </aside> : null}
-    {mobileVisible ? <div className={styles.mobileSticky}><span>{t("20 minutes. No obligation.")}</span><button type="button" onClick={() => choose("mobile")}>{t("Book a free consultation")}<ArrowRight size={16} /></button></div> : null}
+    {mobileVisible ? <div className={styles.mobileSticky}><span>{t("20 minutes. No obligation.")}</span><button type="button" data-google-ads-control-id={preview ? undefined : "mobile-cta"} onClick={() => choose("mobile")}>{t("Book a free consultation")}<ArrowRight size={16} /></button></div> : null}
   </>;
 }

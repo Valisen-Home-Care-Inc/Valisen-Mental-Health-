@@ -27,6 +27,11 @@ function event(
 }
 
 describe("Google Ads event contract", () => {
+  it("accepts named consultation controls but rejects arbitrary click text", () => {
+    for (const targetId of ["contact-submit","calendar-open","calendar-date","calendar-time","calendar-confirm"]) expect(parseGoogleAdsEvent(event("control_clicked",{ targetType:"button",targetId }))).not.toBeNull();
+    expect(parseGoogleAdsEvent(event("consultation_cta_clicked",{ path:"/welcome/arabic",targetType:"consultation",targetPath:"/welcome/arabic",targetId:"hero-cta" }))).not.toBeNull();
+    expect(parseGoogleAdsEvent(event("control_clicked",{ targetType:"button",targetId:"Visitor private input" }))).toBeNull();
+  });
   it.each(PAID_SEARCH_CONCEPT_PATHS)("accepts named booking stages and reminder metrics on %s", (path) => {
     for (const item of [
       event("form_started", { path, formStep: 1 }),

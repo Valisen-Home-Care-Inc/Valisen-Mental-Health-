@@ -182,6 +182,44 @@ afterEach(() => {
 });
 
 describe("consultation submission boundary", () => {
+  it("saves and emails details before any slot is selected, then emails a linked booking", async () => {
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted:true,capacityTherapistId:"meryem-ibrahim" });
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-09T15:00:00Z"));
+    const contact = payload({ formVariant:"welcome", bookingStage:"contact", lastName:"", landingConcept:"arabic", landingLocale:"ar", preferredTherapist:"meryem-ibrahim", consultationLanguage:"Arabic", consentLanguage:LANDING_BOOKING_CONSENT.ar, consentVersion:LANDING_BOOKING_CONSENT_VERSION, timeOfDay:"flexible" });
+    const first = await POST(request(contact));
+    expect(first.status).toBe(200);
+    const saved = await first.json();
+    expect(saved.continuationToken).toEqual(expect.any(String));
+    expect(flowMocks.claimConsultationSlot).not.toHaveBeenCalled();
+    expect(flowMocks.markConsultationSlotBooked).not.toHaveBeenCalled();
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ preferredTime:expect.stringContaining("Time not selected"), coordinationDetails:expect.stringContaining("CONTACT DETAILS RECEIVED") }));
+    expect(flowMocks.sendMail.mock.calls[0][0].subject).toContain("TIME NOT SELECTED");
+    expect(flowMocks.sendMail.mock.calls[1][0].html).toContain('dir="rtl"');
+    const followup = await POST(request({ ...contact, clientSubmissionId:"22222222-2222-4222-8222-222222222222", bookingStage:"booking", continuationToken:saved.continuationToken, consultationDate:"2026-10-13", consultationTime:"10:40 AM", timeOfDay:"morning" }));
+    expect(followup.status).toBe(200);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenLastCalledWith(expect.objectContaining({ previousContactReference:saved.referenceId }));
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledTimes(1);
+    expect(flowMocks.markConsultationSlotBooked).toHaveBeenCalledTimes(1);
+    const clinic = flowMocks.sendMail.mock.calls.map(([mail])=>mail).filter(mail=>mail.to === "info@valisenmentalhealth.com");
+    expect(clinic).toHaveLength(2); expect(clinic[1].subject).toContain("FOLLOW-UP BOOKED"); expect(clinic[1].text).toContain(saved.referenceId); expect(clinic[1].messageId).not.toBe(clinic[0].messageId);
+    const replay = await POST(request(contact)); expect(replay.status).toBe(200); expect((await replay.json()).continuationToken).toEqual(expect.any(String)); expect(flowMocks.sendMail.mock.calls.filter(([mail])=>mail.to === "info@valisenmentalhealth.com")).toHaveLength(2);
+  });
+  it("rejects a changed contact identity or unsigned calendar follow-up", async () => {
+    const contact = payload({ formVariant:"welcome", bookingStage:"contact", timeOfDay:"flexible" });
+    const saved = await (await POST(request(contact))).json(); flowMocks.claimConsultationSlot.mockClear();
+    for (const overrides of [{ continuationToken:"forged" }, { email:"another@example.com" }]) {
+      const next = await POST(request({ ...contact, clientSubmissionId:"22222222-2222-4222-8222-222222222222", bookingStage:"booking", continuationToken:saved.continuationToken, consultationDate:"2026-10-13", consultationTime:"10:40 AM", ...overrides }));
+      expect(next.status).toBe(400);
+    }
+    expect(flowMocks.claimConsultationSlot).not.toHaveBeenCalled();
+  });
+  it("returns no contact success when clinic delivery fails and retains the durable request for retry", async () => {
+    flowMocks.sendMail.mockRejectedValueOnce(new Error("SMTP unavailable"));
+    const response = await POST(request(payload({ formVariant:"welcome", bookingStage:"contact", timeOfDay:"flexible" })));
+    expect(response.status).toBe(503); expect(await response.json()).not.toHaveProperty("continuationToken");
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalled(); expect(flowMocks.claimConsultationSlot).not.toHaveBeenCalled();
+    expect(flowMocks.completeConsultationNotificationClaim).toHaveBeenCalledWith(expect.any(String),expect.any(String),expect.any(String),"failed");
+  });
   function landingBooking(overrides: Record<string, unknown> = {}) {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
     return payload({ formVariant: "welcome", landingConcept: "arabic", landingLocale: "ar", preferredTherapist: "meryem-ibrahim", consultationLanguage: "Arabic", source: "paid_search_landing", consultationDate: "2026-09-08", consultationTime: "9:20 AM", consentLanguage: LANDING_BOOKING_CONSENT.ar, consentVersion: LANDING_BOOKING_CONSENT_VERSION, ...overrides });
@@ -537,7 +575,6 @@ describe("consultation submission boundary", () => {
 
   it.each([
     { formVariant: "welcome", firstName: "  ", lastName: "" },
-    { lastName: "" },
     { formVariant: "another-form", lastName: "" },
     { formVariant: true, lastName: "" },
   ])("rejects an empty welcome name and preserves other form validation: %j", async (overrides) => {
@@ -545,6 +582,11 @@ describe("consultation submission boundary", () => {
     expect(response.status).toBe(400);
     expect(flowMocks.upsertConsultationLead).not.toHaveBeenCalled();
     expect(flowMocks.sendMail).not.toHaveBeenCalled();
+  });
+  it("allows a single name on the main website consultation form", async () => {
+    const response = await POST(request(payload({ lastName: "" })));
+    expect(response.status).toBe(200);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledWith(expect.objectContaining({ firstName:"Alex",lastName:"" }));
   });
 
   it("accepts only a strict non-PII checkpoint attribution object", async () => {

@@ -7,19 +7,24 @@ import { flushGoogleAdsEvents, getGoogleAdsCampaignAttribution, recordGoogleAdsE
 import { announceConsultationBooked } from "@/lib/useConsultationAvailability";
 import { isCouplesConcept } from "@/lib/paidSearchConcepts";
 import { stageNamedConsultationConfirmation } from "@/lib/namedConsultationConfirmation";
+import { captureCampaignAttribution } from "@/lib/campaignAttribution";
+import { getFirstPartyFunnelSessionId } from "@/lib/funnelTracking";
+import { trackFunnelEvent } from "@/lib/analytics";
 
 export type NamedBookingDetails = {
-  conceptSlug: string; therapistSlug: string; locale: LandingLocale; language: string;
-  date: string; time: string; availability: string;
-  firstName: string; email: string; phone: string; consent: boolean; website: string;
+  conceptSlug?: string; therapistSlug?: string; locale: LandingLocale; language?: string;
+  date?: string; time?: string; availability?: string; stage?: "contact" | "booking";
+  firstName: string; lastName?: string; email: string; phone: string; consent: boolean; website: string; notes?: string;
 };
 
 /** Retries retain the same identity and appointment, including after a lost response. */
 export function useNamedConsultationBooking(onLock: (locked: boolean) => void, onConflict: () => void) {
-  const [busy, setBusy] = useState<"" | "verifying" | "booking">("");
+  const [busy, setBusy] = useState<"" | "verifying" | "booking" | "saving">("");
   const [locked, setLocked] = useState(false);
   const [error, setError] = useState("");
   const [reference, setReference] = useState("");
+  const [contactReference, setContactReference] = useState("");
+  const continuation = useRef<string | null>(null);
   const [executeKey, setExecuteKey] = useState(0);
   const [resetKey, setResetKey] = useState(0);
   const startedAt = useRef(0);
@@ -37,6 +42,7 @@ export function useNamedConsultationBooking(onLock: (locked: boolean) => void, o
     }
   }, []);
   const onVerificationError = useCallback(() => {
+    recordGoogleAdsEvent("consultation_validation_failed", { formStep: pending.current?.stage === "contact" ? 1 : 2 });
     pending.current = null; setBusy("");
     if (!request.current) { setLocked(false); onLock(false); }
     setError("Secure verification could not finish. Please try again.");
@@ -49,20 +55,25 @@ export function useNamedConsultationBooking(onLock: (locked: boolean) => void, o
     if (!token.current) {
       pending.current = details; setBusy("verifying"); setExecuteKey((value) => value + 1); return;
     }
-    inFlight.current = true; setBusy("booking"); setLocked(true); onLock(true);
+    inFlight.current = true; setBusy(details.stage === "contact" ? "saving" : "booking"); setLocked(true); onLock(true);
     if (!request.current) {
       const ads = isGoogleAdsJourneyActive();
+      const nameParts = details.firstName.trim().replace(/\s+/g, " ").split(" ");
       request.current = {
         formVariant: "welcome", landingConcept: details.conceptSlug, landingLocale: details.locale,
-        preferredTherapist: details.therapistSlug, consultationLanguage: details.language,
+        ...(details.conceptSlug ? { preferredTherapist: details.therapistSlug, consultationLanguage: details.language } : { landingLocale: undefined }),
+        ...(details.stage ? { bookingStage: details.stage, ...(details.stage === "booking" ? { continuationToken: continuation.current } : {}) } : {}),
         consultationDate: details.date, consultationTime: details.time,
-        clientSubmissionId: crypto.randomUUID(), formStartedAt: startedAt.current,
-        firstName: details.firstName.trim(), lastName: "", email: details.email.trim(), phone: details.phone.trim(),
-        reason: isCouplesConcept(details.conceptSlug) ? "Couples Therapy" : "Not Sure",
-        days: CONSULTATION_DAYS, timeOfDay: details.availability,
-        consent: details.consent, consentLanguage: LANDING_BOOKING_CONSENT[details.locale], consentVersion: LANDING_BOOKING_CONSENT_VERSION,
+        clientSubmissionId: details.stage === "booking" && contactReference ? `booking-${contactReference.slice(3)}` : crypto.randomUUID(), formStartedAt: startedAt.current,
+        firstName: details.lastName === undefined ? nameParts[0] : details.firstName.trim(), lastName: details.lastName === undefined ? nameParts.slice(1).join(" ") : details.lastName.trim(), email: details.email.trim(), phone: details.phone.trim(), notes: details.notes,
+        reason: details.conceptSlug && isCouplesConcept(details.conceptSlug) ? "Couples Therapy" : "Not Sure",
+        days: CONSULTATION_DAYS, timeOfDay: details.availability || "flexible",
+        consent: details.consent,
+        consentLanguage: details.conceptSlug ? LANDING_BOOKING_CONSENT[details.locale] : "I consent to Valisen Mental Health using the name, email address, and phone number I have provided to contact me regarding my consultation request and to coordinate a consultation within my preferred availability.",
+        consentVersion: details.conceptSlug ? LANDING_BOOKING_CONSENT_VERSION : "consultation-coordination-v1",
         source: ads ? "google_ads" : "paid_search_landing", website: details.website,
         ...(ads ? { googleAdsSessionId: startGoogleAdsTracking() || activeGoogleAdsSessionId(), googleAdsJourneyToken: getGoogleAdsJourneyToken(), attribution: getGoogleAdsCampaignAttribution() } : {}),
+        ...(!ads && !details.conceptSlug ? { funnelSessionId:getFirstPartyFunnelSessionId() || undefined, attribution:captureCampaignAttribution(window.location.search) } : {}),
       };
     }
     const saved = request.current;
@@ -74,6 +85,7 @@ export function useNamedConsultationBooking(onLock: (locked: boolean) => void, o
       });
       const body = await response.json().catch(() => null);
       if (response.status === 409 && body?.slotUnavailable) {
+        recordGoogleAdsEvent("consultation_validation_failed", { formStep: 2, targetType: "form_field", targetId:"availability" });
         request.current = null; setLocked(false); onLock(false); onConflict();
         setError("That time is no longer available. Please choose another time."); return;
       }
@@ -83,21 +95,32 @@ export function useNamedConsultationBooking(onLock: (locked: boolean) => void, o
         if ([400, 403].includes(response.status)) { request.current = null; setLocked(false); onLock(false); }
         throw new Error("unconfirmed");
       }
+      if (saved.bookingStage === "contact") {
+        if (typeof body.continuationToken !== "string") throw new Error("missing continuation");
+        continuation.current = body.continuationToken;
+        setContactReference(confirmed); request.current = null;
+        setLocked(false); onLock(false);
+        if (saved.googleAdsSessionId) recordGoogleAdsEvent("consultation_submitted", { formStep: 1, submissionReference: confirmed });
+        else if (!saved.landingConcept) trackFunnelEvent("consultation_request_submitted", { page:"paid_search_landing",ctaPlacement:"consultation_primary",funnelStep:1 });
+        return;
+      }
       setReference(confirmed); announceConsultationBooked();
       if (saved.googleAdsSessionId) {
         recordGoogleAdsEvent("consultation_submitted", { formStep: 2, submissionReference: confirmed });
         // A neutral confirmation document keeps therapy-topic URLs out of Ads tags.
-        const handoff = stageNamedConsultationConfirmation({ reference: confirmed, therapistSlug: String(saved.preferredTherapist), date: String(saved.consultationDate), time: String(saved.consultationTime), language: String(saved.consultationLanguage), locale: saved.landingLocale as LandingLocale });
-        if (handoff) void completeAdsConversion(saved, confirmed, body.googleAdsConversionReceipt);
+        const handoff = saved.landingConcept ? stageNamedConsultationConfirmation({ reference: confirmed, therapistSlug: String(saved.preferredTherapist), date: String(saved.consultationDate), time: String(saved.consultationTime), language: String(saved.consultationLanguage), locale: saved.landingLocale as LandingLocale }) : true;
+        if (handoff) void completeAdsConversion(saved, contactReference || confirmed, body.googleAdsConversionReceipt);
       }
     } catch {
-      setError("We couldn’t confirm your booking. Please try again or call 613-707-0333.");
+      recordGoogleAdsEvent("consultation_validation_failed", { formStep: saved.bookingStage === "contact" ? 1 : 2 });
+      if (!saved.googleAdsSessionId && !saved.landingConcept) trackFunnelEvent("consultation_form_validation_failed", { page:"paid_search_landing",ctaPlacement:"consultation_primary",funnelStep:saved.bookingStage === "contact" ? 1 : 2 });
+      setError(saved.bookingStage === "contact" ? "We couldn’t confirm your request. Please try again or call 613-707-0333." : "We couldn’t confirm your booking. Please try again or call 613-707-0333.");
     } finally {
       inFlight.current = false; token.current = null; setResetKey((value) => value + 1); setBusy("");
     }
   }
   useEffect(() => { sendRef.current = send; });
-  return { busy, locked, error, reference, executeKey, resetKey, onToken, onVerificationError, submit: send };
+  return { busy, locked, error, reference, contactReference, executeKey, resetKey, onToken, onVerificationError, submit: send };
 }
 
 async function completeAdsConversion(saved: Record<string, unknown>, referenceId: string, receipt: unknown) {

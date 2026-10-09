@@ -1,6 +1,7 @@
 "use client";
 
 import { type CampaignAttribution } from "@/lib/campaignAttribution";
+import type { GoogleAdsBookingControl } from "@/lib/googleAdsBookingControls";
 import {
   GOOGLE_ADS_PENDING_STORAGE_KEY,
   GOOGLE_ADS_SESSION_STORAGE_KEY,
@@ -58,7 +59,7 @@ export type GoogleAdsEventProperties = {
   sectionId?: string;
   targetType?: GoogleAdsTargetType;
   targetPath?: string;
-  targetId?: GoogleAdsFormFieldId | "button" | "submit";
+  targetId?: GoogleAdsFormFieldId | GoogleAdsBookingControl | "button" | "submit";
   ctaPlacement?: GoogleAdsCtaPlacement;
   therapistId?: string;
   engagedMs?: number;

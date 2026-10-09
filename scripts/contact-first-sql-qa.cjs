@@ -1,0 +1,37 @@
+// Uses isolated PostgreSQL in memory. Never connects to the operations database.
+const fs=require('node:fs'); const path=require('node:path'); const assert=require('node:assert/strict');
+const {PGlite}=require(process.argv[2]);
+const {btree_gist}=require(path.join(process.argv[2],'dist/contrib/btree_gist.cjs'));
+const {pgcrypto}=require(path.join(process.argv[2],'dist/contrib/pgcrypto.cjs'));
+(async()=>{ const db=new PGlite({extensions:{btree_gist,pgcrypto}}); try {
+ await db.exec('create role anon; create role authenticated; create role service_role;');
+ const directory=path.join(__dirname,'../supabase/migrations');
+ for(const name of fs.readdirSync(directory).filter(n=>n.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(path.join(directory,name),'utf8').replace(/\r\n/g,'\n'));
+ await db.exec(fs.readFileSync(path.join(directory,'20261009000000_contact_first_ads_booking.sql'),'utf8'));
+ const query=async(sql,values=[]) => (await db.query(sql,values)).rows;
+ const value=async(sql,values=[]) => (await query(sql,values))[0].result;
+ const contact='VC-111111111111111111111111', booking='VC-222222222222222222222222';
+ const args=(ref,id,notes,time) => [ref,null,id,'Test',null,'qa@example.invalid','6135550100','Not Sure','Meryem Ibrahim','Monday to Sunday',time,notes,'I consent to contact','test-consent',new Date().toISOString(),'google_ads','google_ads',null,null,null,null,'google','cpc','manual_test',null,null,'pending',new Date().toISOString()];
+ const call=async(name,values)=>value(`select public.${name}(${values.map((_,i)=>'$'+(i+1)).join(',')}) as result`,values);
+ const first=await call('upsert_consultation_lead',args(contact,'contact-first-test-11111','CONTACT DETAILS RECEIVED — DATE/TIME NOT SELECTED.','Time not selected'));
+ assert.equal(first.accepted,true);
+ const follow=await call('upsert_consultation_followup',[contact,...args(booking,'booking-first-test-22222','FOLLOW-UP BOOKING','Tuesday 9:00 AM')]);
+ assert.equal(follow.leadId,first.leadId); assert.equal(follow.created,false);
+ assert.equal((await query('select count(*)::integer as n from public.consultation_leads'))[0].n,1);
+ assert.equal((await query('select count(*)::integer as n from public.consultation_requests'))[0].n,2);
+ assert.equal((await query('select is_test from public.consultation_leads'))[0].is_test,true);
+ const retry=await call('upsert_consultation_followup',[contact,...args(booking,'booking-first-test-22222','FOLLOW-UP BOOKING','Tuesday 9:00 AM')]); assert.equal(retry.leadId,first.leadId);
+ const badArgs=args('VC-333333333333333333333333','booking-third-test-33333','FOLLOW-UP BOOKING','Tuesday 9:00 AM'); badArgs[5]='someone-else@example.invalid';
+ await assert.rejects(call('upsert_consultation_followup',[contact,...badArgs]));
+ const date=(await query("select d::date::text as date from generate_series(((now() at time zone 'America/Toronto')::date+1)::timestamp,((now() at time zone 'America/Toronto')::date+7)::timestamp,interval '1 day') d where extract(dow from d)=2 limit 1"))[0].date;
+ const claim=await value("select public.claim_consultation_slot_v2($1::date,'9:00 AM','booking-first-test-22222',$2,'welcome',array['meryem-ibrahim']) as result",[date,booking]); assert.equal(claim.accepted,true);
+ const mark=await value('select public.mark_consultation_slot_booked($1) as result',[booking]); assert.equal(mark.leadId,first.leadId); assert.equal(mark.conversionStage,'consultation_booked');
+ const slots=await value("select public.get_booked_consultation_slots_v2($1::date,$1::date,array['meryem-ibrahim']) as result",[date]); assert.ok(slots.some(slot=>slot.time==='9:00 AM'));
+ const now=new Date().toISOString();const controls=['hero-cta','contact-submit','calendar-open','calendar-date','calendar-time','calendar-confirm'];
+ const events=controls.map((id,i)=>({eventId:`gae-contact-first-test-${i}`,sequence:i+1,occurredAt:now,event:id==='hero-cta'?'consultation_cta_clicked':'control_clicked',path:'/welcome/arabic',targetType:id==='hero-cta'?'consultation':'button',targetId:id,...(id==='hero-cta'?{targetPath:'/welcome/arabic'}:{}),elapsedMs:100,deviceCategory:'desktop',googleClickIdPresent:true}));
+ await value('select public.ingest_google_ads_events($1,$2::timestamptz,$3,$4::jsonb) as result',['gas-contact-first-test-11111',now,'/welcome/arabic',JSON.stringify(events)]);
+ assert.equal((await query('select count(*)::integer as n from public.google_ads_events'))[0].n,controls.length);
+ await assert.rejects(value('select public.ingest_google_ads_events($1,$2::timestamptz,$3,$4::jsonb) as result',['gas-contact-first-test-11111',now,'/welcome/arabic',JSON.stringify([{...events[0],eventId:'gae-private-control-test',targetId:'private-contact-value'}])]));
+ const grants=await query("select has_function_privilege('anon',oid,'EXECUTE') as allowed from pg_proc where pronamespace='public'::regnamespace and proname='upsert_consultation_followup'");assert.equal(grants[0].allowed,false);
+ console.log('PASS: real migration chain, rerun, one lead/two requests, verified parent, retry deduplication, QA isolation, shared capacity, detailed control ingestion, and permissions.');
+ }finally{await db.close();}})().catch(error=>{console.error(error);process.exitCode=1;});

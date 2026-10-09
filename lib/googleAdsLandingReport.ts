@@ -135,7 +135,7 @@ export function buildGoogleAdsLandingReport(
     ["consultation_cta", "Consultation CTA clicked", kpis.consultationCtaSessions],
     ["consultation_page", "Consultation form opened", formOpened.size],
     ["form_starts", "Form started", kpis.formStarts],
-    ["consultation_step_2", landingPath === null ? "Second form step reached" : isFocusedLandingPath(landingPath) ? "Contact details reached" : "Availability reached", availability.size],
+    ["consultation_step_2", "Second booking step reached", availability.size],
     ["consultation_requests", "Confirmed requests", kpis.consultationRequests],
     ["booked_consultations", "Consultations booked", kpis.bookedConsultations],
     ["paid_therapy", "Paid therapy", kpis.paidTherapyConversions],

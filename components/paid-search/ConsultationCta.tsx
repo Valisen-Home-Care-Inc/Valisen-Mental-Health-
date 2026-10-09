@@ -32,6 +32,7 @@ export default function ConsultationCta({
       event="consultation_request_clicked"
       page="paid_search_landing"
       placement={placement}
+      googleAdsControlId={placement === "navigation" ? "header-cta" : placement === "mobile_sticky" ? "mobile-cta" : placement.startsWith("hero") ? "hero-cta" : "closing-cta"}
       className={className}
       ariaLabel={ariaLabel}
       onClick={(event) => {
@@ -40,6 +41,8 @@ export default function ConsultationCta({
         // manual control instead of letting both run.
         event.preventDefault();
         onNavigate?.();
+        const savedForm = document.querySelector<HTMLElement>('[data-booking-step="received"], [data-booking-step="calendar"]');
+        if (savedForm) { savedForm.scrollIntoView({ behavior: "smooth", block:"center" }); return; }
         window.history.replaceState(window.history.state, "", `#${CONSULTATION_ANCHOR_ID}`);
         window.requestAnimationFrame(() => scrollToSection(CONSULTATION_ANCHOR_ID));
       }}

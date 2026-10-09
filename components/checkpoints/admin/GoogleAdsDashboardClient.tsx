@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import CrmReportingPeriodPanel from "@/components/checkpoints/admin/CrmReportingPeriodPanel";
+import GoogleAdsConsultationAnalysisPanel from "@/components/checkpoints/admin/GoogleAdsConsultationAnalysis";
+import { GOOGLE_ADS_BOOKING_CONTROLS, isGoogleAdsBookingControl } from "@/lib/googleAdsBookingControls";
 import { formatCount, formatPercent } from "@/components/checkpoints/admin/MetricVisuals";
 import type { CheckpointDatePreset } from "@/lib/checkpoints/dashboardMetrics";
 import GoogleAdsLandingActivity from "./GoogleAdsLandingActivity";
@@ -187,6 +189,7 @@ function finalUrlLabel(pathname: string): string {
 }
 
 function fieldLabel(value: string): string {
+  if (isGoogleAdsBookingControl(value)) return GOOGLE_ADS_BOOKING_CONTROLS[value];
   const labels: Record<string, string> = {
     "full-name": "Full-name field",
     "first-name": "First-name field",
@@ -234,7 +237,7 @@ function kpiCards(data: GoogleAdsDashboardData) {
     {
       label: "Form starts",
       value: formatCount(kpis.formStarts),
-      note: `${formatPercent(rate(kpis.formStarts, kpis.consultationCtaSessions))} of CTA sessions`,
+      note: kpis.consultationCtaSessions ? `${formatPercent(rate(kpis.formStarts, kpis.consultationCtaSessions))} of CTA sessions` : "Visitors who started entering details",
       icon: FileText,
     },
     {
@@ -282,10 +285,16 @@ export default function GoogleAdsDashboardClient({
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [analysisQuery, setAnalysisQuery] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState(
     initialData?.generatedAt || new Date().toISOString(),
   );
   const requestSequence = useRef(0);
+  function analyze(filter: "all" | "cta" | "started") {
+    const params = new URLSearchParams({ range, scope, landingPath, filter });
+    if (range === "custom") { params.set("from",customFrom); params.set("to",customTo); }
+    setAnalysisQuery(params.toString());
+  }
 
   async function loadData(nextRange = range, nextScope = scope, nextLandingPath = landingPath) {
     const requestId = ++requestSequence.current;
@@ -590,13 +599,14 @@ export default function GoogleAdsDashboardClient({
                     {metric.value}
                   </p>
                   <p className="mt-1 text-[10.5px] leading-4 text-[#8a9491]">{metric.note}</p>
+                  {metric.label === "Consult CTA sessions" || metric.label === "Form starts" ? <button type="button" onClick={() => analyze(metric.label === "Form starts" ? "started" : "cta")} className="mt-2 text-[11px] font-semibold text-[#287267] underline underline-offset-2">Analyze</button> : null}
                 </article>
               );
             })}
           </section>
 
           <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(310px,.65fr)]">
-            <JourneyFunnel data={data} />
+            <div><JourneyFunnel data={data} /><button type="button" onClick={() => analyze("all")} className="mt-2 text-xs font-semibold text-[#287267] underline underline-offset-2">Analyze consultation engagement</button></div>
             <article className="rounded-[20px] bg-gradient-to-br from-[#173f3d] via-[#1c514d] to-[#327169] p-6 text-white shadow-[0_14px_44px_rgba(24,73,68,.18)]">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[1.3px] text-white/60">
                 <Flag size={14} aria-hidden="true" />
@@ -677,6 +687,7 @@ export default function GoogleAdsDashboardClient({
           />
         </div>
       ) : null}
+      {analysisQuery ? <GoogleAdsConsultationAnalysisPanel query={analysisQuery} onClose={() => setAnalysisQuery(null)} /> : null}
     </main>
   );
 }

@@ -3,14 +3,35 @@ export type LandingTranslations = Record<string, string>;
 export const localeTag = (locale: LandingLocale) => locale === "en" ? "en-CA" : locale === "ar" ? "ar" : "zh-CN";
 
 export const LANDING_BOOKING_CONSENT = {
+  en: "I agree that Valisen Mental Health may use my name, email address, and phone number to contact me about my free 20-minute phone consultation request and book a time if I choose one.",
+  ar: "أوافق على أن تستخدم فاليسن للصحة النفسية اسمي وعنوان بريدي الإلكتروني ورقم هاتفي للتواصل معي بشأن طلبي لاستشارة هاتفية مجانية لمدة 20 دقيقة، وحجز موعد إذا اخترت واحدًا.",
+  "zh-Hans": "我同意 Valisen 心理健康使用我的姓名、电子邮箱和电话号码，就我的免费20分钟电话咨询申请与我联系，并在我选择时间后为我预约。",
+} satisfies Record<LandingLocale, string>;
+export const LANDING_BOOKING_CONSENT_VERSION = "landing-consultation-contact-first-v3";
+// Accept already-open pages during deployment; new forms always use v3.
+export const LEGACY_LANDING_BOOKING_CONSENT = {
   en: "I agree that Valisen Mental Health may use my name, email address, and phone number to book my free 20-minute phone consultation with the selected therapist at the selected time and contact me about it.",
   ar: "أوافق على أن تستخدم فاليسن للصحة النفسية اسمي وعنوان بريدي الإلكتروني ورقم هاتفي لحجز استشارتي الهاتفية المجانية لمدة 20 دقيقة مع المعالج الذي اخترته في الموعد المحدد والتواصل معي بشأنها.",
   "zh-Hans": "我同意 Valisen 心理健康使用我的姓名、电子邮箱和电话号码，为我预约在所选时间与所选治疗师进行的免费20分钟电话咨询，并就此与我联系。",
-} satisfies Record<LandingLocale, string>;
-export const LANDING_BOOKING_CONSENT_VERSION = "landing-consultation-booking-v2";
+} satisfies Record<LandingLocale,string>;
 
 /** Each row preserves the complete English information in Arabic and Mandarin. */
 const rows: Array<[string, string, string]> = [
+  ["Full name", "الاسم الكامل", "姓名"],
+  ["We’ve received your details.", "لقد تلقّينا بياناتك.", "我们已收到你的联系信息。"],
+  ["Your consultation request is saved. A date and time have not been booked yet. Our team will contact you to arrange your free 20-minute phone consultation.", "تم حفظ طلب استشارتك. لم يتم حجز تاريخ ووقت بعد. سيتواصل معك فريقنا لترتيب استشارتك الهاتفية المجانية لمدة 20 دقيقة.", "你的咨询申请已保存，目前尚未预约日期和时间。我们的团队会联系你，安排免费20分钟电话咨询。"],
+  ["To contact the clinic, reply to this email or call 613-707-0333.", "للتواصل مع العيادة، يُرجى الرد على هذا البريد الإلكتروني أو الاتصال على 613-707-0333.", "如需联系诊所，请回复此邮件或致电613-707-0333。"],
+  ["Want to confirm your call now?", "هل ترغب في تأكيد موعد مكالمتك الآن؟", "想现在确定通话时间吗？"],
+  ["Choose an available time to book your call. Otherwise, our team will help you arrange a time.", "اختر موعدًا متاحًا لحجز مكالمتك. أو سيساعدك فريقنا على ترتيب موعد.", "选择一个可用时间预约通话。你也可以让我们的团队协助安排时间。"],
+  ["Choose a time now", "اختر موعدًا الآن", "现在选择时间"],
+  ["I’ll arrange a time with the clinic", "سأرتّب موعدًا مع العيادة", "我会与诊所协商时间"],
+  ["Request my free consultation", "اطلب استشارتي المجانية", "申请免费咨询"],
+  ["Saving your request…", "جارٍ حفظ طلبك…", "正在保存申请…"],
+  ["Confirm my consultation time", "أكّد موعد استشارتي", "确认咨询时间"],
+  ["Your details are already saved. Choose a time to confirm your consultation.", "تم حفظ بياناتك بالفعل. اختر موعدًا لتأكيد استشارتك.", "你的联系信息已保存。请选择时间以确认咨询预约。"],
+  ["Share your details first. You can choose a time afterward.", "أرسل بياناتك أولًا. يمكنك اختيار موعد بعد ذلك.", "先提交联系信息，之后可以选择时间。"],
+  ["Your request is saved. We’ll help you arrange a time.", "تم حفظ طلبك. سنساعدك على ترتيب موعد.", "你的申请已保存。我们会协助安排时间。"],
+  ["We couldn’t confirm your request. Please try again or call 613-707-0333.", "لم نتمكّن من تأكيد طلبك. يُرجى المحاولة مجددًا أو الاتصال على 613-707-0333.", "我们未能确认你的申请。请重试或致电613-707-0333。"],
   ["Hello {name},", "مرحبًا {name}،", "{name}，你好："],
   ["{name} will call the number you provided at your selected time. This introductory conversation is separate from a full therapy session.", "سيتصل بك {name} على الرقم الذي قدّمته في الموعد الذي اخترته. هذه المحادثة التعارفية منفصلة عن جلسة العلاج النفسي الكاملة.", "{name}将在你选择的时间拨打你提供的电话号码。这是一次初步交流，与完整的心理治疗会谈不同。"],
   ["To change or cancel your consultation, reply to this email or call 613-707-0333.", "لتغيير موعد استشارتك أو إلغائها، يُرجى الرد على هذا البريد الإلكتروني أو الاتصال على 613-707-0333.", "如需更改或取消咨询，请回复此邮件或致电613-707-0333。"],

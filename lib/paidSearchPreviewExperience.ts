@@ -18,8 +18,9 @@ export function previewSessionMark(key: string) {
 export function recordConceptPreviewEvent(event: PreviewEventName, concept: string, placement: PreviewPlacement, locale: string, preview = true) {
   if (!preview) {
     const sectionId = placement === "reminder" ? "section-99" : undefined;
-    if (event === "cta_clicked") recordGoogleAdsEvent("consultation_cta_clicked", { targetType: "consultation", targetPath: "/consultation", ctaPlacement: placement === "header" ? "navigation" : "main", sectionId });
-    if (event === "booking_started") { recordGoogleAdsEvent("form_started", { formStep: 1 }); recordGoogleAdsEvent("consultation_step_viewed", { formStep: 1 }); }
+    // Live CTA clicks are recorded once by the boundary using each control's
+    // static identifier. Form starts are recorded on actual field interaction.
+    if (event === "booking_started") recordGoogleAdsEvent("consultation_step_viewed", { formStep: 1 });
     if (event === "details_viewed") recordGoogleAdsEvent("consultation_step_viewed", { formStep: 2 });
     if (event === "reminder_exposed") recordGoogleAdsEvent("section_viewed", { sectionId: "section-99" });
     if (event === "reminder_dismissed") recordGoogleAdsEvent("control_clicked", { targetType: "button", targetId: "button", sectionId: "section-99", ctaPlacement: "main" });
