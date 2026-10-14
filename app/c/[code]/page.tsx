@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import CheckpointExperience from "@/components/checkpoints/CheckpointExperience";
+import MentalBatteryJourney from "@/components/checkpoints/journey/MentalBatteryJourney";
+import { checkpointClinicians } from "@/lib/checkpoints/journey/clinicians";
+import { checkpointJourneyReady } from "@/lib/server/checkpointJourneyRepository";
 import {
   CHECKPOINT_CODES,
   isCheckpointCode,
@@ -9,6 +12,8 @@ import {
 type CheckpointPageProps = {
   params: Promise<{ code: string }>;
 };
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Mental Battery Checkpoint",
@@ -34,5 +39,7 @@ export default async function CheckpointPage({ params }: CheckpointPageProps) {
   const { code } = await params;
   if (!isCheckpointCode(code)) notFound();
 
-  return <CheckpointExperience checkpointCode={code} />;
+  // Never replace working requests with a form whose database migration is missing.
+  if (!await checkpointJourneyReady()) return <CheckpointExperience checkpointCode={code} />;
+  return <MentalBatteryJourney key={code} checkpointCode={code} clinicians={checkpointClinicians()} />;
 }

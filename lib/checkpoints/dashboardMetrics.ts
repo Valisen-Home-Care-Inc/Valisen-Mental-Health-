@@ -1,4 +1,5 @@
 import type { CheckpointActionIntent } from "@/lib/checkpoints/config";
+import type { JourneyReport } from "@/lib/checkpoints/journey/contract";
 
 export const CHECKPOINT_DATE_PRESETS = [
   "today",
@@ -98,6 +99,7 @@ export type CheckpointLeadAttribution = {
 };
 
 export type CheckpointDashboardData = {
+  journey?: JourneyReport;
   generatedAt: string;
   range: { from: string; to: string };
   kpis: CheckpointKpis;
@@ -128,6 +130,7 @@ export type CheckpointDayOfWeekMetric = {
 };
 
 export type CheckpointDetailData = {
+  journey?: JourneyReport;
   generatedAt: string;
   range: { from: string; to: string };
   checkpoint: {

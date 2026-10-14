@@ -7,6 +7,8 @@ import {
 } from "@/lib/checkpoints/dashboardMetrics";
 import type { CheckpointEventName } from "@/lib/checkpoints/events";
 import { callSupabaseRpc } from "@/lib/server/supabaseServer";
+import { fetchJourneyReport } from "@/lib/server/checkpointJourneyRepository";
+import { withLegacyJourneyMetrics } from "@/lib/checkpoints/journey/report";
 
 export type PersistCheckpointEventInput = {
   clientEventId: string;
@@ -100,18 +102,20 @@ export async function fetchCheckpointDashboard(
   from: string,
   to: string,
 ): Promise<CheckpointDashboardData> {
-  const [data, actions] = await Promise.all([
+  const [data, actions, journey] = await Promise.all([
     callSupabaseRpc<CheckpointDashboardData>("get_checkpoint_dashboard", {
       p_from: from,
       p_to: to,
     }, 15_000),
     fetchCheckpointActions(from, to),
+    fetchJourneyReport(from, to),
   ]);
   const byCheckpoint = new Map(
     actions.checkpoints.map((item) => [item.code, item.count]),
   );
   return {
     ...data,
+    ...(journey ? { journey: withLegacyJourneyMetrics(journey,data.kpis.checkinsCompleted,data.questionSteps ?? []) } : {}),
     kpis: {
       ...data.kpis,
       therapistIntent: actions.total,
@@ -141,7 +145,7 @@ export async function fetchCheckpointDetail(
   cumulativeFrom?: string,
 ): Promise<CheckpointDetailData> {
   const cumulativeTo = new Date().toISOString();
-  const [data, actions, cumulativeActions, reportingPeriodData] = await Promise.all([
+  const [data, actions, cumulativeActions, reportingPeriodData, journey] = await Promise.all([
     callSupabaseRpc<CheckpointDetailData>("get_checkpoint_detail", {
       p_checkpoint_code: checkpointCode,
       p_from: from,
@@ -160,12 +164,14 @@ export async function fetchCheckpointDetail(
           p_to: cumulativeTo,
         }, 15_000)
       : Promise.resolve(null),
+    fetchJourneyReport(from, to, checkpointCode),
   ]);
   const byPlacement = new Map(actions.placements.map((item) => [item.id, item.count]));
   const byDate = new Map(actions.daily.map((item) => [item.date, item.count]));
   const byDay = new Map(actions.dayOfWeek.map((item) => [item.dayIndex, item.count]));
   return {
     ...data,
+    ...(journey ? { journey: withLegacyJourneyMetrics(journey,data.kpis.checkinsCompleted,data.questionSteps ?? []) } : {}),
     kpis: {
       ...data.kpis,
       therapistIntent: actions.total,

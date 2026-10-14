@@ -4,6 +4,7 @@ const rpc = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/server/supabaseServer", () => ({
   callSupabaseRpc: rpc,
+  isCheckpointDatabaseConfigured: () => false,
 }));
 
 import {

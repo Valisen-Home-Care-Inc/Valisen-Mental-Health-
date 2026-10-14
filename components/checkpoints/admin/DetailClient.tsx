@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import CheckpointJourneyPanel from "./CheckpointJourneyPanel";
 import {
   ArrowLeft,
   CalendarClock,
@@ -229,6 +230,7 @@ export default function DetailClient({
         <article className="rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6"><div className="mb-5"><p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#64827d]">Core funnel</p><h2 className="mt-1 text-[20px] font-semibold tracking-[-0.5px]">From tap to result</h2></div><FunnelVisual stages={data.funnel} /></article>
       </section>
 
+          {data.journey ? <CheckpointJourneyPanel report={data.journey} intents={data.intentMix ?? []} range={data.range} code={code} /> : <>
       <section className="mt-5" aria-label="Intent and result action segmentation">
         <CheckpointSegmentation
           actions={data.resultActions ?? []}
@@ -240,6 +242,7 @@ export default function DetailClient({
         <div className="mb-5"><p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#64827d]">Question exits</p><h2 id="question-exits-title" className="mt-1 text-[20px] font-semibold tracking-[-0.5px]">Where this checkpoint loses check-ins</h2></div>
         <QuestionStepVisual steps={data.questionSteps ?? []} completedCheckIns={kpis.checkinsCompleted} />
       </section>
+          </>}
 
       {kpis.sessions >= 30 && data.dayOfWeek.length ? (
         <section className="mt-5 rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_34px_rgba(25,47,43,0.05)] sm:p-6">

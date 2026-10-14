@@ -53,7 +53,8 @@ const nextConfig = {
           { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
           {
             key: "Content-Security-Policy",
-            value: privateRouteCsp,
+            // Permit only the existing request bot challenge, with marketing still excluded.
+            value: adminLoginCsp,
           },
         ],
       },

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import CheckpointJourneyPanel from "./CheckpointJourneyPanel";
 import {
   ArrowDown,
   ArrowUp,
@@ -303,6 +304,7 @@ export default function DashboardClient({
             </article>
           </section>
 
+          {data.journey ? <CheckpointJourneyPanel report={data.journey} intents={data.intentMix ?? []} range={data.range} /> : <>
           <section className="mt-5" aria-label="Intent and result action segmentation">
             <CheckpointSegmentation
               actions={data.resultActions ?? []}
@@ -320,6 +322,7 @@ export default function DashboardClient({
             </div>
             <QuestionStepVisual steps={data.questionSteps ?? []} completedCheckIns={data.kpis.checkinsCompleted} />
           </section>
+          </>}
 
           <section className="mt-8" aria-labelledby="checkpoint-grid-title">
             <div className="mb-4 flex items-end justify-between gap-4">
