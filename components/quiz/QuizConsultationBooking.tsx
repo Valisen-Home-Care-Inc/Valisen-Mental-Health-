@@ -190,7 +190,7 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
         <p className={styles.bookConsent}>By tapping “Book now”, you confirm: {QUIZ_BOOKING_CONSENT_TEXT}</p>
       </div>
       {error ? <p role="alert" className={styles.bookError}>{error}</p> : null}
-      <TurnstileWidget action="consultation_request" execution="execute" executeKey={executeKey} onToken={handleToken} onError={handleVerificationError} resetKey={resetKey} />
+      <TurnstileWidget action="consultation_request" execution="execute" reserveSpace={false} executeKey={executeKey} onToken={handleToken} onError={handleVerificationError} resetKey={resetKey} />
     </div>
   );
 }

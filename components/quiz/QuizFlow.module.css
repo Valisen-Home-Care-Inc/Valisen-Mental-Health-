@@ -1,9 +1,55 @@
 /* Quiz screens — Valisen brand (logo navy + teal). */
-.shell { --navy: #0A1E57; --teal: #1F7A8A; --teal-ink: #1C6F7D; --aqua: #2BB3B1; --ice: #E6F6F5; --line: #DDE6E9; --muted: #566282; color: var(--navy); }
-.progressMeta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-.progressTrack { height: 6px; overflow: hidden; border-radius: 999px; background: #D6E0E4; }
-.progressFill { height: 100%; border-radius: 999px; background: var(--aqua); transition: width .3s ease; }
-.card { margin-top: 22px; padding: 24px 20px; border: 1px solid var(--line); border-radius: 28px; background: #fff; box-shadow: 0 10px 30px -22px rgba(10, 30, 87, .35); }
+.shell {
+  --navy: #0A1E57; --navy-2: #13306F; --teal: #1F7A8A; --teal-ink: #1C6F7D; --aqua: #2BB3B1; --mint: #6FD3C4;
+  --ice: #E6F6F5; --line: #DDE6E9; --muted: #566282;
+  max-width: 640px;
+  margin-inline: auto;
+  color: var(--navy);
+  scroll-margin-top: 96px;
+}
+
+/* Full-width navy band at the top of every step; the card below overlaps it. */
+.band {
+  position: relative;
+  overflow: hidden;
+  margin-inline: calc(50% - 50vw);
+  padding: 26px calc(50vw - 50%) 104px;
+  background: var(--navy);
+  color: #fff;
+}
+.band::before, .band::after { position: absolute; border-radius: 50%; content: ""; pointer-events: none; }
+.band::before { left: calc(50% + 120px); top: -230px; width: 480px; height: 480px; background: var(--navy-2); }
+.band::after { right: calc(50% + 190px); bottom: -170px; width: 300px; height: 300px; background: var(--teal); opacity: .45; }
+.bandInner { position: relative; z-index: 1; }
+.overlap { position: relative; z-index: 1; margin-top: -78px; }
+
+/* Welcome, shown on the first question only. */
+/* The welcome may run wider than the question column on large screens. */
+.intro { position: relative; left: 50%; width: min(900px, calc(100vw - 48px)); margin: 8px 0 30px; text-align: center; transform: translateX(-50%); }
+.introPill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 15px; border-radius: 999px; background: rgba(255, 255, 255, .1); color: #DCE4F5; font-size: 12.5px; font-weight: 700; letter-spacing: .03em; }
+.introPill i { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); }
+.introTitle { margin-top: 16px; color: #fff; font-size: clamp(34px, 9vw, 54px); font-weight: 800; line-height: 1.04; letter-spacing: -.035em; text-wrap: balance; }
+.introTitle span { color: var(--mint); }
+.introText { max-width: 470px; margin: 14px auto 0; color: #C9D3EC; font-size: 16px; line-height: 1.55; text-wrap: balance; }
+.team { display: inline-flex; align-items: center; gap: 12px; margin-top: 22px; padding: 8px 18px 8px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.faces { display: flex; padding-left: 12px; }
+.faces img { width: 44px; height: 44px; margin-left: -12px; border: 3px solid var(--navy); border-radius: 50%; background: var(--navy-2); object-fit: cover; }
+.team p { display: grid; color: #DCE4F5; font-size: 12.5px; line-height: 1.3; text-align: left; }
+.team strong { color: #fff; font-size: 14px; white-space: nowrap; }
+@media (max-width: 400px) {
+  .faces img { width: 38px; height: 38px; margin-left: -11px; }
+  .team { gap: 10px; padding-right: 14px; }
+}
+
+/* Progress sits on the navy band. */
+.progressMeta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; color: #B5C0DC; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.progressTrack { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, .14); }
+.progressFill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--aqua), var(--mint)); transition: width .3s ease; }
+
+.card { padding: 24px 20px; border-radius: 28px; background: #fff; box-shadow: 0 24px 60px -30px rgba(10, 30, 87, .55); }
+.statusCard { padding: 40px 24px; border-radius: 28px; background: #fff; color: var(--navy); text-align: center; box-shadow: 0 24px 60px -30px rgba(10, 30, 87, .55); }
+.statusCard h2 { margin-top: 18px; font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.statusCard p { margin-top: 6px; color: var(--muted); font-size: 15px; }
 .mark { display: block; width: 44px; height: auto; margin-bottom: 14px; }
 .helper { margin-bottom: 8px; color: var(--teal-ink); font-size: 12.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .question { color: var(--navy); font-size: clamp(22px, 5.5vw, 28px); font-weight: 700; line-height: 1.25; letter-spacing: -.01em; }
@@ -50,6 +96,8 @@
 .sliderHint { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 13px; }
 
 @media (min-width: 640px) {
+  .band { padding-top: 34px; }
+  .intro { margin-top: 16px; }
   .card { padding: 34px 36px; }
   .stop { font-size: 12.5px; }
 }

@@ -25,16 +25,17 @@
   overflow: hidden;
   display: grid;
   gap: 28px;
-  padding: 26px 20px 30px;
-  border-radius: 32px;
+  /* Full-width band, like the quiz steps; content stays in the page column. */
+  margin-inline: calc(50% - 50vw);
+  padding: 28px calc(50vw - 50%) 104px;
   background: var(--navy);
   color: #fff;
   scroll-margin-top: 100px;
   outline: none;
 }
 .hero::before, .hero::after { position: absolute; border-radius: 50%; content: ""; pointer-events: none; }
-.hero::before { right: -130px; top: -170px; width: 420px; height: 420px; background: var(--navy-2); }
-.hero::after { left: -90px; bottom: -120px; width: 240px; height: 240px; background: var(--teal); opacity: .45; }
+.hero::before { left: calc(50% + 120px); top: -230px; width: 480px; height: 480px; background: var(--navy-2); }
+.hero::after { right: calc(50% + 190px); bottom: -170px; width: 300px; height: 300px; background: var(--teal); opacity: .45; }
 .hero > * { position: relative; z-index: 1; min-width: 0; }
 
 .score { display: flex; flex-direction: column; gap: 12px; }
@@ -132,8 +133,9 @@
 .noMatch { padding: 8px 4px; color: #2D3A5C; font-size: 14px; line-height: 1.6; }
 
 /* ── Booking ───────────────────────────────────────────────────────── */
-.bookingPlacement { min-width: 0; margin-top: 24px; scroll-margin-top: 100px; outline: none; }
-.booking { display: grid; gap: 18px; padding: 20px 16px; border: 1px solid var(--line); border-radius: 30px; background: #fff; box-shadow: 0 10px 30px -20px rgba(10, 30, 87, .25); }
+/* The calendar card overlaps the bottom of the navy band. */
+.bookingPlacement { position: relative; z-index: 1; min-width: 0; margin-top: -72px; scroll-margin-top: 100px; outline: none; }
+.booking { display: grid; gap: 18px; padding: 20px 16px; border-radius: 30px; background: #fff; box-shadow: 0 24px 60px -30px rgba(10, 30, 87, .5); }
 .bookingHeader h2 { margin-top: 6px; font-size: clamp(25px, 5vw, 32px); font-weight: 800; line-height: 1.15; letter-spacing: -.02em; }
 .bookingMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); font-size: 14px; }
 .bookingMeta svg { color: var(--teal); }
@@ -203,7 +205,7 @@
 
 @media (min-width: 640px) {
   .results { padding-bottom: 0; }
-  .hero { padding: 36px; }
+  .hero { padding-block: 40px 112px; }
   .matches { padding: 22px; }
   .booking { padding: 30px; }
   .bookBar { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 18px 22px; }
@@ -216,7 +218,7 @@
   .sticky { display: none; }
 }
 @media (min-width: 980px) {
-  .hero { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: center; gap: 40px; padding: 44px; }
+  .hero { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: center; gap: 48px; padding-block: 48px 120px; }
   .matchName { font-size: 17px; }
 }
 @media (max-width: 380px) {

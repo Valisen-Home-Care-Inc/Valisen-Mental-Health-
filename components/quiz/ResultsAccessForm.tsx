@@ -235,7 +235,7 @@ export default function ResultsAccessForm({
         onSubmit={handleSubmit}
         noValidate
         aria-busy={submitting || verifying}
-        className="rounded-[28px] border border-[#DDE6E9] bg-white p-6 text-[#0A1E57] shadow-[0_10px_30px_-22px_rgba(10,30,87,0.35)] md:p-9"
+        className="rounded-[28px] bg-white p-6 text-[#0A1E57] shadow-[0_24px_60px_-30px_rgba(10,30,87,0.55)] md:p-9"
       >
         <div className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[0.16em] text-[#1C6F7D]">
           <LockKeyhole size={15} aria-hidden="true" />
@@ -424,6 +424,7 @@ export default function ResultsAccessForm({
           <TurnstileWidget
             action={QUIZ_RESULTS_ACCESS_TURNSTILE_ACTION}
             execution="execute"
+            reserveSpace={false}
             executeKey={turnstileExecuteKey}
             onError={handleTurnstileError}
             onToken={handleTurnstileToken}

@@ -1,0 +1,12 @@
+/* The whole /quiz page uses the Valisen brand look: a navy band at the top
+ * of each step (drawn by QuizFlow), soft mist behind the cards, navy footer. */
+.page {
+  min-height: 100vh;
+  background: #F2F6F7;
+  color: #0A1E57;
+}
+
+.section {
+  overflow-x: clip;
+  padding: 0 0 64px;
+}
