@@ -171,6 +171,32 @@ describe("buildQuizResultsAccessEmail", () => {
 
     expect(combined).not.toMatch(/worry_1|mood_1|gender_preference|"language"|"safety"/i);
   });
+
+  it("shows the wellbeing score and what the visitor told us, escaped in HTML", () => {
+    const email = buildQuizResultsAccessEmail(accessModel({
+      score: 43,
+      answerHighlights: [
+        { label: "Wants support with", value: "Anxiety or worry, Grief or loss" },
+        { label: "A month from now, wants to feel", value: "Calmer, with less worry; <Like myself again>" },
+        { label: "Best time for the free call", value: "Weekday evenings" },
+      ],
+    }));
+    for (const content of [email.text, email.html]) {
+      expect(content).toMatch(/Wellbeing score:(?:<\/strong>)? 43\/100/);
+      expect(content).toContain("Weekday evenings");
+      expect(content).toContain("Anxiety or worry, Grief or loss");
+    }
+    expect(email.text).toContain("WHAT THEY TOLD US");
+    expect(email.text).toContain("Best time for the free call: Weekday evenings");
+    expect(email.html).toContain("&lt;Like myself again&gt;");
+    expect(email.html).not.toContain("<Like myself again>");
+  });
+
+  it("omits the score and highlights sections when there is nothing to show", () => {
+    const email = buildQuizResultsAccessEmail(accessModel({ score: null, answerHighlights: [] }));
+    expect(email.text).not.toContain("Wellbeing score");
+    expect(email.text).not.toContain("WHAT THEY TOLD US");
+  });
 });
 
 describe("buildQuizLeadEmail", () => {

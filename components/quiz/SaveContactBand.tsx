@@ -8,9 +8,17 @@ import {
 import styles from "./ResultsReveal.module.css";
 
 /** A teal band offering the discreet "Valisen Care" contact and WhatsApp. */
-export default function SaveContactBand({ exploring }: { exploring: boolean }) {
+export default function SaveContactBand({
+  exploring,
+  onSave,
+  onWhatsApp,
+}: {
+  exploring: boolean;
+  onSave?: () => void;
+  onWhatsApp?: () => void;
+}) {
   return (
-    <section className={styles.saveBand} aria-labelledby="save-valisen-care-title">
+    <section className={styles.saveBand} aria-labelledby="save-valisen-care-title" data-result-section="save_contact">
       <div className={styles.saveIntro}>
         <span className={styles.saveIcon} aria-hidden="true">
           <Image src={VALISEN_CARE_MARK_PATH} alt="" width={46} height={48} />
@@ -25,11 +33,11 @@ export default function SaveContactBand({ exploring }: { exploring: boolean }) {
         </div>
       </div>
       <div className={styles.saveActions}>
-        <a href={VALISEN_CARE_VCARD_PATH} download="Valisen Care.vcf" className={styles.saveButton}>
+        <a href={VALISEN_CARE_VCARD_PATH} download="Valisen Care.vcf" className={styles.saveButton} onClick={onSave}>
           <UserPlus size={18} aria-hidden="true" />
           Save contact
         </a>
-        <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className={styles.whatsappButton}>
+        <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className={styles.whatsappButton} onClick={onWhatsApp}>
           <MessageCircle size={18} aria-hidden="true" />
           WhatsApp us
         </a>

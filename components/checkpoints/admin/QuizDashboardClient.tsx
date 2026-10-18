@@ -361,7 +361,7 @@ export default function QuizDashboardClient({
           <section className="mt-5 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6" aria-labelledby="quiz-intent-title">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div><p className="text-[10px] font-bold uppercase tracking-[1.2px] text-[#64827d]">Next-step routing</p><h2 id="quiz-intent-title" className="mt-1.5 text-[21px] font-semibold tracking-[-0.5px] text-[#1f2c2a]">What visitors want next</h2></div>
-              <p className="max-w-[500px] text-[10.5px] leading-4 text-[#7d8986]">One category per attempt across versions. The current quiz derives this from desired start timing; older quizzes asked for a next step. No clinical answer, safety response, score, or free text is stored here.</p>
+              <p className="max-w-[500px] text-[10.5px] leading-4 text-[#7d8986]">One category per attempt across versions. The current quiz records whether a call time was chosen on the last question (Ready to speak) or left until after results (See recommended therapist); older quizzes asked for a next step. No clinical answer, safety response, score, or free text is stored here.</p>
             </div>
             {(data.quizIntentMix ?? []).some((item) => item.selections > 0) ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

@@ -63,9 +63,29 @@ submitted verbatim; the invisible security check runs on that tap. Choosing
 "Book with {name}" records that therapist as a preference only when they are
 one of the visitor's two saved matches; the calendar stays pooled.
 
-**Reporting.** Apply
-`supabase/migrations/20261018000000_quiz_v7_reporting.sql` so the CRM's
-question-friction report knows version 7 has 19 questions.
+**Reporting.** Apply both version 7 migrations:
+
+- `supabase/migrations/20261018000000_quiz_v7_reporting.sql` tells the CRM's
+  question-friction report that version 7 has 19 questions.
+- `supabase/migrations/20261018010000_quiz_result_engagement_v7.sql` allows
+  the new results-page summaries and adds period totals:
+  - "Chose a therapist" (`therapist_chosen`)
+  - "Saved Valisen Care" (`save_contact_clicked`)
+  - "Tapped WhatsApp" (`whatsapp_clicked`)
+  - the before-you-go pop-up shown, saved and closed (`exit_prompt_*`)
+  - "Opened score details" (`details_opened`)
+  - the save-contact section being seen (`save_contact`)
+
+The CRM's results-engagement panel shows each of these as people and taps.
+
+The clinic's new-lead email now shows:
+
+- the 1–100 wellbeing score;
+- a "What they told us" list: what brought them here, how long, daily-life
+  impact, the support they want, how they'd like to feel and the best time
+  for the free call (`quizAnswerHighlights`).
+
+The safety answer is never stored or shown.
 
 **Browser check.** `scripts/quiz-calendar-smoke.mjs` walks all 19 screens,
 the safety pause, results at six widths, one-tap booking with a retry, the

@@ -200,7 +200,13 @@ export default function ResultsReveal({
 
       <div ref={headingRef} tabIndex={-1} className={styles.hero} data-result-section="summary">
         {outcome.score !== null ? (
-          <WellbeingScore score={outcome.score} firstName={firstName} answers={answers} safetyFlagged={safetyFlagged} />
+          <WellbeingScore
+            score={outcome.score}
+            firstName={firstName}
+            answers={answers}
+            safetyFlagged={safetyFlagged}
+            onDetailsOpened={() => recordAction("details_opened")}
+          />
         ) : (
           <div className={styles.score}>
             <p className={styles.scoreEyebrow}>{firstName ? `${firstName}, your results` : "Your results"}</p>
@@ -214,6 +220,7 @@ export default function ResultsReveal({
           chosenSlug={chosenSlug}
           onChoose={(slug) => {
             setChosenSlug(slug);
+            recordAction("therapist_chosen");
             trackQuizEvent("consultation_request_clicked", { ...properties, therapistId: slug, ctaPlacement: "results_primary" });
             scrollToBooking();
           }}
@@ -225,6 +232,7 @@ export default function ResultsReveal({
               profileLinkPlacement: "exploring_match_card",
             });
           }}
+          onWhatsApp={() => recordAction("whatsapp_clicked")}
         />
       </div>
 
@@ -255,7 +263,11 @@ export default function ResultsReveal({
         />
       </div>
 
-      <SaveContactBand exploring={exploring} />
+      <SaveContactBand
+        exploring={exploring}
+        onSave={() => recordAction("save_contact_clicked")}
+        onWhatsApp={() => recordAction("whatsapp_clicked")}
+      />
 
       {userEmailDeliveryFailed ? (
         <p role="status" className={styles.emailNotice}>
@@ -282,12 +294,27 @@ export default function ResultsReveal({
           <button type="button" onClick={scrollToBooking}>
             Book my free call <ArrowDown size={16} aria-hidden="true" />
           </button>
-          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" aria-label="Message us on WhatsApp">
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Message us on WhatsApp"
+            onClick={() => recordAction("whatsapp_clicked")}
+          >
             <MessageCircle size={22} aria-hidden="true" />
           </a>
         </div>
       ) : null}
-      <ExitSaveContactPrompt enabled={!safetyFlagged && !booked} />
+      <ExitSaveContactPrompt
+        enabled={!safetyFlagged && !booked}
+        onShown={() => recordAction("exit_prompt_shown")}
+        onSave={() => {
+          recordAction("exit_prompt_saved");
+          recordAction("save_contact_clicked");
+        }}
+        onWhatsApp={() => recordAction("whatsapp_clicked")}
+        onDismiss={() => recordAction("exit_prompt_dismissed")}
+      />
     </div>
   );
 }

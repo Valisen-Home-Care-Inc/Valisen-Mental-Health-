@@ -67,12 +67,13 @@ function MatchCard({ candidate, outcome, chosen, onChoose, onProfile }: {
   );
 }
 
-export default function TherapistMatchCards({ candidates, outcome, chosenSlug, onChoose, onProfile }: {
+export default function TherapistMatchCards({ candidates, outcome, chosenSlug, onChoose, onProfile, onWhatsApp }: {
   candidates: PresentedTherapistMatch[];
   outcome: QuizOutcome;
   chosenSlug: string | null;
   onChoose: (slug: string) => void;
   onProfile: (slug: string) => void;
+  onWhatsApp?: () => void;
 }) {
   return (
     <section className={styles.matches} id="quiz-therapist-matches" aria-label="Your therapist matches" data-result-section="therapists">
@@ -97,7 +98,7 @@ export default function TherapistMatchCards({ candidates, outcome, chosenSlug, o
         <p className={styles.noMatch}>Our team can help you choose a therapist during your free consultation.</p>
       )}
       <p className={styles.matchesFooter}>
-        Not sure who to pick? <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">Text a care coordinator</a>.
+        Not sure who to pick? <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" onClick={onWhatsApp}>Text a care coordinator</a>.
       </p>
     </section>
   );

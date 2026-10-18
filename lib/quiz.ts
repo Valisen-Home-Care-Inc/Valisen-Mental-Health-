@@ -286,6 +286,38 @@ export function quizIntentForAnswers(answers: Answers): QuizIntentOption["value"
   return answers.call_time === "after-results" ? "see_recommended_therapist" : "ready_to_speak";
 }
 
+/**
+ * Plain-language highlights for the clinic's new-lead email: what the visitor
+ * told us that helps a care coordinator start the call. Check-in answers are
+ * summarized by the score, and the safety answer is never stored or shown.
+ */
+export function quizAnswerHighlights(answers: Answers): { label: string; value: string }[] {
+  const labelFor = (id: string, value: unknown) =>
+    QUESTIONS.find((question) => question.id === id)?.options.find((option) => option.value === value)?.label;
+  const listFor = (id: string) => {
+    const values = answers[id];
+    return Array.isArray(values)
+      ? values.map((value) => labelFor(id, value)).filter((label): label is string => Boolean(label))
+      : [];
+  };
+  const highlights: { label: string; value: string }[] = [];
+  const single = (label: string, id: string) => {
+    const value = labelFor(id, answers[id]);
+    if (value) highlights.push({ label, value });
+  };
+  single("What brought them here", "intro");
+  single("Going on for", "duration");
+  single("Effect on daily life", "impact");
+  if (Array.isArray(answers.concerns)) {
+    const concerns = listFor("concerns");
+    highlights.push({ label: "Wants support with", value: concerns.length ? concerns.join(", ") : "Nothing specific chosen" });
+  }
+  const goals = listFor("feel_different");
+  if (goals.length) highlights.push({ label: "A month from now, wants to feel", value: goals.join("; ") });
+  single("Best time for the free call", "call_time");
+  return highlights;
+}
+
 export const TOTAL_QUESTIONS = QUESTIONS.length;
 export const SCORED_QUESTION_COUNT = QUESTIONS.filter((q) => q.kind === "scored").length;
 

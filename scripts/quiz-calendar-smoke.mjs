@@ -214,7 +214,11 @@ try {
     await page.$eval('#quiz-consultation-booking', (el) => el.scrollIntoView());
     await page.screenshot({ path: path.join(output, `calendar-viewport-${width}.png`) });
     await page.screenshot({ path: path.join(output, `calendar-${width}.png`), fullPage: true });
+    // Centre the next day first so a fixed overlay (such as the dev-mode badge) can't intercept the tap.
+    await page.$eval('[aria-label^="Choose a date"] button:not([disabled]):not([aria-pressed="true"])', (el) => el.scrollIntoView({ block: 'center' }));
     await page.click('[aria-label^="Choose a date"] button:not([disabled]):not([aria-pressed="true"])');
+    // The new day's times render after the click; wait for the old choice to clear.
+    await page.waitForFunction(() => !document.querySelector('[aria-label^="Choose a time"] button[aria-pressed="true"]'), { timeout: 5000 }).catch(() => {});
     assert.equal(await page.$$eval('[aria-label^="Choose a time"] button[aria-pressed="true"]', (items) => items.length), 0, 'Changing the date must clear the old time');
     assert.equal(requests.length, 0);
     assert.deepEqual(errors, []);
@@ -270,12 +274,23 @@ try {
     assert.equal(requests[1].preferredTherapist, "meryem-ibrahim");
     assert.equal(requests[1].consent, true);
     assert(requests[1].consentLanguage.startsWith("I agree that Valisen Mental Health"));
+    // Contact-card and WhatsApp taps are recorded (navigation is suppressed in the test).
+    await page.evaluate(() => document.addEventListener("click", (event) => {
+      if (event.target.closest('a[href$=".vcf"], a[href^="https://wa.me/"]')) event.preventDefault();
+    }, true));
+    await page.click('section[aria-labelledby="save-valisen-care-title"] a[href="/valisen-care.vcf"]');
+    await page.click('section[aria-labelledby="save-valisen-care-title"] a[href^="https://wa.me/"]');
     await new Promise((resolve) => setTimeout(resolve, 2000));
     await page.screenshot({ path: path.join(output, `quiz-${width}.png`), fullPage: true });
     const serialized = JSON.stringify(metrics.map((entry) => entry.snapshot));
     assert(metrics.length > 0);
     assert(!/qa@example|613-555|Alex|consultationDate|consultationTime|answers|safety/.test(serialized));
     assert(metrics.some((entry) => entry.snapshot.actions.booking_completed === 1));
+    const latest = metrics[metrics.length - 1].snapshot;
+    assert.equal(latest.actions.therapist_chosen, 1, "Book with Meryem is recorded");
+    assert.equal(latest.actions.save_contact_clicked, 1, "Save contact is recorded");
+    assert.equal(latest.actions.whatsapp_clicked, 1, "WhatsApp is recorded");
+    assert(latest.sections.includes("save_contact"), "The save-contact band is seen");
     assert.deepEqual(errors, []);
     if (width >= 1024) {
       // Desktop "before you go" prompt appears once after a short stay and closes with Escape.
@@ -287,7 +302,7 @@ try {
     await page.close();
   }
   {
-    const { page, errors } = await pageFor(1440, true);
+    const { page, errors, metrics } = await pageFor(1440, true);
     // Headless Chromium reports no mouse, so present a desktop pointer for the
     // "before you go" prompt, which only arms on hover-capable devices.
     await page.evaluateOnNewDocument(() => {
@@ -308,6 +323,10 @@ try {
     await page.waitForFunction(() => !document.querySelector('[aria-labelledby="exit-save-title"]'));
     await page.evaluate(() => document.dispatchEvent(new MouseEvent("mouseout", { clientY: -2, relatedTarget: null, bubbles: true })));
     assert.equal(await page.$('[aria-labelledby="exit-save-title"]'), null, "The exit prompt shows once per session");
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const exitActions = metrics[metrics.length - 1].snapshot.actions;
+    assert.equal(exitActions.exit_prompt_shown, 1, "Pop-up shown is recorded");
+    assert.equal(exitActions.exit_prompt_dismissed, 1, "Pop-up closed is recorded");
     assert.deepEqual(errors, []);
     console.log("PASS exit prompt: delayed, once per session, Escape closes");
     await page.close();

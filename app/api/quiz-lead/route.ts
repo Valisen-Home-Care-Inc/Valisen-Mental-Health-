@@ -20,6 +20,7 @@ import {
   SCORING_VERSION,
   bandFor,
   getResultContent,
+  quizAnswerHighlights,
   scoreBandFor,
   scoreQuiz,
 } from "@/lib/quiz";
@@ -438,6 +439,8 @@ async function ensureInternalResultsEmail(
       phone: claimed.phone,
       resultCategory: claimed.resultCategory,
       scoreBand: claimed.scoreBand,
+      score: claimed.outcome?.score ?? null,
+      answerHighlights: quizAnswerHighlights(claimed.answers ?? {}),
       recommendedTherapistName:
         claimed.recommendedTherapistName ?? null,
       submittedAtLabel,

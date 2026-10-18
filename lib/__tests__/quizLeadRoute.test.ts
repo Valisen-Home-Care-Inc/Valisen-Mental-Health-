@@ -619,6 +619,11 @@ describe("POST /api/quiz-lead", () => {
     expect(internalResultsMessages()[0].text).toContain(
       "campaign: ottawa-therapy",
     );
+    expect(internalResultsMessages()[0].text).toContain("Wellbeing score: 43/100");
+    expect(internalResultsMessages()[0].text).toContain(
+      "Best time for the free call: I'll decide after I see my results",
+    );
+    expect(internalResultsMessages()[0].text).not.toMatch(/safety|better off not here/i);
     expect(internalResultsMessages()[0].text).toMatch(
       /outbound click is not a confirmed/i,
     );

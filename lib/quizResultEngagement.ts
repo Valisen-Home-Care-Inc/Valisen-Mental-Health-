@@ -1,5 +1,12 @@
-export const RESULT_SECTIONS = ["summary", "therapists", "booking", "details", "download"] as const;
-export const RESULT_ACTIONS = ["date_selected", "time_selected", "consent_changed", "booking_clicked", "booking_failed", "booking_completed", "details_opened", "profile_clicked", "pdf_clicked", "restart_clicked"] as const;
+export const RESULT_SECTIONS = ["summary", "therapists", "booking", "details", "download", "save_contact"] as const;
+export const RESULT_ACTIONS = [
+  "date_selected", "time_selected", "consent_changed", "booking_clicked", "booking_failed", "booking_completed",
+  "details_opened", "profile_clicked", "pdf_clicked", "restart_clicked",
+  // Version 7 results page: "Book with {name}", the Valisen Care contact card,
+  // WhatsApp links and the desktop "before you go" prompt.
+  "therapist_chosen", "save_contact_clicked", "whatsapp_clicked",
+  "exit_prompt_shown", "exit_prompt_saved", "exit_prompt_dismissed",
+] as const;
 export type ResultAction = typeof RESULT_ACTIONS[number];
 export type ResultSection = typeof RESULT_SECTIONS[number];
 export type ResultEngagementSnapshot = {
@@ -7,8 +14,11 @@ export type ResultEngagementSnapshot = {
   scrollDepth: number; sections: ResultSection[]; lastSection?: ResultSection;
   actions: Partial<Record<ResultAction, number>>;
 };
+export type ResultActionTotal = { count: number; results: number };
 export type ResultEngagementReport = {
   views: number; visitors: number; averageActiveSeconds: number; averageScrollDepth: number;
+  /** Every action in the period: total taps and how many saved results had one. Absent before the v7 migration. */
+  actionTotals?: Partial<Record<ResultAction, ResultActionTotal>>;
   records: Array<{ referenceId: string; views: number; activeSeconds: number; elapsedSeconds: number; scrollDepth: number; sections: ResultSection[]; lastSection?: ResultSection; actions: Partial<Record<ResultAction, number>>; lastSeenAt: string }>;
 };
 

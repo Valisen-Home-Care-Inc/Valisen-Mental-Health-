@@ -66,11 +66,13 @@ export default function WellbeingScore({
   firstName,
   answers,
   safetyFlagged,
+  onDetailsOpened,
 }: {
   score: number;
   firstName: string;
   answers?: Answers;
   safetyFlagged: boolean;
+  onDetailsOpened?: () => void;
 }) {
   const band = scoreBandDetailsFor(score) ?? SCORE_BANDS[0];
   const shown = Math.min(100, Math.max(1, Math.round(score)));
@@ -129,7 +131,12 @@ export default function WellbeingScore({
         </ul>
       </div>
 
-      <details className={styles.scoreDetails}>
+      <details
+        className={styles.scoreDetails}
+        onToggle={(event) => {
+          if ((event.currentTarget as HTMLDetailsElement).open) onDetailsOpened?.();
+        }}
+      >
         <summary>What shaped your score</summary>
         {details.length ? (
           <ul>{details.map((detail) => <li key={detail}>{detail}</li>)}</ul>

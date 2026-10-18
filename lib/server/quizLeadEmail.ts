@@ -39,6 +39,10 @@ export type QuizResultsAccessEmailModel = QuizLeadStatusSnapshot & {
   phone?: string;
   resultCategory: string;
   scoreBand: string;
+  /** 1–100 wellbeing score (higher = doing better), when one was calculated. */
+  score?: number | null;
+  /** What the visitor told us that helps the first call (see quizAnswerHighlights). */
+  answerHighlights?: { label: string; value: string }[];
   recommendedTherapistName: string | null;
   submittedAtLabel: string;
   privacyAcknowledgedAtLabel: string;
@@ -408,6 +412,22 @@ Recorded consent version: ${model.privacyTextVersion}`;
       <p style="margin:0;color:#602426"><strong>Recorded consent version:</strong> ${e(model.privacyTextVersion)}</p>
     </div>`;
 
+  const scoreLine =
+    typeof model.score === "number" ? `Wellbeing score: ${model.score}/100 (higher means doing better)\n` : "";
+  const highlights = model.answerHighlights ?? [];
+  const highlightsText = highlights.length
+    ? `\nWHAT THEY TOLD US\n${highlights.map((item) => `${item.label}: ${item.value}`).join("\n")}\n`
+    : "";
+  const scoreHtml =
+    typeof model.score === "number"
+      ? `<p style="margin:0 0 4px"><strong>Wellbeing score:</strong> ${model.score}/100 <span style="color:#888780">(higher means doing better)</span></p>`
+      : "";
+  const highlightsHtml = highlights.length
+    ? `<h3 style="margin:0 0 8px;font-size:13px;color:#1E6B6B;text-transform:uppercase;letter-spacing:1px">What They Told Us</h3>
+    ${highlights.map((item) => `<p style="margin:0 0 4px"><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)}</p>`).join("\n    ")}
+    <div style="height:14px"></div>`
+    : "";
+
   const text = `NEW QUIZ RESULTS SUBMISSION
 
 ${model.firstName} completed the mental-health quiz. Their recommended therapist is ${therapistName}.
@@ -422,10 +442,10 @@ Email: ${model.email}
 Phone: ${phone}
 
 QUIZ SUMMARY
-Result category: ${model.resultCategory}
+${scoreLine}Result category: ${model.resultCategory}
 Score band: ${model.scoreBand}
 Recommended therapist: ${therapistName}
-
+${highlightsText}
 ${operationalStatusText(model)}
 
 SUBMISSION
@@ -452,9 +472,11 @@ This message contains personal and quiz information submitted through the Valise
     <p style="margin:0 0 4px"><strong>Email:</strong> ${e(model.email)}</p>
     <p style="margin:0 0 18px"><strong>Phone:</strong> ${e(phone)}</p>
     <h3 style="margin:0 0 8px;font-size:13px;color:#1E6B6B;text-transform:uppercase;letter-spacing:1px">Quiz Summary</h3>
+    ${scoreHtml}
     <p style="margin:0 0 4px"><strong>Result category:</strong> ${e(model.resultCategory)}</p>
     <p style="margin:0 0 4px"><strong>Score band:</strong> ${e(model.scoreBand)}</p>
     <p style="margin:0 0 18px"><strong>Recommended therapist:</strong> ${e(therapistName)}</p>
+    ${highlightsHtml}
     ${operationalStatusHtml(model)}
     <h3 style="margin:0 0 8px;font-size:13px;color:#1E6B6B;text-transform:uppercase;letter-spacing:1px">Submission</h3>
     <p style="margin:0 0 4px"><strong>Submitted:</strong> ${e(model.submittedAtLabel)}</p>

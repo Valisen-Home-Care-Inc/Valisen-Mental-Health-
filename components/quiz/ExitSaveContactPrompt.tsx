@@ -38,10 +38,32 @@ function rememberShown() {
  * and sticky bar instead. It never opens for someone shown crisis resources
  * or someone who has already booked.
  */
-export default function ExitSaveContactPrompt({ enabled }: { enabled: boolean }) {
+export default function ExitSaveContactPrompt({
+  enabled,
+  onShown,
+  onSave,
+  onWhatsApp,
+  onDismiss,
+}: {
+  enabled: boolean;
+  onShown?: () => void;
+  onSave?: () => void;
+  onWhatsApp?: () => void;
+  onDismiss?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openedRef = useRef(false);
+  // Latest callbacks without re-arming the exit listener on every render.
+  const callbacks = useRef({ onShown, onDismiss });
+  useEffect(() => {
+    callbacks.current = { onShown, onDismiss };
+  }, [onShown, onDismiss]);
+
+  function dismiss() {
+    setOpen(false);
+    callbacks.current.onDismiss?.();
+  }
 
   useEffect(() => {
     if (!enabled || openedRef.current) return;
@@ -53,6 +75,7 @@ export default function ExitSaveContactPrompt({ enabled }: { enabled: boolean })
       openedRef.current = true;
       rememberShown();
       setOpen(true);
+      callbacks.current.onShown?.();
     };
     document.addEventListener("mouseout", onMouseOut);
     return () => document.removeEventListener("mouseout", onMouseOut);
@@ -62,7 +85,7 @@ export default function ExitSaveContactPrompt({ enabled }: { enabled: boolean })
     if (!open) return;
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") dismiss();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -75,9 +98,9 @@ export default function ExitSaveContactPrompt({ enabled }: { enabled: boolean })
   if (!open) return null;
 
   return (
-    <div className={styles.exitOverlay} onClick={(event) => event.target === event.currentTarget && setOpen(false)}>
+    <div className={styles.exitOverlay} onClick={(event) => event.target === event.currentTarget && dismiss()}>
       <div role="dialog" aria-modal="true" aria-labelledby="exit-save-title" className={styles.exitDialog}>
-        <button ref={closeRef} type="button" className={styles.exitClose} aria-label="Close" onClick={() => setOpen(false)}>
+        <button ref={closeRef} type="button" className={styles.exitClose} aria-label="Close" onClick={dismiss}>
           <X size={18} aria-hidden="true" />
         </button>
         <div className={styles.contactPreview} aria-hidden="true">
@@ -98,13 +121,21 @@ export default function ExitSaveContactPrompt({ enabled }: { enabled: boolean })
           <li><span aria-hidden="true"><Check size={12} strokeWidth={3.4} /></span><span><strong>Message us on WhatsApp</strong> if calling feels like too much</span></li>
         </ul>
         <div className={styles.exitActions}>
-          <a href={VALISEN_CARE_VCARD_PATH} download="Valisen Care.vcf" className={styles.exitPrimary} onClick={() => setOpen(false)}>
+          <a
+            href={VALISEN_CARE_VCARD_PATH}
+            download="Valisen Care.vcf"
+            className={styles.exitPrimary}
+            onClick={() => {
+              setOpen(false);
+              onSave?.();
+            }}
+          >
             <UserPlus size={19} aria-hidden="true" />
             Save to my contacts
           </a>
           <div className={styles.exitSecondary}>
-            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">WhatsApp us</a>
-            <button type="button" onClick={() => setOpen(false)}>No thanks</button>
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" onClick={onWhatsApp}>WhatsApp us</a>
+            <button type="button" onClick={dismiss}>No thanks</button>
           </div>
         </div>
         <p className={styles.exitFine}>Saves as “Valisen Care”, a discreet name in your contacts. In an emergency, call or text 9-8-8.</p>

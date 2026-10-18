@@ -9,6 +9,7 @@ import {
   SCORING_VERSION,
   TOTAL_QUESTIONS,
   bandFor,
+  quizAnswerHighlights,
   quizIntentForAnswers,
   scoreBandDetailsFor,
   scoreBandFor,
@@ -96,6 +97,35 @@ describe("version 7 questionnaire", () => {
   it("keeps sequential progress reaching 100 percent", () => {
     const lastIndex = QUESTIONS.length - 1;
     expect(Math.round((lastIndex / (QUESTIONS.length - 1)) * 100)).toBe(100);
+  });
+});
+
+describe("answer highlights for the clinic's new-lead email", () => {
+  it("summarizes what helps the first call, in the visitor's own answer wording", () => {
+    expect(quizAnswerHighlights({
+      intro: "specific",
+      ...checkins(2),
+      duration: "months",
+      impact: "moderate",
+      concerns: ["anxiety", "grief"],
+      feel_different: ["worry-less", "feel-like-myself"],
+      call_time: "weekday-evenings",
+    })).toEqual([
+      { label: "What brought them here", value: "Something specific has been weighing on me" },
+      { label: "Going on for", value: "1 to 6 months" },
+      { label: "Effect on daily life", value: "Quite a bit" },
+      { label: "Wants support with", value: "Anxiety or worry, Grief or loss" },
+      { label: "A month from now, wants to feel", value: "Calmer, with less worry; Like myself again" },
+      { label: "Best time for the free call", value: "Weekday evenings" },
+    ]);
+  });
+
+  it("says when no specific support was chosen and skips unknown or missing answers", () => {
+    expect(quizAnswerHighlights({ concerns: [], call_time: "after-results", safety: "often" })).toEqual([
+      { label: "Wants support with", value: "Nothing specific chosen" },
+      { label: "Best time for the free call", value: "I'll decide after I see my results" },
+    ]);
+    expect(quizAnswerHighlights({ intro: "made-up" })).toEqual([]);
   });
 });
 
