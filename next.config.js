@@ -47,6 +47,16 @@ const nextConfig = {
         ],
       },
       {
+        // "Save Valisen Care" contact card on quiz results. With nosniff,
+        // phones need the vCard type to offer "Add to contacts".
+        source: "/valisen-care.vcf",
+        headers: [
+          { key: "Content-Type", value: "text/vcard; charset=utf-8" },
+          { key: "Content-Disposition", value: 'attachment; filename="Valisen Care.vcf"' },
+          { key: "Cache-Control", value: "public, max-age=86400" },
+        ],
+      },
+      {
         source: "/c/:path*",
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },

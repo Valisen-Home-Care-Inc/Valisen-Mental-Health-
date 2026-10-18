@@ -23,6 +23,7 @@ export default function ConsultationTimeSlotPicker({
   allowFlexible = true,
   calendarToday,
   availabilityRefreshKey = 0,
+  tone = "default",
 }: {
   idPrefix: string;
   value: ConsultationSlotSelection | null;
@@ -31,6 +32,8 @@ export default function ConsultationTimeSlotPicker({
   allowFlexible?: boolean;
   calendarToday?: Date;
   availabilityRefreshKey?: number;
+  /** "brand" applies the Valisen navy/teal palette used on quiz results. */
+  tone?: "default" | "brand";
 }) {
   const today = useMemo(() => calendarToday ?? torontoCalendarToday(), [calendarToday]);
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -68,7 +71,7 @@ export default function ConsultationTimeSlotPicker({
   const isFlexible = value?.kind === "flexible";
 
   return (
-    <div className={styles.picker} aria-invalid={Boolean(invalid)}>
+    <div className={styles.picker + (tone === "brand" ? " " + styles.brand : "")} aria-invalid={Boolean(invalid)}>
       {!isFlexible ? (
         <>
           <div className={styles.calendar}>

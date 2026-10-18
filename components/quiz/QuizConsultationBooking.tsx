@@ -1,42 +1,56 @@
 "use client";
 import { announceConsultationBooked } from "@/lib/useConsultationAvailability";
 
-import { useRef, useState } from "react";
-import { CheckCircle2, LoaderCircle, Phone } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { ArrowRight, CheckCircle2, LoaderCircle, Phone } from "lucide-react";
 import styles from "./ResultsReveal.module.css";
 import ConsultationTimeSlotPicker from "@/components/paid-search/ConsultationTimeSlotPicker";
 import TurnstileWidget from "@/components/TurnstileWidget";
 import { CONSULTATION_DAYS, confirmedConsultationReferenceFromResponse, type ConsultationSlotSelection } from "@/lib/consultation";
 import { QUIZ_BOOKING_CONSENT_TEXT, QUIZ_BOOKING_CONSENT_VERSION, torontoCalendarToday } from "@/lib/quizConsultation";
 
-export default function QuizConsultationBooking({ submissionToken, firstName, email, phone, onInteraction, onBooked }: {
+export type BookingTherapistChoice = { slug: string; firstName: string; photo?: string };
+
+/**
+ * One-tap consultation booking. The visitor already gave (and verified) their
+ * contact details to unlock results, so choosing a time and tapping "Book now"
+ * books immediately. The consent wording is shown directly under the button
+ * and submitted verbatim; the invisible security check runs on that tap.
+ */
+export default function QuizConsultationBooking({ submissionToken, firstName, email, phone, chosenTherapist, exploring, onInteraction, onBooked }: {
   submissionToken: string;
   firstName: string;
   email: string;
   phone: string;
+  chosenTherapist: BookingTherapistChoice | null;
+  exploring: boolean;
   onInteraction: (action: "date_selected" | "time_selected" | "consent_changed" | "booking_clicked" | "booking_failed" | "booking_completed") => void;
   onBooked: (reference: string) => void;
 }) {
   const [today] = useState(() => torontoCalendarToday());
   const [selection, setSelection] = useState<ConsultationSlotSelection | null>(null);
-  const [consent, setConsent] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [executeKey, setExecuteKey] = useState(0);
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [booked, setBooked] = useState<string | null>(null);
+  const [booked, setBooked] = useState<{ reference: string; label: string } | null>(null);
   const [started] = useState(() => Date.now());
   const submissionId = useRef<string | null>(null);
   const inFlight = useRef(false);
+  const waitingForToken = useRef(false);
+  const selectionRef = useRef<ConsultationSlotSelection | null>(null);
+  useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (inFlight.current || booked) return;
-    onInteraction("booking_clicked");
-    if (selection?.kind !== "specific") return setError("Please choose a date and time.");
-    if (!consent) return setError("Please check the consent box to book.");
-    if (!token) return setError("Please complete the security check, then book.");
+  const preferredTherapist = chosenTherapist?.slug ?? "flexible";
+
+  const send = useCallback(async (verification: string) => {
+    const slot = selectionRef.current;
+    if (inFlight.current || slot?.kind !== "specific") return;
     inFlight.current = true;
     setSending(true);
     setError(null);
@@ -46,12 +60,13 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
         method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           formVariant: "quiz_calendar", clientSubmissionId: submissionId.current, formStartedAt: started,
-          firstName, lastName: "", email, phone, reason: "Not Sure", preferredTherapist: "flexible",
+          firstName, lastName: "", email, phone, reason: "Not Sure",
+          preferredTherapist,
           quizSubmissionToken: submissionToken, source: "quiz_result",
-          consultationDate: selection.date, consultationTime: selection.time,
-          days: CONSULTATION_DAYS, timeOfDay: selection.availability,
+          consultationDate: slot.date, consultationTime: slot.time,
+          days: CONSULTATION_DAYS, timeOfDay: slot.availability,
           consent: true, consentLanguage: QUIZ_BOOKING_CONSENT_TEXT, consentVersion: QUIZ_BOOKING_CONSENT_VERSION,
-          turnstileToken: token, website: "",
+          turnstileToken: verification, website: "",
         }),
       });
       const body = await response.json().catch(() => null);
@@ -61,7 +76,7 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
       }
       const reference = confirmedConsultationReferenceFromResponse(body);
       if (!response.ok || !reference) throw new Error(body?.error || "We couldn't book your consultation. Please try again.");
-      setBooked(reference);
+      setBooked({ reference, label: slot.label });
       announceConsultationBooked();
       onInteraction("booking_completed");
       onBooked(reference);
@@ -74,37 +89,108 @@ export default function QuizConsultationBooking({ submissionToken, firstName, em
       inFlight.current = false;
       setSending(false);
     }
+  }, [email, firstName, onBooked, onInteraction, phone, preferredTherapist, started, submissionToken]);
+
+  // The security widget re-renders itself whenever its callbacks change, so
+  // they must stay stable across parent re-renders (scrolling, selection).
+  const sendRef = useRef(send);
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
+
+  const handleToken = useCallback((value: string | null) => {
+    setToken(value);
+    if (value && waitingForToken.current) {
+      waitingForToken.current = false;
+      void sendRef.current(value);
+    }
+  }, []);
+
+  const handleVerificationError = useCallback(() => {
+    waitingForToken.current = false;
+    setSending(false);
+  }, []);
+
+  function bookNow() {
+    if (inFlight.current || booked) return;
+    onInteraction("booking_clicked");
+    if (selection?.kind !== "specific") {
+      setError("Please choose a day and time first.");
+      return;
+    }
+    setError(null);
+    if (token) {
+      void send(token);
+      return;
+    }
+    // Run the invisible security check now and book as soon as it passes.
+    waitingForToken.current = true;
+    setSending(true);
+    setExecuteKey((value) => value + 1);
   }
 
-  if (booked) return <div role="status" className="rounded-2xl border border-teal/20 bg-teal-xlight p-6 text-center" data-result-section="booking">
-    <CheckCircle2 className="mx-auto text-teal" size={32} aria-hidden="true" />
-    <h2 className="mt-3 font-serif text-2xl">Your free consultation is booked.</h2>
-    <p className="mt-3 text-sm leading-6">{selection?.kind === "specific" ? selection.label : ""} (Toronto time).</p>
-    <p className="mt-2 text-sm leading-6">Your call is 20 minutes. We&apos;ll call the number you provided. Watch your email for confirmation.</p>
-    <p className="mt-3 text-xs text-ink-secondary">Reference: {booked}</p>
-  </div>;
+  if (booked) {
+    return (
+      <div role="status" className={styles.booked} data-result-section="booking">
+        <CheckCircle2 size={44} aria-hidden="true" />
+        <h2>{firstName ? `You're booked, ${firstName}!` : "You're booked!"}</h2>
+        <p>{booked.label} (Toronto time). Your free 20-minute call is by phone{phone ? ` — we'll call ${phone}` : ""}.</p>
+        <p>Watch your email for your confirmation.</p>
+        <small>Reference: {booked.reference}</small>
+      </div>
+    );
+  }
 
-  return <form onSubmit={submit} noValidate className={styles.booking} data-result-section="booking">
-    <div className={styles.bookingHeader}>
-      <p className={styles.eyebrow}>No cost. No commitment.</p>
-      <h2>Book a free call</h2>
-      <p className={styles.bookingMeta}><Phone size={13} aria-hidden="true" />20-minute phone call · Toronto time · We reply within 24 hours</p>
+  const ready = selection?.kind === "specific";
+
+  return (
+    <div className={styles.booking} data-result-section="booking">
+      <div className={styles.bookingHeader}>
+        <p className={styles.eyebrow}>Free · 20 minutes · by phone</p>
+        <h2>{exploring ? "Whenever you're ready, pick a time" : "Pick a time for your free call"}</h2>
+        <p className={styles.bookingMeta}><Phone size={14} aria-hidden="true" />No cost, no commitment. Toronto time.</p>
+      </div>
+      {chosenTherapist ? (
+        <p className={styles.preference}>
+          {chosenTherapist.photo ? <Image src={chosenTherapist.photo} alt="" width={36} height={36} /> : null}
+          <span>We&apos;ll let our team know you&apos;d like to meet <strong>{chosenTherapist.firstName}</strong>.</span>
+        </p>
+      ) : null}
+      <fieldset disabled={sending} className="min-w-0" onClick={(event) => {
+        const button = (event.target as HTMLElement).closest("button[aria-pressed]");
+        if (button?.closest('[aria-label^="Choose a date"]')) onInteraction("date_selected");
+      }}>
+        <ConsultationTimeSlotPicker
+          idPrefix="quiz-consultation-slot"
+          tone="brand"
+          value={selection}
+          calendarToday={today}
+          allowFlexible={false}
+          invalid={Boolean(error && !selection)}
+          availabilityRefreshKey={availabilityRefreshKey}
+          onChange={(value) => {
+            setSelection(value);
+            setError(null);
+            if (value?.kind === "specific") onInteraction("time_selected");
+          }}
+        />
+      </fieldset>
+      <div className={styles.bookBar}>
+        <div className="min-w-0">
+          <p className={styles.bookSummary}>
+            {ready ? selection.label : "Choose a day and time above"}
+          </p>
+          <p className={styles.bookingAs}>
+            Booking as {firstName || "you"}{phone ? ` · ${phone}` : ""}{email ? ` · ${email}` : ""}
+          </p>
+        </div>
+        <button type="button" className={styles.bookButton} onClick={bookNow} disabled={!ready || sending}>
+          {sending ? <><LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> Booking…</> : <>Book now <ArrowRight size={18} aria-hidden="true" /></>}
+        </button>
+        <p className={styles.bookConsent}>By tapping “Book now”, you confirm: {QUIZ_BOOKING_CONSENT_TEXT}</p>
+      </div>
+      {error ? <p role="alert" className={styles.bookError}>{error}</p> : null}
+      <TurnstileWidget action="consultation_request" execution="execute" reserveSpace={false} executeKey={executeKey} onToken={handleToken} onError={handleVerificationError} resetKey={resetKey} />
     </div>
-    <fieldset disabled={sending} className="min-w-0" onClick={(event) => {
-      const button = (event.target as HTMLElement).closest('button[aria-pressed]');
-      if (button?.closest('[aria-label^="Choose a date"]')) onInteraction("date_selected");
-    }}>
-      <ConsultationTimeSlotPicker idPrefix="quiz-consultation-slot" value={selection} calendarToday={today} allowFlexible={false} invalid={Boolean(error && !selection)} availabilityRefreshKey={availabilityRefreshKey} onChange={(value) => { setSelection(value); if (value?.kind === "specific") onInteraction("time_selected"); }} />
-      <label className={styles.bookingConsent}>
-        <input type="checkbox" checked={consent} onChange={(event) => { setConsent(event.target.checked); onInteraction("consent_changed"); }} />
-        <span>{QUIZ_BOOKING_CONSENT_TEXT}</span>
-      </label>
-      <TurnstileWidget action="consultation_request" onToken={setToken} resetKey={resetKey} />
-      {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
-      <button type="submit" className="btn-primary mt-4 min-h-12 w-full justify-center">
-        {sending ? <><LoaderCircle size={18} className="mr-2 animate-spin" aria-hidden="true" /> Booking…</> : "Book free consultation"}
-      </button>
-      <p className={styles.bookingNote}>We&apos;ll use the contact details you already shared.</p>
-    </fieldset>
-  </form>;
+  );
 }

@@ -381,7 +381,7 @@ import { POST as submitContactConsent } from "@/app/api/quiz-lead/contact-consen
 import { POST as recordEngagement } from "@/app/api/quiz-lead/engagement/route";
 import { POST as downloadQuizPdf } from "@/app/api/quiz-lead/pdf/route";
 
-function completedAnswers(intent = "ready_to_speak"): Answers {
+function completedAnswers(intent: "ready_to_speak" | "see_recommended_therapist" = "ready_to_speak"): Answers {
   const answers: Answers = {};
   for (const question of QUESTIONS) {
     if (question.kind === "safety" || question.kind === "intent") continue;
@@ -396,7 +396,8 @@ function completedAnswers(intent = "ready_to_speak"): Answers {
       answers[question.id] = question.options[0].value;
     }
   }
-  answers.start_timing = intent === "ready_to_speak" ? "asap" : intent === "brief_consultation" ? "this-month" : "exploring";
+  // Version 7 records whether a call time was chosen; nobody is routed to "exploring".
+  answers.call_time = intent === "ready_to_speak" ? "weekday-evenings" : "after-results";
   return answers;
 }
 
@@ -572,7 +573,7 @@ describe("POST /api/quiz-lead", () => {
       funnelSessionId: "fs-1234567890abcdef",
       quizAttemptId: "qa-1234567890abcdef",
       answers: {
-        ...completedAnswers("brief_consultation"),
+        ...completedAnswers("see_recommended_therapist"),
         safety: "often",
       },
     });
@@ -582,16 +583,20 @@ describe("POST /api/quiz-lead", () => {
     expect(response.status).toBe(201);
     expect(body).toMatchObject({
       ok: true,
-      intent: "brief_consultation",
+      intent: "see_recommended_therapist",
       resultsEmailSent: true,
       userResultsEmailSent: true,
     });
     expect(body.referenceId).toMatch(/^VQ-[0-9A-F]{12}$/);
     expect(body.submissionToken).toMatch(/^v1\.VQ-/);
-    expect(body.outcome.score).toBeNull();
+    // 12 check-ins at 2 (24 points) + "less than 2 weeks" (0) + "not really" (0) = 24 of 42.
+    expect(body.outcome.score).toBe(43);
+    expect(body.outcome.answeredCount).toBe(12);
 
     const stored = mocks.records[0];
-    expect(stored.intent).toBe("brief_consultation");
+    expect(stored.intent).toBe("see_recommended_therapist");
+    expect(stored.scoreBand).toBe("You're struggling more than usual");
+    expect(stored.scoringVersion).toBe("2.0.0");
     expect(stored.attribution).toEqual(payload.attribution);
     expect(stored.phone).toBe("613-555-0100");
     expect(stored.privacyText).toBe(RESULTS_ACCESS_PRIVACY_TEXT);
@@ -609,11 +614,16 @@ describe("POST /api/quiz-lead", () => {
       "info@valisenmentalhealth.com",
     );
     expect(internalResultsMessages()[0].text).toContain(
-      "I’d like a brief consultation first",
+      "I want to see my recommended therapist",
     );
     expect(internalResultsMessages()[0].text).toContain(
       "campaign: ottawa-therapy",
     );
+    expect(internalResultsMessages()[0].text).toContain("Wellbeing score: 43/100");
+    expect(internalResultsMessages()[0].text).toContain(
+      "Best time for the free call: I'll decide after I see my results",
+    );
+    expect(internalResultsMessages()[0].text).not.toMatch(/safety|better off not here/i);
     expect(internalResultsMessages()[0].text).toMatch(
       /outbound click is not a confirmed/i,
     );
@@ -922,7 +932,7 @@ describe("POST /api/quiz-lead", () => {
     ).toBe(400);
 
     const missingIntentAnswers = completedAnswers();
-    delete missingIntentAnswers.start_timing;
+    delete missingIntentAnswers.call_time;
     const missingIntent = await postAccess(
       accessPayload({ answers: missingIntentAnswers }),
     );
@@ -973,7 +983,7 @@ describe("POST /api/quiz-lead", () => {
 describe("POST /api/quiz-lead/result", () => {
   it("restores consented contact details only through the private result view model", async () => {
     const { body: saved } = await saveValidLead({
-      answers: completedAnswers("exploring"),
+      answers: completedAnswers("see_recommended_therapist"),
     });
     const response = await postRestore({
       submissionToken: saved.submissionToken,
@@ -987,7 +997,7 @@ describe("POST /api/quiz-lead/result", () => {
       email: "alex@example.com",
       phone: "613-555-0100",
       referenceId: saved.referenceId,
-      intent: "exploring",
+      intent: "see_recommended_therapist",
       contactHelpSent: false,
       attribution: {
         source: "google",
@@ -1258,7 +1268,7 @@ describe("POST /api/quiz-lead/engagement", () => {
 describe("POST /api/quiz-lead/contact-consent", () => {
   it("stores the explicit help preferences only after consent and sends one internal notification", async () => {
     const { body: saved } = await saveValidLead({
-      answers: completedAnswers("brief_consultation"),
+      answers: completedAnswers("see_recommended_therapist"),
     });
     await postEngagement({
       submissionToken: saved.submissionToken,
@@ -1295,7 +1305,7 @@ describe("POST /api/quiz-lead/contact-consent", () => {
     expect(contactMessages()).toHaveLength(1);
     const mail = contactMessages()[0];
     expect(mail.to).toBe("info@valisenmentalhealth.com");
-    expect(mail.text).toContain("brief consultation first");
+    expect(mail.text).toContain("see my recommended therapist");
     expect(mail.text).toContain("campaign: ottawa-therapy");
     expect(mail.text).toContain("Jane booking CTA clicked: Yes");
     expect(mail.text).toMatch(/outbound click is not a confirmed/i);

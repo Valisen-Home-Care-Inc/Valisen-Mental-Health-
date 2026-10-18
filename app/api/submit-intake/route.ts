@@ -860,7 +860,18 @@ export async function POST(request: NextRequest) {
     payload.email = quizAttribution.lead.email;
     payload.phone = quizAttribution.lead.phone;
     payload.reason = "Not Sure";
-    payload.preferredTherapist = "flexible";
+    // The visitor may say which of their two saved matches they would like to
+    // meet. Anything else (or no choice) stays "flexible"; the clinic calendar
+    // remains pooled either way, so this is a preference, not a routing claim.
+    const savedMatch = quizAttribution.lead.match;
+    const matchedSlugs =
+      savedMatch?.status === "match"
+        ? [savedMatch.therapistSlug, savedMatch.alternative?.therapistSlug].filter(Boolean)
+        : [];
+    payload.preferredTherapist =
+      typeof payload.preferredTherapist === "string" && matchedSlugs.includes(payload.preferredTherapist)
+        ? payload.preferredTherapist
+        : "flexible";
   }
 
   const preferredTherapist = payload.preferredTherapist

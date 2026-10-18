@@ -326,6 +326,24 @@ describe("consultation submission boundary", () => {
     expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
   });
 
+  it("records a quiz visitor's chosen therapist only when it is one of their saved matches", async () => {
+    const savedLead = {
+      referenceId: "VQ-CALENDAR1", firstName: "Alex", email: "alex@example.com", phone: "416-555-0100", attribution: {},
+      match: { status: "match", therapistSlug: "tim-kahtava", reasons: [], alternative: { therapistSlug: "meryem-ibrahim", reasons: [] } },
+    };
+    const chosen = quizBooking({ preferredTherapist: "meryem-ibrahim" });
+    flowMocks.findBySubmissionTokenHash.mockResolvedValue(savedLead);
+    expect((await POST(request(chosen))).status).toBe(200);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenLastCalledWith(expect.objectContaining({ preferredTherapist: "Meryem Ibrahim" }));
+
+    const other = quizBooking({ preferredTherapist: "wilfred-bengnwi", clientSubmissionId: "quiz-calendar-other-choice-0001", consultationTime: "9:20 AM" });
+    flowMocks.findBySubmissionTokenHash.mockResolvedValue(savedLead);
+    expect((await POST(request(other))).status).toBe(200);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledTimes(2);
+    expect(flowMocks.upsertConsultationLead.mock.lastCall?.[0]).toEqual(expect.objectContaining({ quizReferenceId: "VQ-CALENDAR1" }));
+    expect(flowMocks.upsertConsultationLead.mock.lastCall?.[0].preferredTherapist).not.toMatch(/Wilfred|Meryem|Tim/);
+  });
+
   it("books a /welcome slot through the same claim and high-priority notification path", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));

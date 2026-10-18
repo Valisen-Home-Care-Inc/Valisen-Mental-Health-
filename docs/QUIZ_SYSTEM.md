@@ -1,6 +1,100 @@
 # Valisen Quiz-to-Consultation System
 
-This document describes quiz version `5.0.0`: the self-reflection score,
+## Current version: quiz `7.0.0`, scoring `2.0.0`
+
+Version 7 replaces the question set and the results page. Where this section
+and the older `5.0.0` description below disagree, this section wins; the
+privacy, persistence, attribution and analytics rules below are unchanged.
+
+**Questions (19, `lib/quiz.ts`).** Version 7 keeps the original 19-question
+flow, which had the lowest drop-off once someone started:
+
+1. "What brought you here today?"
+2. 12 check-in statements, each "Over the last two weeks…", all on one
+   frequency scale with "Prefer not to answer". They're one tap each.
+3. How long, then daily-life impact.
+4. Optional "anything specific" support concerns (matching concern tags).
+5. The safety question, now 17th, with the lead-in "One question we ask
+   everyone". It stays on the device and is never sent.
+6. "A month from now, how would you most like to feel?" (up to two).
+7. A last question that sells the free call and promises results either way:
+   "Your results come with a free 20-minute call with one of your matched
+   therapists. When would a call suit you best?"
+
+The therapist gender question and the "preferred next step" question are gone.
+In the old data, 18% of people left at gender and 14% at next step, and 69% of
+those who answered next step picked "just exploring". Everyone now sees the
+same booking-first results page. The recorded intent only says whether a call
+time was chosen (`ready_to_speak` or `see_recommended_therapist`). Short
+encouragements appear on the progress band after question 7 and after the
+check-in.
+
+**Wellbeing score.** A 1–100 number where higher means doing better:
+`round(100 − points / max × 99)`. Points come from the 12 check-in answers
+(0–3 each) plus how long and daily-life impact (0–3 each). Answers marked
+"Prefer not to answer" count toward neither points nor the maximum. With no
+check-in answers, there's no score. Bands: 1–39 "You're having a hard time",
+40–59 "You're struggling more than usual", 60–79 "You're managing, with some
+strain", 80–100 "You're doing well overall". The score is an educational
+reflection, not a diagnosis.
+
+**Matching.** Matching is deterministic, as before, using:
+
+- the check-in dimensions;
+- the selected support concerns;
+- the "how would you like to feel" goals (calmer → anxiety, sleeping better →
+  stress, like myself again → low mood, closer to people → relationships, more
+  confident → self-esteem), each quoted back in the reasons.
+
+The page shows two therapists with photos, the woman first.
+
+**Results page (`components/quiz/ResultsReveal.tsx`).** Score and colour bar
+(sad face to happy face, with a legend of the four ranges) and the two photo
+cards at the top, then the calendar, then "Save Valisen Care to your phone"
+(`public/valisen-care.vcf`, saved under the discreet name "Valisen Care") with
+WhatsApp (613-707-0333). Desktop visitors who move to leave after 8 seconds see
+the save-contact prompt once per session; it never shows after booking or to
+someone shown crisis resources.
+
+**One-tap booking.** The results page already has the verified contact
+details, so the visitor picks a time and taps "Book now". The consent wording
+(`QUIZ_BOOKING_CONSENT_TEXT`, unchanged) sits directly under the button and is
+submitted verbatim; the invisible security check runs on that tap. Choosing
+"Book with {name}" records that therapist as a preference only when they are
+one of the visitor's two saved matches; the calendar stays pooled.
+
+**Reporting.** Apply both version 7 migrations:
+
+- `supabase/migrations/20261018000000_quiz_v7_reporting.sql` tells the CRM's
+  question-friction report that version 7 has 19 questions.
+- `supabase/migrations/20261018010000_quiz_result_engagement_v7.sql` allows
+  the new results-page summaries and adds period totals:
+  - "Chose a therapist" (`therapist_chosen`)
+  - "Saved Valisen Care" (`save_contact_clicked`)
+  - "Tapped WhatsApp" (`whatsapp_clicked`)
+  - the before-you-go pop-up shown, saved and closed (`exit_prompt_*`)
+  - "Opened score details" (`details_opened`)
+  - the save-contact section being seen (`save_contact`)
+
+The CRM's results-engagement panel shows each of these as people and taps.
+
+The clinic's new-lead email now shows:
+
+- the 1–100 wellbeing score;
+- a "What they told us" list: what brought them here, how long, daily-life
+  impact, the support they want, how they'd like to feel and the best time
+  for the free call (`quizAnswerHighlights`).
+
+The safety answer is never stored or shown.
+
+**Browser check.** `scripts/quiz-calendar-smoke.mjs` walks all 19 screens,
+the safety pause, results at six widths, one-tap booking with a retry, the
+exit prompt and `/welcome`, against mocked APIs (start `next dev -p 3010`
+first; set `PUPPETEER_EXECUTABLE_PATH` if Chrome is installed elsewhere).
+
+## Earlier design notes (version 5)
+
+This section describes quiz version `5.0.0`: the self-reflection score,
 therapist matching, intent-adaptive results, consultation-request journey, private
 result delivery, optional contact help, persistence, email, and analytics.
 

@@ -62,3 +62,30 @@
 @media (prefers-reduced-motion: reduce) {
   .picker button { transition: none; }
 }
+
+/* Valisen brand tone (navy + teal), used on the quiz results page only. */
+.brand { --picker-teal: #0A1E57; color: #0A1E57; }
+.brand .calendar { border-color: #DDE6E9; background: #F2F6F7; }
+.brand .stepNumber { border-color: #9CCAD1; color: #1C6F7D; }
+.brand .timezone, .brand .weekdays, .brand .dateLabel, .brand .emptyTimes, .brand .availabilityMessage, .brand .scrollHint { color: #566282; }
+.brand .month { font-family: inherit; font-weight: 700; letter-spacing: -.4px; }
+.brand .month span { color: #566282; }
+.brand .monthButton { border-color: #D6E0E4; color: #0A1E57; }
+.brand .monthButton:hover:not(:disabled) { background: #E6F6F5; }
+.brand .day { color: #0A1E57; border-radius: 12px; }
+.brand .day:not(:disabled):not(.selectedDay) { border-color: #D6E0E4; }
+.brand .day:not(:disabled):not(.selectedDay):hover { border-color: #2BB3B1; background: #E6F6F5; }
+.brand .day.selectedDay { border-color: #0A1E57; background: #0A1E57; color: #fff; box-shadow: 0 4px 12px rgba(10, 30, 87, .25); }
+.brand .day.selectedDay .availableDot { background: #6FD3C4; }
+.brand .availableDot { background: #2BB3B1; }
+.brand .timesPanel { border-color: #DDE6E9; }
+.brand .times { max-height: 220px; gap: 8px; scrollbar-color: #9CCAD1 #F2F6F7; }
+.brand .time { min-height: 46px; border: 2px solid #EAF6F6; border-radius: 14px; background: #EAF6F6; color: #0A1E57; font-size: 14px; }
+.brand .time:hover { border-color: #2BB3B1; background: #E6F6F5; }
+.brand .time.selectedTime { color: #0A1E57; background: #2BB3B1; border-color: #2BB3B1; }
+.brand .time.bookedTime { border-color: #E3E7EA; background: #EEF1F3; color: #7A8499; }
+.brand .selection { border-color: #9CCAD1; background: #E6F6F5; }
+.brand .selectionIcon { background: #2BB3B1; color: #0A1E57; }
+.brand .selectionEyebrow { color: #1C6F7D; }
+.brand .selection p { color: #0A1E57; }
+.brand button:focus-visible { outline-color: #1F7A8A; }

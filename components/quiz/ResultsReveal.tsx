@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, Phone, RotateCcw } from "lucide-react";
+import { ArrowDown, MessageCircle, Phone, RotateCcw } from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
+import ExitSaveContactPrompt from "@/components/quiz/ExitSaveContactPrompt";
 import QuizConsultationBooking from "@/components/quiz/QuizConsultationBooking";
-import TherapistMatchCarousel from "@/components/quiz/TherapistMatchCarousel";
+import SaveContactBand from "@/components/quiz/SaveContactBand";
+import TherapistMatchCards from "@/components/quiz/TherapistMatchCarousel";
+import WellbeingScore from "@/components/quiz/WellbeingScore";
 import { useQuizResultEngagement } from "@/components/quiz/useQuizResultEngagement";
 import { getPresentedTherapistMatches } from "@/lib/quizTherapistPresentation";
-import type { QuizOutcome } from "@/lib/quiz";
+import type { Answers, QuizOutcome } from "@/lib/quiz";
 import type { MatchResult } from "@/lib/matching";
 import { getTherapistBySlug } from "@/lib/therapists";
 import type { QuizIntent } from "@/lib/quizIntent";
 import type { CampaignAttribution } from "@/lib/campaignAttribution";
+import { WHATSAPP_URL } from "@/lib/valisenCare";
 import {
   getDeviceCategory,
   trackFunnelEvent,
@@ -90,6 +94,7 @@ export default function ResultsReveal({
   initialPhone,
   intent,
   attribution,
+  answers,
   userEmailDeliveryFailed = false,
   onRestart,
 }: {
@@ -103,6 +108,8 @@ export default function ResultsReveal({
   initialPhone: string;
   intent: QuizIntent;
   attribution: CampaignAttribution;
+  /** Answers held in memory right after the quiz; absent on a restored result. */
+  answers?: Answers;
   initialContactHelpSent?: boolean;
   userEmailDeliveryFailed?: boolean;
   onRestart: () => void;
@@ -118,6 +125,9 @@ export default function ResultsReveal({
   const suggested =
     match.status === "match" ? getTherapistBySlug(match.therapistSlug) : undefined;
   const candidates = getPresentedTherapistMatches(match);
+  const [chosenSlug, setChosenSlug] = useState<string | null>(null);
+  const chosen = candidates.find((candidate) => candidate.therapist.slug === chosenSlug)?.therapist;
+  const exploring = intent === "exploring";
   const properties = {
     intent,
     therapistId: suggested?.slug ?? "clinic",
@@ -176,33 +186,44 @@ export default function ResultsReveal({
     };
   }, []);
 
+  function scrollToBooking() {
+    calendarRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    calendarRef.current?.focus({ preventScroll: true });
+  }
+
   return (
     <div ref={rootRef} data-quiz-results="" className={styles.results}>
       <p role="status" className="sr-only">
-        Your therapist recommendations and booking options are ready.
+        Your wellbeing score, therapist matches and booking options are ready.
       </p>
       {safetyFlagged ? <CrisisSupportBlock /> : null}
+
       <div ref={headingRef} tabIndex={-1} className={styles.hero} data-result-section="summary">
-        <p className={styles.eyebrow}>Your therapist recommendations</p>
-        <h1>We found two therapists who may fit.</h1>
-        <p className={styles.heroIntro}>
-          Based on what you shared, these therapists align with your needs and preferences. Meet
-          your recommendations, then choose a time for a free consultation.
-        </p>
-        <nav className={styles.jumpLinks} aria-label="Explore your recommendations">
-          <a href="#quiz-therapist-matches">
-            Therapists <ArrowDown size={12} aria-hidden="true" />
-          </a>
-          <a href="#quiz-consultation-booking">
-            Free consultation <ArrowDown size={12} aria-hidden="true" />
-          </a>
-        </nav>
-      </div>
-      <div className={styles.workspace}>
-        <TherapistMatchCarousel
+        {outcome.score !== null ? (
+          <WellbeingScore
+            score={outcome.score}
+            firstName={firstName}
+            answers={answers}
+            safetyFlagged={safetyFlagged}
+            onDetailsOpened={() => recordAction("details_opened")}
+          />
+        ) : (
+          <div className={styles.score}>
+            <p className={styles.scoreEyebrow}>{firstName ? `${firstName}, your results` : "Your results"}</p>
+            <h1 className={styles.heroHeading}>Your therapist matches are ready</h1>
+            <p className={styles.bandText}>Meet the therapists picked for you, then choose a time for a free 20-minute call.</p>
+          </div>
+        )}
+        <TherapistMatchCards
           candidates={candidates}
           outcome={outcome}
-          reducedMotion={reducedMotion}
+          chosenSlug={chosenSlug}
+          onChoose={(slug) => {
+            setChosenSlug(slug);
+            recordAction("therapist_chosen");
+            trackQuizEvent("consultation_request_clicked", { ...properties, therapistId: slug, ctaPlacement: "results_primary" });
+            scrollToBooking();
+          }}
           onProfile={(slug) => {
             recordAction("profile_clicked");
             trackQuizEvent("therapist_profile_clicked", {
@@ -211,41 +232,46 @@ export default function ResultsReveal({
               profileLinkPlacement: "exploring_match_card",
             });
           }}
+          onWhatsApp={() => recordAction("whatsapp_clicked")}
         />
-        <div
-          ref={calendarRef}
-          id="quiz-consultation-booking"
-          tabIndex={-1}
-          className={styles.bookingPlacement}
-        >
-          <QuizConsultationBooking
-            submissionToken={submissionToken}
-            firstName={firstName}
-            email={initialEmail}
-            phone={initialPhone}
-            onInteraction={(action) => {
-              recordAction(action);
-              if (action === "booking_clicked") {
-                trackQuizEvent("consultation_request_clicked", {
-                  ...properties,
-                  ctaPlacement: "results_primary",
-                });
-              }
-            }}
-            onBooked={(reference) => {
-              setBooked(true);
-              trackFunnelEvent("consultation_request_submitted", {
-                page: "quiz",
-                submissionReference: reference,
-              });
-            }}
-          />
-        </div>
       </div>
+
+      <div ref={calendarRef} id="quiz-consultation-booking" tabIndex={-1} className={styles.bookingPlacement}>
+        <QuizConsultationBooking
+          submissionToken={submissionToken}
+          firstName={firstName}
+          email={initialEmail}
+          phone={initialPhone}
+          exploring={exploring}
+          chosenTherapist={chosen ? { slug: chosen.slug, firstName: chosen.name.split(" ")[0], photo: chosen.photo } : null}
+          onInteraction={(action) => {
+            recordAction(action);
+            if (action === "booking_clicked") {
+              trackQuizEvent("consultation_request_clicked", {
+                ...properties,
+                ctaPlacement: "results_primary",
+              });
+            }
+          }}
+          onBooked={(reference) => {
+            setBooked(true);
+            trackFunnelEvent("consultation_request_submitted", {
+              page: "quiz",
+              submissionReference: reference,
+            });
+          }}
+        />
+      </div>
+
+      <SaveContactBand
+        exploring={exploring}
+        onSave={() => recordAction("save_contact_clicked")}
+        onWhatsApp={() => recordAction("whatsapp_clicked")}
+      />
+
       {userEmailDeliveryFailed ? (
-        <p role="status" className="mt-4 rounded-xl bg-gold-light p-4 text-sm">
-          Your recommendations are saved. We couldn&apos;t send the email yet, but you can continue
-          here.
+        <p role="status" className={styles.emailNotice}>
+          Your results are saved. We couldn&apos;t send the email yet, but you can continue here.
         </p>
       ) : null}
       <div className={styles.footer}>
@@ -265,22 +291,30 @@ export default function ResultsReveal({
       <CrisisNote className="mt-5 text-center" />
       {stickyVisible && !booked ? (
         <div className={styles.sticky}>
-          <p>
-            A first hello<span>Free · 20-minute phone call</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              calendarRef.current?.scrollIntoView({
-                behavior: reducedMotion ? "auto" : "smooth",
-              });
-              calendarRef.current?.focus({ preventScroll: true });
-            }}
-          >
-            Choose a time <ArrowDown size={13} className="ml-1 inline" aria-hidden="true" />
+          <button type="button" onClick={scrollToBooking}>
+            Book my free call <ArrowDown size={16} aria-hidden="true" />
           </button>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Message us on WhatsApp"
+            onClick={() => recordAction("whatsapp_clicked")}
+          >
+            <MessageCircle size={22} aria-hidden="true" />
+          </a>
         </div>
       ) : null}
+      <ExitSaveContactPrompt
+        enabled={!safetyFlagged && !booked}
+        onShown={() => recordAction("exit_prompt_shown")}
+        onSave={() => {
+          recordAction("exit_prompt_saved");
+          recordAction("save_contact_clicked");
+        }}
+        onWhatsApp={() => recordAction("whatsapp_clicked")}
+        onDismiss={() => recordAction("exit_prompt_dismissed")}
+      />
     </div>
   );
 }

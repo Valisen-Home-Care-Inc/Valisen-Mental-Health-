@@ -43,11 +43,18 @@ describe("growth CRM contracts", () => {
     expect(isConsultationSourceKind("meta")).toBe(false);
   });
 
-  it("labels all 12 matching screens and preserves answered exit detail", () => {
-    expect(QUIZ_QUESTION_LABELS).toHaveLength(12);
-    expect(quizQuestionLabel(1)).toContain("Type of support");
-    expect(quizQuestionLabel(11)).toContain("Desired start timing");
-    expect(quizQuestionLabel(12)).toContain("Payment and insurance readiness");
+  it("labels all 19 version 7 screens, keeps version 6 labels and preserves answered exit detail", () => {
+    expect(QUIZ_QUESTION_LABELS).toHaveLength(19);
+    expect(QUIZ_QUESTION_LABELS.every((label) => !label.includes("?"))).toBe(true);
+    expect(quizQuestionLabel(1)).toBe("Q1 · Reason for visiting");
+    expect(quizQuestionLabel(2)).toBe("Q2 · Controlling worry");
+    expect(quizQuestionLabel(13)).toBe("Q13 · Sleep");
+    expect(quizQuestionLabel(16)).toBe("Q16 · Support concerns");
+    expect(quizQuestionLabel(17)).toBe("Q17 · Safety check");
+    expect(quizQuestionLabel(18)).toBe("Q18 · How they'd like to feel");
+    expect(quizQuestionLabel(19)).toBe("Q19 · Best time for the free call");
+    expect(quizQuestionLabel(1, "6.0.0")).toBe("Q1 · Type of support");
+    expect(quizQuestionLabel(12, "6.0.0")).toBe("Q12 · Payment and insurance readiness");
     expect(formatGrowthStage("quiz_question_8_answered")).toContain(
       "answered",
     );

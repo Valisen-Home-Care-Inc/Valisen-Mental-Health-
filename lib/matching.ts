@@ -52,6 +52,10 @@ export const MATCHING_WEIGHTS = {
   secondaryDimension: 1,
   /** Each specific concern the visitor selected that the therapist verifiably supports. */
   selectedConcern: 2,
+  /** Each "how would you like to feel" goal that points to an area the therapist supports. */
+  feelingGoal: 1,
+  /** The therapist offers the non-English language the visitor asked for. */
+  preferredLanguage: 3,
 } as const;
 
 /**
@@ -82,38 +86,133 @@ export const MATCHING_TIE_BREAK_ORDER = [
  * ──────────────────────────────────────────────────────────────────────── */
 export type GenderPreference = "man" | "woman" | "no-preference";
 
+/** Therapy languages a visitor can ask for, mapped to roster wording. */
+export const LANGUAGE_PREFERENCES = {
+  french: "French",
+  arabic: "Arabic",
+  mandarin: "Mandarin",
+} as const;
+export type LanguagePreference = keyof typeof LANGUAGE_PREFERENCES;
+
 export type MatchPreferences = {
   concerns: ConcernTag[];
+  /**
+   * Concerns inferred from "how would you like to feel" goals, mapped to the
+   * goal wording so reasons can quote the visitor. Optional for older callers.
+   */
+  goals?: { concern: ConcernTag; label: string }[];
   genderPreference: GenderPreference;
+  /** Only non-English requests change the match; every therapist offers English. */
+  language?: LanguagePreference;
 };
 
+/** The "anything specific" question's values are concern tags. */
 const CONCERNS_QUESTION = QUESTIONS.find((q) => q.id === "concerns");
-const VALID_CONCERNS = new Set(
-  (CONCERNS_QUESTION?.options ?? []).map((o) => String(o.value)),
+const CONCERN_LABELS = new Map<string, string>(
+  (CONCERNS_QUESTION?.options ?? []).map(
+    (option) => [String(option.value), option.label] as [string, string],
+  ),
 );
 
-/** Human label for a concern tag, taken from the quiz option wording. */
+/**
+ * "A month from now, how would you most like to feel?" goals that point to a
+ * concern area. Goals without a clear area (more in control, not sure) only
+ * shape the conversation, not the match.
+ */
+const FEEL_DIFFERENT_QUESTION = QUESTIONS.find((q) => q.id === "feel_different");
+const GOAL_CONCERNS: Record<string, ConcernTag> = {
+  "worry-less": "anxiety",
+  "sleep-better": "stress-burnout",
+  "feel-like-myself": "depression",
+  "closer-to-people": "relationship-challenges",
+  "more-confident": "self-esteem",
+};
+const VALID_CONCERNS = new Set<string>([
+  "anxiety",
+  "depression",
+  "stress-burnout",
+  "relationship-challenges",
+  "couples-therapy",
+  "trauma",
+  "adhd",
+  "perfectionism-people-pleasing",
+  "self-esteem",
+  "addiction",
+  "cultural-adjustment",
+  "life-transitions",
+  "grief",
+] satisfies ConcernTag[]);
+
+/** Clinical area names used on match chips and in the clinic's lead record. */
+const CONCERN_AREA_LABELS: Record<ConcernTag, string> = {
+  anxiety: "Anxiety",
+  depression: "Depression or low mood",
+  "stress-burnout": "Stress or burnout",
+  "relationship-challenges": "Relationship challenges",
+  "couples-therapy": "Couples therapy",
+  trauma: "Trauma",
+  adhd: "ADHD",
+  "perfectionism-people-pleasing": "Perfectionism or people-pleasing",
+  "self-esteem": "Self-esteem",
+  addiction: "Addiction",
+  "cultural-adjustment": "Cultural adjustment",
+  "life-transitions": "Life transitions",
+  grief: "Grief or loss",
+};
+
+/** Human label for a concern tag. */
 export function concernLabel(tag: ConcernTag): string {
-  const option = CONCERNS_QUESTION?.options.find((o) => o.value === tag);
-  return option?.label ?? tag;
+  return CONCERN_AREA_LABELS[tag] ?? tag.replaceAll("-", " ");
+}
+
+/** The visitor's own answer wording for a concern, when the quiz asked it. */
+function concernAnswerLabel(tag: ConcernTag): string | undefined {
+  return tag === "couples-therapy" ? undefined : CONCERN_LABELS.get(tag);
 }
 
 export function extractPreferences(answers: Answers): MatchPreferences {
-  const rawConcerns = answers["concerns"];
-  const concerns = Array.isArray(rawConcerns)
-    ? (Array.from(
-        new Set(rawConcerns.filter((c) => typeof c === "string" && VALID_CONCERNS.has(c))),
-      ) as ConcernTag[])
-    : [];
-  if (answers.support_type === "couples" && !concerns.includes("couples-therapy")) {
-    concerns.push("couples-therapy");
+  const concerns: ConcernTag[] = [];
+  const add = (value: unknown) => {
+    if (typeof value === "string" && VALID_CONCERNS.has(value) && !concerns.includes(value as ConcernTag)) {
+      concerns.push(value as ConcernTag);
+    }
+  };
+  const selectedConcerns = answers["concerns"];
+  if (Array.isArray(selectedConcerns)) selectedConcerns.forEach(add);
+  // Version 6 asked "who is this for"; keep older answer sets matchable.
+  if (answers.support_type === "couples") add("couples-therapy");
+
+  const goals: { concern: ConcernTag; label: string }[] = [];
+  const feelDifferent = answers["feel_different"];
+  if (Array.isArray(feelDifferent)) {
+    for (const value of feelDifferent) {
+      const concern = typeof value === "string" ? GOAL_CONCERNS[value] : undefined;
+      const label = FEEL_DIFFERENT_QUESTION?.options.find((option) => option.value === value)?.label;
+      if (!concern || !label || concerns.includes(concern) || goals.some((goal) => goal.concern === concern)) continue;
+      goals.push({ concern, label });
+    }
   }
 
   const rawGender = answers["gender_preference"];
   const genderPreference: GenderPreference =
     rawGender === "man" || rawGender === "woman" ? rawGender : "no-preference";
 
-  return { concerns, genderPreference };
+  const rawLanguage = answers["language"];
+  const language =
+    typeof rawLanguage === "string" && rawLanguage in LANGUAGE_PREFERENCES
+      ? (rawLanguage as LanguagePreference)
+      : undefined;
+
+  return {
+    concerns,
+    genderPreference,
+    ...(goals.length ? { goals } : {}),
+    ...(language ? { language } : {}),
+  };
+}
+
+function offersLanguage(therapist: Therapist, language: LanguagePreference | undefined): boolean {
+  return Boolean(language && therapist.languages.includes(LANGUAGE_PREFERENCES[language]));
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -157,7 +256,9 @@ type ScoredCandidate = {
   rosterIndex: number;
   score: number;
   concernOverlap: ConcernTag[];
+  goalOverlap: { concern: ConcernTag; label: string }[];
   dimensionHits: Dimension[];
+  languageMatch: boolean;
 };
 
 export function matchTherapist(
@@ -222,7 +323,15 @@ export function matchTherapist(
     );
     score += concernOverlap.length * MATCHING_WEIGHTS.selectedConcern;
 
-    return { therapist, rosterIndex, score, concernOverlap, dimensionHits };
+    const goalOverlap = (prefs.goals ?? []).filter((goal) =>
+      therapist.matching.concernTags.includes(goal.concern),
+    );
+    score += goalOverlap.length * MATCHING_WEIGHTS.feelingGoal;
+
+    const languageMatch = offersLanguage(therapist, prefs.language);
+    if (languageMatch) score += MATCHING_WEIGHTS.preferredLanguage;
+
+    return { therapist, rosterIndex, score, concernOverlap, goalOverlap, dimensionHits, languageMatch };
   });
 
   // 3. Stable, documented tie-breaking.
@@ -278,10 +387,33 @@ function buildReasons(candidate: ScoredCandidate, prefs: MatchPreferences): Matc
   const firstName = therapist.name.split(" ")[0];
   const reasons: MatchReason[] = [];
 
-  for (const concern of candidate.concernOverlap) {
+  if (candidate.languageMatch && prefs.language) {
+    const language = LANGUAGE_PREFERENCES[prefs.language];
     reasons.push({
-      chip: concernLabel(concern),
-      detail: `You selected “${concernLabel(concern).toLowerCase()}” — ${firstName} lists this among their areas of support.`,
+      chip: `Speaks ${language}`,
+      detail: `You prefer therapy in ${language}, and ${firstName} offers sessions in ${language}.`,
+    });
+  }
+
+  for (const concern of candidate.concernOverlap) {
+    const area = concernLabel(concern);
+    const answer = concernAnswerLabel(concern);
+    reasons.push({
+      chip: area,
+      detail:
+        concern === "couples-therapy"
+          ? `You're looking for support with your partner, and ${firstName} offers couples therapy.`
+          : answer
+            ? `You chose “${answer}”, and ${firstName} lists ${area.toLowerCase()} among their areas of support.`
+            : `You selected “${area.toLowerCase()}” — ${firstName} lists this among their areas of support.`,
+    });
+  }
+
+  for (const goal of candidate.goalOverlap) {
+    const area = concernLabel(goal.concern);
+    reasons.push({
+      chip: area,
+      detail: `You'd like to feel “${goal.label.toLowerCase()}”, and ${firstName} lists ${area.toLowerCase()} among their areas of support.`,
     });
   }
 

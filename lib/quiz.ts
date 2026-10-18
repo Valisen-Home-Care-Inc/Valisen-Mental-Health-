@@ -7,12 +7,17 @@ import type { QuizIntentOption } from "@/lib/quizIntentContract";
  * reviewer. Everything the quiz does — the questions, the answer scale, how
  * answers map to concern areas, and how a result is chosen — lives here.
  *
- * Version 6 collects practical matching preferences and readiness signals.
- * It is not a diagnostic instrument or clinical assessment.
+ * Version 7 keeps the original 19-question flow that performed best (a warm
+ * opener, a 12-item two-week check-in, how long and how much, what they'd
+ * like support with and the safety question) and ends on forward-looking
+ * questions instead of asking visitors to sort themselves into "ready" or
+ * "just exploring". The check-in produces the 1–100 wellbeing score. It is a
+ * self-reflection tool, not a diagnostic instrument or clinical assessment.
  *
- * SCORE DIRECTION: the overall Check-In Score runs 20–98 where HIGHER means
- * steadier (fewer reported concerns) and LOWER means more strain. Dimension
- * averages run 0–3 where HIGHER means the concern is MORE present.
+ * SCORE DIRECTION: the overall wellbeing score runs 1–100 where HIGHER means
+ * the person is doing better (fewer reported difficulties) and LOWER means
+ * more strain. Dimension averages run 0–3 where HIGHER means the concern is
+ * MORE present.
  */
 
 /**
@@ -21,8 +26,8 @@ import type { QuizIntentOption } from "@/lib/quizIntentContract";
  * produced it. Bump QUIZ_VERSION when questions change; bump
  * SCORING_VERSION when thresholds, weights, or bands change.
  */
-export const QUIZ_VERSION = "6.0.0";
-export const SCORING_VERSION = "1.0.0";
+export const QUIZ_VERSION = "7.0.0";
+export const SCORING_VERSION = "2.0.0";
 
 /* ────────────────────────────────────────────────────────────────────────
  * 1. Concern dimensions the quiz can reflect back
@@ -62,12 +67,12 @@ export const MAX_SCALE_VALUE = 3;
  * 3. Questions (one per screen)
  * kind:
  *   "intro"      – warm opener, not scored
- *   "scored"     – contributes to one or more dimensions
- *   "context"    – duration / impact, used only for the result note
- *   "preference" – therapist-gender matching preference —
- *                  never scored, used only for matching
- *   "multi"      – optional multi-select of specific concerns — never
- *                  scored, used only for matching
+ *   "scored"     – contributes to the wellbeing score and one or more
+ *                  dimensions
+ *   "context"    – single-choice answers used for the score note, matching,
+ *                  readiness and the clinic's lead record
+ *   "preference" – matching preference — never scored
+ *   "multi"      – multi-select — never scored
  *   "safety"     – 🔬 gentle safety check, NOT scored, NOT tracked
  * ──────────────────────────────────────────────────────────────────────── */
 export type Question =
@@ -84,6 +89,8 @@ export type Question =
       kind: "intro" | "context" | "preference";
       text: string;
       helper?: string;
+      /** Reassurance shown under the answers. */
+      note?: string;
       filterFromAnswer?: { questionId: string; alwaysInclude: string[] };
       options: { label: string; value: string }[];
     }
@@ -103,6 +110,8 @@ export type Question =
       kind: "safety";
       text: string;
       helper?: string;
+      /** Reassurance shown under the answers. */
+      note?: string;
       /** Selecting one of these values triggers the safety message. */
       concerningValues: string[];
       options: { label: string; value: string }[];
@@ -115,214 +124,198 @@ export type Question =
       options: readonly QuizIntentOption[];
     };
 
-const CONCERN_OPTIONS = [
-  { label: "Anxiety or excessive worry", value: "anxiety" },
-  { label: "Depression or low mood", value: "depression" },
+/** "How long" and "how much" also add to the wellbeing score (0 = least strain). */
+export const DURATION_POINTS: Record<string, number> = {
+  acute: 0,
+  weeks: 1,
+  months: 2,
+  chronic: 3,
+};
+
+export const IMPACT_POINTS: Record<string, number> = {
+  none: 0,
+  mild: 1,
+  moderate: 2,
+  severe: 3,
+};
+
+const scored = (
+  id: string,
+  dimensions: Dimension[],
+  text: string,
+): Extract<Question, { kind: "scored" }> => ({
+  id,
+  kind: "scored",
+  text,
+  helper: "Over the last two weeks…",
+  dimensions,
+  options: FREQUENCY_SCALE,
+});
+
+/** Concern values are therapist-matching concern tags (lib/therapists.ts). */
+export const SUPPORT_CONCERN_OPTIONS = [
+  { label: "Anxiety or worry", value: "anxiety" },
+  { label: "Low mood or depression", value: "depression" },
   { label: "Stress or burnout", value: "stress-burnout" },
   { label: "Relationship difficulties", value: "relationship-challenges" },
+  { label: "Couples or partner work", value: "couples-therapy" },
   { label: "Trauma or difficult past experiences", value: "trauma" },
-  { label: "Self-esteem or confidence", value: "self-esteem" },
-  { label: "ADHD-related challenges", value: "adhd" },
-  { label: "Grief or loss", value: "grief" },
-  { label: "Anger or emotional regulation", value: "anger-emotional-regulation" },
+  { label: "ADHD or focus", value: "adhd" },
   { label: "Perfectionism or people-pleasing", value: "perfectionism-people-pleasing" },
-  { label: "Addiction or unhealthy habits", value: "addiction" },
-  { label: "Cultural adjustment or identity", value: "cultural-adjustment" },
-  { label: "A major life transition", value: "life-transitions" },
-  { label: "Something else", value: "other" },
-  { label: "I'm not sure yet", value: "not-sure" },
+  { label: "Self-esteem", value: "self-esteem" },
+  { label: "Alcohol, substances, or other addictive patterns", value: "addiction" },
+  { label: "Cultural adjustment or immigration stress", value: "cultural-adjustment" },
+  { label: "A major life change or transition", value: "life-transitions" },
+  { label: "Grief or loss", value: "grief" },
 ];
 
 export const QUESTIONS: Question[] = [
   {
-    id: "support_type",
+    id: "intro",
     kind: "intro",
-    text: "What type of support are you looking for?",
-    helper: "Let's start with what feels closest.",
+    text: "What brought you here today?",
+    helper: "There's no wrong answer",
     options: [
-      { label: "Individual therapy", value: "individual" },
-      { label: "Couples therapy", value: "couples" },
-      { label: "I'm not sure yet", value: "not-sure" },
+      { label: "I've been feeling off and I'm not sure why", value: "unsure" },
+      { label: "Something specific has been weighing on me", value: "specific" },
+      { label: "I'm curious and just exploring", value: "curious" },
+      { label: "Someone suggested I look into support", value: "suggested" },
+    ],
+  },
+
+  scored("worry_1", ["worry"], "Found it hard to stop or control worrying"),
+  scored("mood_1", ["mood"], "Had little interest or pleasure in doing things you usually enjoy"),
+  scored("stress_1", ["stress"], "Felt emotionally drained or like you're running on empty"),
+  scored("worry_2", ["worry"], "Felt tense, restless, or on edge"),
+  scored("mood_2", ["mood"], "Felt down, flat, or weighed down by things"),
+  scored("relationships_1", ["relationships"], "Noticed tension, conflict, or distance in a close relationship"),
+  scored("stress_2", ["stress"], "Felt overwhelmed by everything you have to do"),
+  scored("worry_3", ["worry"], "Been bothered by racing thoughts or found it hard to relax"),
+  scored("mood_3", ["mood"], "Struggled to find the motivation or energy for everyday tasks"),
+  scored("stress_3", ["stress"], "Found that rest or time off doesn't leave you recharged"),
+  scored("relationships_2", ["relationships"], "Felt unsupported, disconnected, or alone — even around other people"),
+  scored("sleep", ["mood", "stress"], "Had trouble sleeping, or slept much more than usual"),
+
+  {
+    id: "duration",
+    kind: "context",
+    text: "How long have you been noticing these things?",
+    options: [
+      { label: "Less than 2 weeks", value: "acute" },
+      { label: "2 to 4 weeks", value: "weeks" },
+      { label: "1 to 6 months", value: "months" },
+      { label: "More than 6 months", value: "chronic" },
+    ],
+  },
+  {
+    id: "impact",
+    kind: "context",
+    text: "How much has this been affecting your daily life — work, relationships, or routines?",
+    options: [
+      { label: "Not really", value: "none" },
+      { label: "A little", value: "mild" },
+      { label: "Quite a bit", value: "moderate" },
+      { label: "A great deal", value: "severe" },
     ],
   },
   {
     id: "concerns",
     kind: "multi",
-    text: "What would you most like support with?",
-    helper: "Choose up to three",
-    required: true,
-    maxSelections: 3,
-    exclusiveValues: ["not-sure"],
-    options: CONCERN_OPTIONS,
+    text: "Is there anything specific you'd like support with?",
+    helper: "Optional · choose any that apply",
+    options: SUPPORT_CONCERN_OPTIONS,
   },
+  /* 🔬 Safety check — reviewed handling, never scored, never sent to analytics.
+   * Asked before the closing questions so the quiz never ends on it. */
   {
-    id: "primary_concern",
-    kind: "context",
-    text: "Which of those feels most important to address first?",
-    helper: "Choose the closest answer",
-    filterFromAnswer: {
-      questionId: "concerns",
-      alwaysInclude: ["equal", "help-deciding"],
-    },
+    id: "safety",
+    kind: "safety",
+    text: "In the last little while, have you had thoughts of hurting yourself or that you'd be better off not here?",
+    helper: "One question we ask everyone",
+    note: "You can skip this. If you answer yes, we'll show support options right away.",
+    concerningValues: ["sometimes", "often"],
     options: [
-      ...CONCERN_OPTIONS,
-      { label: "They feel equally important", value: "equal" },
-      { label: "I'd like help deciding", value: "help-deciding" },
+      { label: "No", value: "no" },
+      { label: "Yes, some of the time", value: "sometimes" },
+      { label: "Yes, often", value: "often" },
+      { label: "Prefer not to answer", value: "skip" },
     ],
   },
   {
-    id: "therapy_goals",
+    id: "feel_different",
     kind: "multi",
-    text: "What are you hoping therapy will help you do?",
-    helper: "Choose up to three",
+    text: "A month from now, how would you most like to feel?",
+    helper: "Choose up to two",
     required: true,
-    maxSelections: 3,
+    maxSelections: 2,
     exclusiveValues: ["not-sure"],
     options: [
-      { label: "Feel less anxious or overwhelmed", value: "reduce-anxiety" },
-      { label: "Improve my mood and motivation", value: "improve-mood" },
-      { label: "Manage stress more effectively", value: "manage-stress" },
-      { label: "Improve my relationships", value: "improve-relationships" },
-      { label: "Communicate more clearly", value: "communicate" },
-      { label: "Work through something from my past", value: "process-past" },
-      { label: "Build confidence and self-worth", value: "build-confidence" },
-      { label: "Change patterns that aren't helping me", value: "change-patterns" },
-      { label: "Understand my thoughts and emotions", value: "understand-self" },
-      { label: "Feel more in control of my life", value: "feel-in-control" },
-      { label: "Get support through a difficult transition", value: "transition-support" },
+      { label: "Calmer, with less worry", value: "worry-less" },
+      { label: "Rested and sleeping better", value: "sleep-better" },
+      { label: "Like myself again", value: "feel-like-myself" },
+      { label: "Closer to the people I care about", value: "closer-to-people" },
+      { label: "More confident", value: "more-confident" },
+      { label: "More in control", value: "more-in-control" },
       { label: "I'm not sure yet", value: "not-sure" },
     ],
   },
+  /* The last question sells the free call and confirms results come either
+   * way. Every answer leads to the same results page and calendar. */
   {
-    id: "therapy_history",
+    id: "call_time",
     kind: "context",
-    text: "Have you worked with a therapist before?",
-    options: [
-      { label: "No, this would be my first time", value: "first-time" },
-      { label: "Yes, and it was helpful", value: "helpful" },
-      { label: "Yes, but the therapist wasn't the right fit", value: "not-right-fit" },
-      { label: "Yes, with mixed results", value: "mixed" },
-      { label: "I'd rather discuss this privately", value: "private" },
-    ],
-  },
-  {
-    id: "therapist_style",
-    kind: "multi",
-    text: "What would you like your therapist to be like?",
-    helper: "Choose up to three",
-    required: true,
-    maxSelections: 3,
-    exclusiveValues: ["help-deciding"],
-    options: [
-      { label: "Warm and easy to talk to", value: "warm" },
-      { label: "Practical and solution-focused", value: "practical" },
-      { label: "Structured and goal-oriented", value: "structured" },
-      { label: "Patient and reflective", value: "reflective" },
-      { label: "Direct and willing to challenge me", value: "direct" },
-      { label: "Someone who gives me strategies to practise", value: "strategies" },
-      { label: "Someone who helps me understand my past", value: "understand-past" },
-      { label: "I'd like help deciding", value: "help-deciding" },
-    ],
-  },
-  {
-    id: "gender_preference",
-    kind: "preference",
-    text: "Do you have a therapist gender preference?",
-    helper: "This helps our team narrow the fit.",
-    options: [
-      { label: "A woman", value: "woman" },
-      { label: "A man", value: "man" },
-      { label: "No preference", value: "no-preference" },
-      { label: "I'd rather discuss this during the consultation", value: "discuss" },
-    ],
-  },
-  {
-    id: "matching_considerations",
-    kind: "multi",
-    text: "Is there anything important for your therapist to understand?",
-    helper: "Optional — choose anything that matters to you",
-    maxSelections: 3,
-    exclusiveValues: ["private", "none"],
-    options: [
-      { label: "My cultural background", value: "cultural-background" },
-      { label: "Religion or spirituality", value: "religion-spirituality" },
-      { label: "Immigration or adjustment experiences", value: "immigration-adjustment" },
-      { label: "LGBTQ+ experiences", value: "lgbtq" },
-      { label: "Men's issues", value: "mens-issues" },
-      { label: "Women's issues", value: "womens-issues" },
-      { label: "Family or cultural expectations", value: "family-cultural-expectations" },
-      { label: "Something else", value: "other" },
-      { label: "I'd rather discuss this privately", value: "private" },
-      { label: "No specific preference", value: "none" },
-    ],
-  },
-  {
-    id: "language",
-    kind: "preference",
-    text: "What language would you prefer for therapy?",
-    options: [
-      { label: "English", value: "english" },
-      { label: "French", value: "french" },
-      { label: "Arabic", value: "arabic" },
-      { label: "Mandarin", value: "mandarin" },
-      { label: "No preference", value: "no-preference" },
-      { label: "Another language", value: "other" },
-    ],
-  },
-  {
-    id: "availability",
-    kind: "multi",
-    text: "When could you usually attend therapy?",
-    helper: "Choose all that apply",
-    required: true,
-    exclusiveValues: ["not-sure"],
+    text: "Your results come with a free 20-minute call with one of your matched therapists. When would a call suit you best?",
+    helper: "Last one · Your results are next",
+    note: "Free · No commitment · You'll see your score and matches either way",
     options: [
       { label: "Weekday mornings", value: "weekday-mornings" },
       { label: "Weekday afternoons", value: "weekday-afternoons" },
       { label: "Weekday evenings", value: "weekday-evenings" },
-      { label: "Saturdays", value: "saturdays" },
-      { label: "Sundays", value: "sundays" },
-      { label: "My schedule is flexible", value: "flexible" },
-      { label: "I'm not sure yet", value: "not-sure" },
-    ],
-  },
-  {
-    id: "start_timing",
-    kind: "context",
-    text: "How soon would you like to begin therapy?",
-    options: [
-      { label: "As soon as possible", value: "asap" },
-      { label: "Within the next two weeks", value: "within-two-weeks" },
-      { label: "Sometime this month", value: "this-month" },
-      { label: "Within the next few months", value: "next-few-months" },
-      { label: "I'm only exploring right now", value: "exploring" },
-    ],
-  },
-  {
-    id: "payment_readiness",
-    kind: "context",
-    text: "Therapy sessions are $160–$180 per 50 minutes. Which best describes you?",
-    helper: "Official receipts are provided for insurance reimbursement",
-    options: [
-      { label: "I have insurance and plan to check my coverage", value: "insurance" },
-      { label: "I'm comfortable paying privately", value: "private-pay" },
-      { label: "I'll use insurance and private payment", value: "combined" },
-      { label: "I'm unsure about coverage and would like help", value: "needs-coverage-help" },
-      { label: "I'm not ready to pay for therapy right now", value: "not-ready" },
+      { label: "Weekends", value: "weekends" },
+      { label: "I'll decide after I see my results", value: "after-results" },
     ],
   },
 ];
 
+/**
+ * Version 7 no longer asks visitors to label themselves "just exploring".
+ * Everyone sees the same booking-first results page; the recorded routing
+ * category only tells the clinic whether a call time was already chosen.
+ */
 export function quizIntentForAnswers(answers: Answers): QuizIntentOption["value"] {
-  switch (answers.start_timing) {
-    case "asap":
-    case "within-two-weeks":
-      return "ready_to_speak";
-    case "this-month":
-      return "brief_consultation";
-    default:
-      return "exploring";
+  return answers.call_time === "after-results" ? "see_recommended_therapist" : "ready_to_speak";
+}
+
+/**
+ * Plain-language highlights for the clinic's new-lead email: what the visitor
+ * told us that helps a care coordinator start the call. Check-in answers are
+ * summarized by the score, and the safety answer is never stored or shown.
+ */
+export function quizAnswerHighlights(answers: Answers): { label: string; value: string }[] {
+  const labelFor = (id: string, value: unknown) =>
+    QUESTIONS.find((question) => question.id === id)?.options.find((option) => option.value === value)?.label;
+  const listFor = (id: string) => {
+    const values = answers[id];
+    return Array.isArray(values)
+      ? values.map((value) => labelFor(id, value)).filter((label): label is string => Boolean(label))
+      : [];
+  };
+  const highlights: { label: string; value: string }[] = [];
+  const single = (label: string, id: string) => {
+    const value = labelFor(id, answers[id]);
+    if (value) highlights.push({ label, value });
+  };
+  single("What brought them here", "intro");
+  single("Going on for", "duration");
+  single("Effect on daily life", "impact");
+  if (Array.isArray(answers.concerns)) {
+    const concerns = listFor("concerns");
+    highlights.push({ label: "Wants support with", value: concerns.length ? concerns.join(", ") : "Nothing specific chosen" });
   }
+  const goals = listFor("feel_different");
+  if (goals.length) highlights.push({ label: "A month from now, wants to feel", value: goals.join("; ") });
+  single("Best time for the free call", "call_time");
+  return highlights;
 }
 
 export const TOTAL_QUESTIONS = QUESTIONS.length;
@@ -330,10 +323,13 @@ export const SCORED_QUESTION_COUNT = QUESTIONS.filter((q) => q.kind === "scored"
 
 /* ────────────────────────────────────────────────────────────────────────
  * 4. Scoring
- * For each dimension we take the AVERAGE of the answered scored questions
- * that feed it (skipped answers are excluded, so skipping never distorts a
- * score). We then decide between a single dominant concern, several
- * overlapping concerns, or no clear pattern.
+ * Version 7 wellbeing score (1–100, HIGHER = doing better):
+ *   points = the 12 check-in answers (0–3 each)
+ *          + how long it has been going on (0–3)
+ *          + how much it affects daily life (0–3)
+ *   score  = 100 − round(points ÷ maximum points × 99)
+ * Only answered questions count toward both points and the maximum, so a
+ * "Prefer not to answer" never distorts the score.
  * ──────────────────────────────────────────────────────────────────────── */
 
 /** A dimension must average at least this to be considered "present". */
@@ -360,28 +356,77 @@ export type QuizOutcome = {
   duration?: string;
   impact?: string;
   /**
-   * Overall well-being reflection score, 20–98 (higher = steadier).
-   * Derived from ALL answered scored questions, so it varies with responses.
+   * Overall wellbeing score, 1–100 (higher = doing better). Version 5
+   * results used 20–98 and version 6 results have no score (null).
    * This is a self-reflection number, NOT a clinical or diagnostic score.
    */
   score: number | null;
-  /** Number of the 12 scored questions the visitor chose to answer. */
+  /** Number of scored check-in questions the visitor answered. */
   answeredCount: number;
 };
 
-/**
- * Score is mapped into a friendly range (never a shaming single digit and
- * never a misleading "perfect 100"): lowest distress ≈ 98, highest ≈ 20.
- */
-export const SCORE_MAX = 98;
-export const SCORE_MIN = 20;
+export const SCORE_MAX = 100;
+export const SCORE_MIN = 1;
+
+export type ScoreBand = {
+  key: "hard" | "struggling" | "managing" | "well";
+  min: number;
+  max: number;
+  /** Short label shown under the score bar. */
+  short: string;
+  /** Plain-language meaning shown with the score and in the lead record. */
+  title: string;
+  description: string;
+};
+
+/** 🔬 Band wording and thresholds are flagged for Valisen's clinical review. */
+export const SCORE_BANDS: readonly ScoreBand[] = [
+  {
+    key: "hard",
+    min: 1,
+    max: 39,
+    short: "Hard time",
+    title: "You're having a hard time",
+    description:
+      "You don't have to carry this alone. Talking to someone soon is a good next step.",
+  },
+  {
+    key: "struggling",
+    min: 40,
+    max: 59,
+    short: "Struggling",
+    title: "You're struggling more than usual",
+    description:
+      "Things feel heavier than they should right now. This is a good time to get support.",
+  },
+  {
+    key: "managing",
+    min: 60,
+    max: 79,
+    short: "Managing",
+    title: "You're managing, with some strain",
+    description:
+      "Something is weighing on you. A few sessions can help you get ahead of it.",
+  },
+  {
+    key: "well",
+    min: 80,
+    max: 100,
+    short: "Doing well",
+    title: "You're doing well overall",
+    description:
+      "You're in a good place. Therapy can still help you grow or work through something specific.",
+  },
+];
+
+export function scoreBandDetailsFor(score: number | null): ScoreBand | null {
+  if (score === null || !Number.isFinite(score)) return null;
+  const clamped = Math.min(SCORE_MAX, Math.max(SCORE_MIN, Math.round(score)));
+  return SCORE_BANDS.find((band) => clamped >= band.min && clamped <= band.max) ?? null;
+}
 
 export function scoreBandFor(score: number | null): string {
-  if (score === null) return "Not enough answered to calculate a score";
-  if (score >= 80) return "Generally steady right now";
-  if (score >= 60) return "Coping, but under some strain";
-  if (score >= 40) return "Carrying a real load right now";
-  return "Running low — support could really help";
+  return scoreBandDetailsFor(score)?.title ?? "Not enough answered to calculate a score";
 }
 
 export type Answers = Record<string, number | string | string[] | null | undefined>;
@@ -401,32 +446,56 @@ export function bandFor(average: number | null): Band {
   return { label: "Front and centre", fill: 96 };
 }
 
+function maxOptionValue(question: Extract<Question, { kind: "scored" }>): number {
+  return Math.max(
+    1,
+    ...question.options
+      .map((option) => option.value)
+      .filter((value): value is number => typeof value === "number"),
+  );
+}
+
 export function scoreQuiz(answers: Answers): QuizOutcome {
+  const scoredQuestions = QUESTIONS.filter(
+    (q): q is Extract<Question, { kind: "scored" }> => q.kind === "scored",
+  );
+
   const scores: DimensionScore[] = DIMENSIONS.map((dimension) => {
     const values: number[] = [];
-    for (const q of QUESTIONS) {
-      if (q.kind !== "scored" || !q.dimensions.includes(dimension)) continue;
+    for (const q of scoredQuestions) {
+      if (!q.dimensions.includes(dimension)) continue;
       const raw = answers[q.id];
-      if (typeof raw === "number") values.push(raw);
+      if (typeof raw === "number") values.push((raw / maxOptionValue(q)) * MAX_SCALE_VALUE);
     }
     const average =
       values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
     return { dimension, average, answered: values.length };
   });
 
-  // Overall well-being score across every answered scored question.
-  const allValues: number[] = [];
-  for (const q of QUESTIONS) {
-    if (q.kind !== "scored") continue;
+  let points = 0;
+  let maximum = 0;
+  let answeredCount = 0;
+  for (const q of scoredQuestions) {
     const raw = answers[q.id];
-    if (typeof raw === "number") allValues.push(raw);
+    if (typeof raw !== "number") continue;
+    points += raw;
+    maximum += maxOptionValue(q);
+    answeredCount += 1;
   }
-  const overallDistress =
-    allValues.length > 0 ? allValues.reduce((a, b) => a + b, 0) / allValues.length : null;
+  const duration = typeof answers["duration"] === "string" ? (answers["duration"] as string) : undefined;
+  const impact = typeof answers["impact"] === "string" ? (answers["impact"] as string) : undefined;
+  if (answeredCount > 0 && duration !== undefined && duration in DURATION_POINTS) {
+    points += DURATION_POINTS[duration];
+    maximum += 3;
+  }
+  if (answeredCount > 0 && impact !== undefined && impact in IMPACT_POINTS) {
+    points += IMPACT_POINTS[impact];
+    maximum += 3;
+  }
   const score =
-    overallDistress === null
+    answeredCount === 0 || maximum === 0
       ? null
-      : Math.round(SCORE_MAX - (overallDistress / MAX_SCALE_VALUE) * (SCORE_MAX - SCORE_MIN));
+      : Math.round(SCORE_MAX - (points / maximum) * (SCORE_MAX - SCORE_MIN));
 
   const ranked = scores
     .filter((s) => s.average !== null)
@@ -447,15 +516,7 @@ export function scoreQuiz(answers: Answers): QuizOutcome {
     resultKey = isMixed ? "mixed" : top.dimension;
   }
 
-  return {
-    scores,
-    resultKey,
-    ordered,
-    duration: typeof answers["duration"] === "string" ? (answers["duration"] as string) : undefined,
-    impact: typeof answers["impact"] === "string" ? (answers["impact"] as string) : undefined,
-    score,
-    answeredCount: allValues.length,
-  };
+  return { scores, resultKey, ordered, duration, impact, score, answeredCount };
 }
 
 /* ────────────────────────────────────────────────────────────────────────

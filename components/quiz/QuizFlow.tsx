@@ -7,8 +7,19 @@
  * changes only the presentation and next-step wording after matching.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Phone } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import Image from "next/image";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CircleHelp,
+  Compass,
+  Phone,
+  Target,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
 import {
   QUESTIONS,
@@ -40,6 +51,23 @@ import ResultsAccessForm, {
   type ResultsAccessDetails,
 } from "@/components/quiz/ResultsAccessForm";
 import ResultsReveal from "@/components/quiz/ResultsReveal";
+import { getActiveTherapists } from "@/lib/therapists";
+import { VALISEN_CARE_MARK_PATH } from "@/lib/valisenCare";
+import styles from "./QuizFlow.module.css";
+
+/** Icons for the first question's answers. */
+const INTRO_ICONS: Record<string, LucideIcon> = {
+  unsure: CircleHelp,
+  specific: Target,
+  curious: Compass,
+  suggested: Users,
+};
+
+/** Short encouragements shown on the band at natural break points. */
+const MILESTONES: Record<number, string> = {
+  7: "Halfway there · Your score is taking shape",
+  13: "Check-in done · Just a few more",
+};
 
 type Phase = "restoring" | "quiz" | "safety" | "access" | "preparing" | "result";
 
@@ -105,7 +133,9 @@ function readFirstTouchAttribution(): CampaignAttribution {
 export default function QuizFlow() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
-  const [phase, setPhase] = useState<Phase>("restoring");
+  // Question 1 renders immediately. Only a visitor returning with a saved
+  // result token sees the brief "checking for your saved results" state.
+  const [phase, setPhase] = useState<Phase>("quiz");
   const [outcome, setOutcome] = useState<QuizOutcome | null>(null);
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [intent, setIntent] = useState<QuizIntent | null>(null);
@@ -158,6 +188,7 @@ export default function QuizFlow() {
         return;
       }
 
+      if (!cancelled) setPhase("restoring");
       try {
         const response = await fetch("/api/quiz-lead/result", {
           method: "POST",
@@ -505,6 +536,7 @@ export default function QuizFlow() {
           initialPhone={phone}
           intent={intent}
           attribution={attribution}
+          answers={Object.keys(answers).length ? withoutSafety(answers) : undefined}
           initialContactHelpSent={contactHelpSent}
           userEmailDeliveryFailed={userEmailDeliveryFailed}
           onRestart={restart}
@@ -515,31 +547,31 @@ export default function QuizFlow() {
 
   if (phase === "restoring") {
     return (
-      <div className="mx-auto max-w-[640px]">
+      <QuizStage band={<QuizHeading />}>
         <RestoringTransition />
-      </div>
+      </QuizStage>
     );
   }
 
   if (phase === "preparing") {
     return (
-      <div className="mx-auto max-w-[640px]">
+      <QuizStage band={<><QuizHeading /><QuizProgress label="All questions answered" percent={100} /></>}>
         <PreparingTransition />
-      </div>
+      </QuizStage>
     );
   }
 
   if (phase === "access") {
     return (
-      <div className="mx-auto max-w-[640px]">
+      <QuizStage band={<><QuizHeading /><QuizProgress label="All questions answered" percent={100} /></>}>
         <ResultsAccessForm onSubmit={handleResultsAccess} />
-      </div>
+      </QuizStage>
     );
   }
 
   if (phase === "safety") {
     return (
-      <div className="mx-auto max-w-[640px]">
+      <QuizStage band={<QuizHeading />} note={false}>
         <SafetyInterstitial
           onContinue={continueAfterSafety}
           onBack={() => {
@@ -547,7 +579,7 @@ export default function QuizFlow() {
             setPhase("quiz");
           }}
         />
-      </div>
+      </QuizStage>
     );
   }
 
@@ -566,45 +598,27 @@ export default function QuizFlow() {
       : question.options;
 
   return (
-    <div ref={quizTopRef} className="mx-auto max-w-[640px] scroll-mt-28">
-      <div className="mb-6">
-        <div className="mb-2 flex items-center justify-between text-vxs uppercase tracking-[1.2px] text-ink-secondary">
-          <span>
-            Question {index + 1} of {TOTAL_QUESTIONS}
-          </span>
-          <span>{progress}%</span>
-        </div>
-        <div
-          role="progressbar"
-          aria-label="Quiz progress"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress}
-          className="h-1 w-full overflow-hidden rounded-pill bg-black/10"
-        >
-          <div
-            className="h-full rounded-pill bg-teal transition-all duration-300 motion-reduce:transition-none"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-9">
-        {question.helper ? (
-          <p className="mb-2 text-[12.5px] font-medium uppercase tracking-[1px] text-teal">
-            {question.helper}
-          </p>
-        ) : null}
-        <h2
-          aria-live="polite"
-          className="font-serif text-[24px] font-medium leading-[1.25] tracking-[-0.4px] text-ink md:text-[28px]"
-        >
+    <QuizStage
+      stageRef={quizTopRef}
+      band={
+        <>
+          {/* The welcome only shows on the first question, so later steps sit high on the screen. */}
+          {index === 0 ? <QuizIntro /> : <QuizHeading />}
+          {MILESTONES[index] ? <p className={styles.milestone}>{MILESTONES[index]}</p> : null}
+          <QuizProgress label={`Question ${index + 1} of ${TOTAL_QUESTIONS}`} percent={progress} />
+        </>
+      }
+    >
+      <div className={styles.card}>
+        <Image src={VALISEN_CARE_MARK_PATH} alt="" width={44} height={45} className={styles.mark} priority />
+        {question.helper ? <p className={styles.helper}>{question.helper}</p> : null}
+        <h2 id="quiz-question-text" aria-live="polite" className={styles.question}>
           {question.text}
         </h2>
 
         {question.kind === "multi" ? (
           <>
-            <div className="mt-6 flex flex-wrap gap-2.5">
+            <div className={styles.chips}>
               {question.options.map((option) => {
                 const active = multiSelected.includes(String(option.value));
                 const atLimit = Boolean(
@@ -620,15 +634,9 @@ export default function QuizFlow() {
                     onClick={() => toggleMultiValue(question, String(option.value))}
                     aria-pressed={active}
                     disabled={atLimit}
-                    className={`inline-flex min-h-[44px] items-center gap-2 rounded-pill border px-4 py-2.5 text-left text-[14px] transition-all duration-150 ${
-                      active
-                        ? "border-teal bg-teal text-white"
-                        : atLimit
-                          ? "cursor-not-allowed border-black/8 text-ink-hint opacity-45"
-                          : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
-                    }`}
+                    className={styles.chip}
                   >
-                    {active ? <Check size={14} aria-hidden="true" /> : null}
+                    {active ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : null}
                     {option.label}
                   </button>
                 );
@@ -638,18 +646,51 @@ export default function QuizFlow() {
               type="button"
               onClick={continueFromMulti}
               disabled={question.required && multiSelected.length === 0}
-              className="btn-primary mt-7 w-full justify-center"
+              className={styles.continue}
             >
               {multiSelected.length > 0
                 ? "Continue"
                 : question.required
                   ? "Choose at least one"
                   : "Skip — nothing specific"}
-              <ArrowRight size={16} className="ml-2" aria-hidden="true" />
+              <ArrowRight size={17} aria-hidden="true" />
             </button>
           </>
+        ) : question.kind === "scored" ? (
+          <>
+            <div className={styles.options}>
+              {question.options
+                .filter((option) => option.value !== null)
+                .map((option) => (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    onClick={() => handleSelect(question, option.value)}
+                    aria-pressed={selected === option.value}
+                    className={styles.option}
+                    data-level={option.value}
+                  >
+                    <span className={styles.levelDot} aria-hidden="true" />
+                    <span className={styles.optionLabel}>{option.label}</span>
+                    <span className={styles.optionCheck} aria-hidden="true">
+                      <Check size={13} strokeWidth={3.4} />
+                    </span>
+                  </button>
+                ))}
+            </div>
+            {question.options.some((option) => option.value === null) ? (
+              <button
+                type="button"
+                onClick={() => handleSelect(question, null)}
+                aria-pressed={selected === null}
+                className={styles.skip}
+              >
+                Prefer not to answer
+              </button>
+            ) : null}
+          </>
         ) : question.kind === "intent" ? (
-          <div className="mt-6 grid gap-3">
+          <div className={styles.options}>
             {question.options.map((option) => {
               const active = selected === option.value;
               return (
@@ -658,56 +699,40 @@ export default function QuizFlow() {
                   type="button"
                   onClick={() => handleSelect(question, option.value)}
                   aria-pressed={active}
-                  className={`group flex min-h-[82px] items-center justify-between gap-4 rounded-[16px] border px-5 py-4 text-left transition-all duration-150 ${
-                    active
-                      ? "border-teal bg-teal/5 shadow-[0_0_0_1px_rgba(42,127,127,0.25)]"
-                      : "border-black/12 hover:border-teal hover:bg-teal/[0.03]"
-                  }`}
+                  className={styles.option}
                 >
-                  <span>
-                    <span className="block text-[15px] font-semibold leading-[1.35] text-ink">
-                      {option.label}
-                    </span>
-                    <span className="mt-1 block text-[13.5px] leading-[1.5] text-ink-secondary">
-                      {option.description}
-                    </span>
+                  <span className={styles.optionLabel}>
+                    <strong className="block">{option.label}</strong>
+                    <span className="mt-1 block text-[13.5px] text-[#566282]">{option.description}</span>
                   </span>
-                  <span
-                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
-                      active ? "border-teal bg-teal text-white" : "border-black/20 text-transparent"
-                    }`}
-                    aria-hidden="true"
-                  >
-                    <Check size={14} strokeWidth={3} />
+                  <span className={styles.optionCheck} aria-hidden="true">
+                    <Check size={13} strokeWidth={3.4} />
                   </span>
                 </button>
               );
             })}
           </div>
         ) : (
-          <div className="mt-6 flex flex-col gap-2.5">
+          <div className={styles.options}>
             {visibleOptions.map((option) => {
               const active = selected === option.value;
+              const Icon = question.id === "intro" ? INTRO_ICONS[String(option.value)] : undefined;
               return (
                 <button
                   key={String(option.value)}
                   type="button"
                   onClick={() => handleSelect(question, option.value)}
                   aria-pressed={active}
-                  className={`flex min-h-[54px] items-center justify-between gap-3 rounded-[14px] border px-5 py-4 text-left text-[15px] transition-all duration-150 ${
-                    active
-                      ? "border-teal bg-teal/5 text-ink"
-                      : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
-                  }`}
+                  className={styles.option}
                 >
-                  <span>{option.label}</span>
-                  <span
-                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
-                      active ? "border-teal bg-teal text-white" : "border-black/20 text-transparent"
-                    }`}
-                    aria-hidden="true"
-                  >
-                    <Check size={11} strokeWidth={3} />
+                  {Icon ? (
+                    <span className={styles.optionIcon} aria-hidden="true">
+                      <Icon size={19} aria-hidden={true} />
+                    </span>
+                  ) : null}
+                  <span className={styles.optionLabel}>{option.label}</span>
+                  <span className={styles.optionCheck} aria-hidden="true">
+                    <Check size={13} strokeWidth={3.4} />
                   </span>
                 </button>
               );
@@ -715,69 +740,146 @@ export default function QuizFlow() {
           </div>
         )}
 
-        <div className="mt-7 flex items-center justify-between gap-4">
+        {"note" in question && question.note ? (
+          <p className={styles.note}>
+            <Check size={14} strokeWidth={3} aria-hidden="true" />
+            {question.note}
+          </p>
+        ) : null}
+
+        <div className={styles.footer}>
           {index > 0 ? (
-            <button
-              type="button"
-              onClick={goBack}
-              className="inline-flex min-h-[44px] items-center gap-1.5 text-[13px] font-medium text-ink-secondary hover:text-teal"
-            >
-              <ArrowLeft size={15} aria-hidden="true" /> Back
+            <button type="button" onClick={goBack} className={styles.back}>
+              <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
           ) : (
             <span />
           )}
-          <span className="text-right text-[12px] text-ink-hint">
-            Private · used to help find your fit
-          </span>
+          <span className={styles.private}>Private · used to help find your fit</span>
         </div>
       </div>
+    </QuizStage>
+  );
+}
 
-      <CrisisNote className="mt-5 text-center" />
+/**
+ * Every quiz step shares one layout: a full-width navy band at the top and a
+ * white card that overlaps it, on the page's soft mist background.
+ */
+function QuizStage({
+  band,
+  children,
+  note = true,
+  stageRef,
+}: {
+  band?: ReactNode;
+  children: ReactNode;
+  note?: boolean;
+  stageRef?: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div ref={stageRef} className={styles.shell}>
+      <div className={styles.band}>
+        <div className={styles.bandInner}>{band}</div>
+      </div>
+      <div className={styles.overlap}>{children}</div>
+      {note ? <CrisisNote className="mt-6 text-center" /> : null}
+    </div>
+  );
+}
+
+const QUIZ_TITLE = "Find the right therapist for you";
+
+/** Keeps one page heading once the welcome has scrolled away. */
+function QuizHeading() {
+  return <h1 className="sr-only">{QUIZ_TITLE}</h1>;
+}
+
+function QuizIntro() {
+  const team = getActiveTherapists().filter((therapist) => therapist.photo).slice(0, 5);
+  return (
+    <div id="quiz-intro" className={styles.intro}>
+      <p className={styles.introPill}>
+        <i aria-hidden="true" />
+        Free · About 2 minutes · Private
+      </p>
+      <h1 className={styles.introTitle}>
+        Find the right therapist <span>for you</span>
+      </h1>
+      <p className={styles.introText}>
+        {TOTAL_QUESTIONS} quick taps. At the end you&apos;ll get your wellbeing score and two
+        therapists matched to you.
+      </p>
+      {team.length ? (
+        <div className={styles.team}>
+          <div className={styles.faces} aria-hidden="true">
+            {team.map((therapist) => (
+              <Image
+                key={therapist.slug}
+                src={therapist.photo!}
+                alt=""
+                width={48}
+                height={48}
+                style={therapist.photoPosition ? { objectPosition: therapist.photoPosition } : undefined}
+                priority
+              />
+            ))}
+          </div>
+          <p>
+            <strong>Registered therapists</strong>
+            <span>Online across Ontario</span>
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function QuizProgress({ label, percent }: { label: string; percent: number }) {
+  return (
+    <div className={styles.progress}>
+      <div className={styles.progressMeta}>
+        <span>{label}</span>
+        <span>{percent}%</span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Quiz progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        className={styles.progressTrack}
+      >
+        <div className={styles.progressFill} style={{ width: `${percent}%` }} />
+      </div>
     </div>
   );
 }
 
 function RestoringTransition() {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="rounded-card border-[0.5px] border-hairline bg-white p-10 text-center shadow-card md:p-14"
-    >
-      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-teal/20 border-t-teal motion-reduce:animate-none" />
-      <h2 className="mt-5 font-serif text-[22px] font-medium text-ink">
-        Checking for your saved results
-      </h2>
-      <p className="mt-2 text-[14px] text-ink-secondary">
-        This should only take a moment.
-      </p>
+    <div role="status" aria-live="polite" className={styles.statusCard}>
+      <div className="mx-auto h-9 w-9 animate-spin rounded-full border-[3px] border-[#2BB3B1]/25 border-t-[#2BB3B1] motion-reduce:animate-none" />
+      <h2>Checking for your saved results</h2>
+      <p>This should only take a moment.</p>
     </div>
   );
 }
 
 function PreparingTransition() {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="quiz-prep-card rounded-card border-[0.5px] border-hairline bg-white p-10 text-center shadow-card md:p-14"
-    >
-      <div className="mx-auto flex items-center justify-center gap-1.5" aria-hidden="true">
+    <div role="status" aria-live="polite" className={`quiz-prep-card ${styles.statusCard}`}>
+      <div className="mx-auto flex items-center justify-center gap-2" aria-hidden="true">
         {[0, 150, 300].map((delay) => (
           <span
             key={delay}
-            className="quiz-prep-dot h-2 w-2 rounded-full bg-teal"
+            className="quiz-prep-dot h-2.5 w-2.5 rounded-full bg-[#2BB3B1]"
             style={{ animationDelay: `${delay}ms` }}
           />
         ))}
       </div>
-      <h2 className="mt-5 font-serif text-[22px] font-medium text-ink md:text-[25px]">
-        Preparing your personalized results
-      </h2>
-      <p className="mt-2 text-[14px] leading-[1.6] text-ink-secondary">
-        Reviewing your responses and finding a therapist who may fit your needs…
-      </p>
+      <h2>Working out your score</h2>
+      <p>Finding the two therapists who fit you best…</p>
     </div>
   );
 }
@@ -790,14 +892,14 @@ function SafetyInterstitial({
   onBack: () => void;
 }) {
   return (
-    <div className="rounded-card border border-accent/30 bg-white p-7 shadow-card md:p-10">
+    <div className="rounded-[28px] border-2 border-[#FFB25B]/70 bg-white p-7 text-[#0A1E57] shadow-[0_24px_60px_-30px_rgba(10,30,87,0.5)] md:p-10">
       <div className="mb-4 inline-flex items-center gap-2 rounded-pill bg-accent-light px-3.5 py-1.5 text-[12px] font-semibold uppercase tracking-[1px] text-accent">
         You deserve support right now
       </div>
-      <h2 className="font-serif text-[26px] font-medium leading-[1.2] text-ink md:text-[30px]">
+      <h2 className="text-[26px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[#0A1E57] md:text-[30px]">
         Please reach out to someone who can help today
       </h2>
-      <p className="mt-4 text-[15px] leading-[1.7] text-ink-secondary">
+      <p className="mt-4 text-[15px] leading-[1.7] text-[#566282]">
         This quiz is educational and is not monitored in real time. If you are thinking about
         hurting yourself, free, confidential help is available around the clock.
       </p>
@@ -805,43 +907,43 @@ function SafetyInterstitial({
       <div className="mt-6 space-y-3">
         <a
           href="tel:988"
-          className="flex min-h-[58px] items-center justify-between rounded-[14px] border border-black/12 bg-canvas px-5 py-4 no-underline hover:border-teal"
+          className="flex min-h-[58px] items-center justify-between rounded-[16px] border-2 border-[#DDE6E9] bg-[#F2F6F7] px-5 py-4 no-underline hover:border-[#2BB3B1]"
         >
           <span>
-            <span className="block text-[15px] font-semibold text-ink">Call or text 9-8-8</span>
-            <span className="block text-[13px] text-ink-secondary">
+            <span className="block text-[15px] font-bold text-[#0A1E57]">Call or text 9-8-8</span>
+            <span className="block text-[13px] text-[#566282]">
               Suicide Crisis Helpline — 24/7, across Canada
             </span>
           </span>
-          <Phone size={18} className="shrink-0 text-teal" aria-hidden="true" />
+          <Phone size={18} className="shrink-0 text-[#1F7A8A]" aria-hidden="true" />
         </a>
         <a
           href="tel:613-722-6914"
-          className="flex min-h-[58px] items-center justify-between rounded-[14px] border border-black/12 bg-canvas px-5 py-4 no-underline hover:border-teal"
+          className="flex min-h-[58px] items-center justify-between rounded-[16px] border-2 border-[#DDE6E9] bg-[#F2F6F7] px-5 py-4 no-underline hover:border-[#2BB3B1]"
         >
           <span>
-            <span className="block text-[15px] font-semibold text-ink">613-722-6914</span>
-            <span className="block text-[13px] text-ink-secondary">
+            <span className="block text-[15px] font-bold text-[#0A1E57]">613-722-6914</span>
+            <span className="block text-[13px] text-[#566282]">
               Ottawa Mental Health Crisis Line
             </span>
           </span>
-          <Phone size={18} className="shrink-0 text-teal" aria-hidden="true" />
+          <Phone size={18} className="shrink-0 text-[#1F7A8A]" aria-hidden="true" />
         </a>
-        <p className="text-[13px] leading-[1.6] text-ink-secondary">
-          If you are in immediate danger, call <strong className="text-ink">9-1-1</strong> or go
+        <p className="text-[13px] leading-[1.6] text-[#566282]">
+          If you are in immediate danger, call <strong className="text-[#0A1E57]">9-1-1</strong> or go
           to your nearest emergency department.
         </p>
       </div>
 
-      <div className="mt-7 flex flex-col gap-3 border-t border-hairline pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-7 flex flex-col gap-3 border-t border-[#DDE6E9] pt-6 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex min-h-[44px] items-center gap-1.5 text-[13px] font-medium text-ink-secondary hover:text-teal"
+          className="inline-flex min-h-[44px] items-center gap-1.5 text-[13px] font-medium text-[#566282] hover:text-[#0A1E57]"
         >
           <ArrowLeft size={15} aria-hidden="true" /> Go back
         </button>
-        <button type="button" onClick={onContinue} className="btn-outline justify-center">
+        <button type="button" onClick={onContinue} className="inline-flex min-h-[50px] items-center justify-center rounded-full border-2 border-[#0A1E57] px-6 text-[15px] font-bold text-[#0A1E57] hover:bg-[#E6F6F5]">
           Continue
           <ArrowRight size={16} className="ml-2" aria-hidden="true" />
         </button>

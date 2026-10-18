@@ -148,7 +148,7 @@ describe("results-access validation", () => {
 
   it("requires a complete quiz", () => {
     const incomplete = completedAnswers();
-    delete incomplete.support_type;
+    delete incomplete.impact;
     expect(validateQuizLeadAccessPayload(validAccessPayload({ answers: incomplete })).ok).toBe(
       false,
     );
@@ -203,9 +203,9 @@ describe("results-access validation", () => {
     ).toBe(false);
   });
 
-  it("requires the start-timing answer and rejects unknown attribution fields", () => {
+  it("requires the closing call-time answer and rejects unknown attribution fields", () => {
     const noIntent = completedAnswers();
-    delete noIntent.start_timing;
+    delete noIntent.call_time;
     expect(
       validateQuizLeadAccessPayload(validAccessPayload({ answers: noIntent })).ok,
     ).toBe(false);
@@ -261,31 +261,46 @@ describe("answer allow-listing", () => {
     expect(cleaned).not.toHaveProperty("safety");
   });
 
-  it("accepts a current roster language preference", () => {
-    expect(cleanAnswers({ ...completedAnswers(), language: "arabic" })?.language).toBe("arabic");
+  it("accepts optional support concerns, including none", () => {
+    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety", "grief"] })?.concerns).toEqual(["anxiety", "grief"]);
+    const { concerns: _omitted, ...withoutConcerns } = completedAnswers();
+    expect(cleanAnswers(withoutConcerns)).not.toBeNull();
   });
 
   it("rejects unknown ids and out-of-range values", () => {
     expect(cleanAnswers({ ...completedAnswers(), hacked_field: 1 })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), language: "klingon" })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), call_time: "midnight" })).toBeNull();
   });
 
   it("de-duplicates valid multi-select values", () => {
     const answers = completedAnswers();
-    answers.concerns = ["anxiety", "anxiety"];
+    answers.feel_different = ["worry-less", "worry-less"];
     const cleaned = cleanAnswers(answers);
-    expect(cleaned?.concerns).toEqual(["anxiety"]);
+    expect(cleaned?.feel_different).toEqual(["worry-less"]);
   });
 
-  it("enforces selection limits, exclusive choices, and primary-concern consistency", () => {
-    expect(cleanAnswers({ ...completedAnswers(), concerns: [] })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety", "depression", "trauma", "grief"] })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety", "not-sure"] })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety"], primary_concern: "depression" })).toBeNull();
+  it("enforces selection limits and exclusive choices", () => {
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: [] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: ["worry-less", "sleep-better", "more-confident"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: ["worry-less", "not-sure"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: ["worry-less", "sleep-better"] })?.feel_different).toEqual(["worry-less", "sleep-better"]);
   });
 
-  it("rejects invalid multi-select values", () => {
+  it("accepts only the check-in scale steps or 'prefer not to answer'", () => {
+    expect(cleanAnswers({ ...completedAnswers(), worry_1: 3 })?.worry_1).toBe(3);
+    expect(cleanAnswers({ ...completedAnswers(), worry_1: null })?.worry_1).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), worry_1: 4 })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), worry_1: 2.5 })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), worry_1: "3" })).toBeNull();
+    const { mood_1: _skipped, ...missingCheckin } = completedAnswers();
+    expect(cleanAnswers(missingCheckin)).toBeNull();
+  });
+
+  it("rejects retired answers and invalid multi-select values", () => {
+    expect(cleanAnswers({ ...completedAnswers(), gender_preference: "woman" })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), start_timing: "asap" })).toBeNull();
     expect(cleanAnswers({ ...completedAnswers(), concerns: ["not-a-concern"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: ["not-a-goal"] })).toBeNull();
   });
 });
 

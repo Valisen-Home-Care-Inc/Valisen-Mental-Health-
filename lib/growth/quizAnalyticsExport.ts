@@ -89,6 +89,8 @@ export function buildQuizAnalyticsExport(
       visitors: resultEngagement.visitors,
       averageActiveSeconds: resultEngagement.averageActiveSeconds,
       averageScrollDepth: resultEngagement.averageScrollDepth,
+      // People = saved results with at least one; count = all taps in the period.
+      actionTotals: resultEngagement.actionTotals ?? null,
       recentResultJourneys: resultEngagement.records.map(({ referenceId: _reference, ...metrics }, index) => ({ resultNumber: index + 1, ...metrics })),
     } : null,
     suggestedPrompt:

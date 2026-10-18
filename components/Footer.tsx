@@ -28,9 +28,10 @@ const COL_LEGAL = [
   { href: "/terms", label: "Terms of Service" },
 ];
 
-export default function Footer() {
+export default function Footer({ tone = "default" }: { tone?: "default" | "brand" }) {
   return (
-    <footer className="bg-[#1C1C1A]">
+    // "brand" is the Valisen logo navy, used where a page adopts the brand look.
+    <footer className={tone === "brand" ? "bg-[#0A1E57]" : "bg-[#1C1C1A]"}>
       <div className="container-v py-16">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.25fr_1fr_0.75fr_0.75fr_1fr]">
           <div>

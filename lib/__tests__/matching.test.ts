@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { QUESTIONS, scoreQuiz, type Answers } from "@/lib/quiz";
+import { QUESTIONS, scoreQuiz, type Answers, type Dimension } from "@/lib/quiz";
 import {
   MATCHING_TIE_BREAK_ORDER,
   MIN_MATCH_SCORE,
@@ -19,10 +19,10 @@ function calmAnswers(): Answers {
   return answers;
 }
 
-function answersWithDimension(prefix: string): Answers {
+function answersWithDimension(dimension: Dimension): Answers {
   const answers = calmAnswers();
-  for (const id of scoredIds) {
-    if (id.startsWith(prefix)) answers[id] = 3;
+  for (const question of QUESTIONS) {
+    if (question.kind === "scored" && question.dimensions.includes(dimension)) answers[question.id] = 3;
   }
   return answers;
 }
@@ -59,19 +59,58 @@ describe("extractPreferences", () => {
     expect(prefs.genderPreference).toBe("no-preference");
   });
 
-  it("ignores a legacy language answer without changing the match", () => {
-    const currentAnswers = { concerns: ["anxiety"] };
-    const legacyAnswers = { ...currentAnswers, language: "mandarin" };
-    const currentPreferences = extractPreferences(currentAnswers);
-    const legacyPreferences = extractPreferences(legacyAnswers);
+  it("reads selected concerns and an older 'with my partner' answer as concern tags", () => {
+    expect(extractPreferences({ concerns: ["anxiety", "grief"], support_type: "couples" })).toEqual({
+      concerns: ["anxiety", "grief", "couples-therapy"],
+      genderPreference: "no-preference",
+    });
+  });
 
-    expect(legacyPreferences).toEqual(currentPreferences);
-    expect("language" in legacyPreferences).toBe(false);
+  it("turns 'how would you like to feel' goals into quoted, de-duplicated concern goals", () => {
+    expect(extractPreferences({ concerns: ["anxiety"], feel_different: ["worry-less", "closer-to-people"] })).toEqual({
+      concerns: ["anxiety"],
+      goals: [{ concern: "relationship-challenges", label: "Closer to the people I care about" }],
+      genderPreference: "no-preference",
+    });
+    expect("goals" in extractPreferences({ feel_different: ["more-in-control"] })).toBe(false);
+    expect("goals" in extractPreferences({ feel_different: ["not-sure"] })).toBe(false);
+  });
 
+  it("explains concern and goal matches in the visitor's own words", () => {
+    const outcome = scoreQuiz(calmAnswers());
+    const prefs = extractPreferences({ concerns: ["grief"], feel_different: ["worry-less"] });
+    const match = matchTherapist(outcome, prefs);
+    expect(match.status).toBe("match");
+    if (match.status === "match") {
+      const first = match.therapistSlug.split("-")[0].replace(/^./, (letter) => letter.toUpperCase());
+      expect(match.reasons.map((reason) => reason.detail)).toEqual(expect.arrayContaining([
+        `You chose “Grief or loss”, and ${first} lists grief or loss among their areas of support.`,
+        `You'd like to feel “calmer, with less worry”, and ${first} lists anxiety among their areas of support.`,
+      ]));
+    }
+  });
+
+  it("only treats a supported non-English language as a preference", () => {
+    expect(extractPreferences({ language: "arabic" }).language).toBe("arabic");
+    expect("language" in extractPreferences({ language: "english" })).toBe(false);
+    expect("language" in extractPreferences({ language: "no-preference" })).toBe(false);
+    expect("language" in extractPreferences({ language: "klingon" })).toBe(false);
+  });
+
+  it("matches a language request to a therapist who offers it, with a factual reason", () => {
     const outcome = scoreQuiz(answersWithDimension("worry"));
-    expect(matchTherapist(outcome, legacyPreferences)).toEqual(
-      matchTherapist(outcome, currentPreferences),
-    );
+    const arabic = matchTherapist(outcome, { ...NO_PREFS, concerns: ["anxiety"], language: "arabic" });
+    expect(arabic).toMatchObject({ status: "match", therapistSlug: "meryem-ibrahim" });
+    if (arabic.status === "match") {
+      expect(arabic.reasons[0]).toEqual({
+        chip: "Speaks Arabic",
+        detail: "You prefer therapy in Arabic, and Meryem offers sessions in Arabic.",
+      });
+    }
+    const mandarin = matchTherapist(outcome, { ...NO_PREFS, concerns: ["anxiety"], language: "mandarin" });
+    expect(mandarin).toMatchObject({ status: "match", therapistSlug: "dayong-quan" });
+    const french = matchTherapist(outcome, { ...NO_PREFS, concerns: ["anxiety"], language: "french" });
+    expect(french).toMatchObject({ status: "match", therapistSlug: "wilfred-bengnwi" });
   });
 
   it("ignores a leftover eligibility answer (question was removed)", () => {
@@ -162,7 +201,7 @@ describe("matchTherapist — real roster", () => {
     if (result.status === "match") {
       // Factual-only reasons: nothing about dimensions that weren't present.
       expect(result.reasons).toHaveLength(1);
-      expect(result.reasons[0].chip).toBe("ADHD-related challenges");
+      expect(result.reasons[0].chip).toBe("ADHD");
     }
   });
 

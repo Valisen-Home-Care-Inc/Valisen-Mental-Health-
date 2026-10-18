@@ -72,11 +72,13 @@ describe("consultation routing", () => {
       "utf8",
     );
 
-    expect(results).toContain("We found two therapists who may fit.");
-    expect(results).toContain("<TherapistMatchCarousel");
+    // Score first, then two photo cards, then the calendar.
+    expect(results).toContain("<WellbeingScore");
+    expect(results).toContain("<TherapistMatchCards");
     expect(results).toContain("<QuizConsultationBooking");
+    expect(results.indexOf("<TherapistMatchCards")).toBeLessThan(results.indexOf("<QuizConsultationBooking"));
     expect(results).not.toMatch(/ScoreRing|DetailedResults|ResultsPdfDownload/);
-    expect(cards).toContain("our broader therapist team");
-    expect(cards).toContain("scale-[1.025]");
+    expect(cards).toContain("Book with {firstName}");
+    expect(cards).toContain("<Image");
   });
 });

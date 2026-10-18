@@ -42,6 +42,7 @@ export default function TurnstileWidget({
   executeKey = 0,
   language,
   messages,
+  reserveSpace = true,
 }: {
   action: string;
   onToken: (token: string | null) => void;
@@ -51,6 +52,8 @@ export default function TurnstileWidget({
   executeKey?: number;
   language?: string;
   messages?: { unavailable: string; failed: string; label: string };
+  /** Keep room for a visible challenge. Invisible checks can opt out of the blank gap. */
+  reserveSpace?: boolean;
 }) {
   const reactId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,7 +152,7 @@ export default function TurnstileWidget({
       <div
         id={`turnstile-${reactId.replace(/:/g, "")}`}
         ref={containerRef}
-        className="min-h-[65px] w-full overflow-hidden rounded-xl"
+        className={`${reserveSpace ? "min-h-[65px] " : ""}w-full overflow-hidden rounded-xl`}
         aria-label={messages?.label ?? "Automated spam protection"}
       />
       {challengeError ? (
