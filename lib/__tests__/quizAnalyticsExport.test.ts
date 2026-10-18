@@ -37,7 +37,7 @@ const dashboard: GrowthDashboardData = {
   quizFunnel: [{ key: "quiz_page_viewed", label: "Quiz visitors", count: 10, conversionRate: 100 }],
   quizIntentMix: [{ intent: "book_consultation", selections: 2, share: 50, attemptRate: 25 }],
   quizQuestions: [{ questionNumber: 1, reached: 8, answered: 7, exits: 1, exitsBeforeAnswer: 1, exitsAfterAnswer: 0, reachRate: 80, answerRate: 87.5, exitRate: 12.5 }],
-  quizFlow: [{ quizVersion: "7.0.0", totalQuestions: 17, attempts: 8,
+  quizFlow: [{ quizVersion: "7.0.0", totalQuestions: 19, attempts: 8,
     questions: [{ questionNumber: 1, reached: 8, answered: 7, exits: 1, exitsBeforeAnswer: 1, exitsAfterAnswer: 0, reachRate: 100, answerRate: 87.5, exitRate: 12.5 }],
     access: { viewed: 4, started: 4, submitAttempted: 3, saved: 3, resultsViewed: 2, validationFailed: 1, verificationFailed: 0, submitFailed: 1, exitedWithoutSubmitting: 1 },
   }],
@@ -71,39 +71,37 @@ describe("quiz analytics export", () => {
     expect(exported.kpis.quizQuestionsFinished).toBe(4);
     expect(exported.kpis.completedSubmissions).toBe(3);
     expect(exported.schemaVersion).toBe("1.3");
-    expect(exported.questionnaire.totalQuestions).toBe(17);
+    expect(exported.questionnaire.totalQuestions).toBe(19);
     expect(exported.questionnaire.quizVersion).toBe("7.0.0");
-    expect(exported.questionnaire.questions).toHaveLength(17);
+    expect(exported.questionnaire.questions).toHaveLength(19);
     expect(exported.questionnaire.questions[0]).toMatchObject({
       questionNumber: 1,
-      id: "main_concern",
-      text: "What's been taking up the most space lately?",
+      id: "intro",
+      text: "What brought you here today?",
       answerMode: "single choice",
       scored: false,
     });
     expect(exported.questionnaire.questions[0].options).toContainEqual({
-      label: "Worry that follows me everywhere",
-      value: "anxiety",
+      label: "Something specific has been weighing on me",
+      value: "specific",
     });
-    expect(exported.questionnaire.questions[3]).toMatchObject({
-      id: "checkin_worry",
+    expect(exported.questionnaire.questions[1]).toMatchObject({
+      id: "worry_1",
       kind: "scored",
-      answerMode: "slider with labelled steps",
+      answerMode: "single choice",
       scored: true,
       dimensions: ["worry"],
     });
-    expect(exported.questionnaire.questions[7]).toMatchObject({
+    expect(exported.questionnaire.questions[16]).toMatchObject({
       id: "safety",
       analyticsHandling: expect.stringContaining("never stored"),
     });
-    expect(exported.questionnaire.questions[16]).toMatchObject({
+    expect(exported.questionnaire.questions[18]).toMatchObject({
       id: "call_time",
-      questionNumber: 17,
+      questionNumber: 19,
     });
-    expect(exported.questionFriction[0].label).toContain("Main concern");
-    expect(exported.questionFriction[0].questionText).toBe(
-      "What's been taking up the most space lately?",
-    );
+    expect(exported.questionFriction[0].label).toContain("Reason for visiting");
+    expect(exported.questionFriction[0].questionText).toBe("What brought you here today?");
     expect(exported.recentJourneys[0].lastStage).toContain("answered");
     expect(exported.recentJourneys[0].questionsFinished).toBe(true);
     expect(exported.recentJourneys[0].completedSubmission).toBe(true);

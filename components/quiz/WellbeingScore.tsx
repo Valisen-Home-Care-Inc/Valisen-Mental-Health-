@@ -19,23 +19,46 @@ function Face({ color, mouth, size }: { color: string; mouth: string; size: numb
   );
 }
 
-const SCORE_DETAIL_QUESTIONS = [
-  ["checkin_worry", "Worry or stress"],
-  ["checkin_mood", "Feeling down"],
-  ["checkin_sleep", "Sleep disrupted"],
-  ["checkin_coping", "Hard to get through the day"],
-  ["duration", "Going on for"],
-  ["impact", "Effect on daily life"],
-] as const;
+/** Short names for the check-in items, used in "What shaped your score". */
+const CHECKIN_SHORT_LABELS: Record<string, string> = {
+  worry_1: "Hard to stop worrying",
+  mood_1: "Less interest or pleasure",
+  stress_1: "Running on empty",
+  worry_2: "Tense or on edge",
+  mood_2: "Feeling down",
+  relationships_1: "Tension in a close relationship",
+  stress_2: "Overwhelmed",
+  worry_3: "Racing thoughts",
+  mood_3: "Low motivation",
+  stress_3: "Rest doesn't recharge you",
+  relationships_2: "Feeling alone",
+  sleep: "Sleep trouble",
+};
+const MAX_CHECKIN_DETAILS = 5;
 
-/** Readable "what shaped your score" chips, only from answers held in memory. */
+function optionLabel(id: string, value: unknown): string | undefined {
+  return QUESTIONS.find((item) => item.id === id)?.options.find((option) => option.value === value)?.label;
+}
+
+/**
+ * Readable "what shaped your score" chips, only from answers held in memory:
+ * the check-in items reported most often, then how long and how much.
+ */
 export function scoreDetails(answers: Answers | undefined): string[] {
   if (!answers) return [];
-  return SCORE_DETAIL_QUESTIONS.flatMap(([id, label]) => {
-    const question = QUESTIONS.find((item) => item.id === id);
-    const option = question?.options.find((item) => item.value === answers[id]);
-    return option ? [`${label}: ${option.label.toLowerCase()}`] : [];
-  });
+  const checkins = Object.keys(CHECKIN_SHORT_LABELS)
+    .map((id) => ({ id, value: answers[id] }))
+    .filter((item): item is { id: string; value: number } => typeof item.value === "number" && item.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, MAX_CHECKIN_DETAILS)
+    .map((item) => `${CHECKIN_SHORT_LABELS[item.id]}: ${optionLabel(item.id, item.value)?.toLowerCase()}`);
+  const duration = optionLabel("duration", answers.duration);
+  const impact = optionLabel("impact", answers.impact);
+  return [
+    ...checkins,
+    ...(duration ? [`Going on for: ${duration.toLowerCase()}`] : []),
+    ...(impact ? [`Effect on daily life: ${impact.toLowerCase()}`] : []),
+  ];
 }
 
 export default function WellbeingScore({

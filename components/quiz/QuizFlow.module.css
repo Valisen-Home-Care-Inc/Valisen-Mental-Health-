@@ -76,31 +76,29 @@
 .private { color: var(--muted); font-size: 12px; text-align: right; }
 .shell :is(button, a):focus-visible { outline: 3px solid var(--aqua); outline-offset: 3px; }
 
-/* Check-in slider */
-.slider { margin-top: 30px; text-align: center; }
-.sliderLevel { color: var(--teal-ink); font-size: 12.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
-.range { width: 100%; height: 52px; margin: 6px 0 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
-.range:focus { outline: none; }
-.range::-webkit-slider-runnable-track { height: 20px; border-radius: 999px; background: linear-gradient(90deg, #2BB3B1 0%, #F2D45C 40%, #FFB25B 68%, #FF7A6B 100%); }
-.range::-moz-range-track { height: 20px; border-radius: 999px; background: linear-gradient(90deg, #2BB3B1 0%, #F2D45C 40%, #FFB25B 68%, #FF7A6B 100%); }
-.range::-webkit-slider-thumb { width: 44px; height: 44px; margin-top: -12px; border: 6px solid #fff; border-radius: 50%; background: var(--navy); box-shadow: 0 3px 10px rgba(10, 30, 87, .35); -webkit-appearance: none; appearance: none; }
-.range::-moz-range-thumb { width: 32px; height: 32px; border: 6px solid #fff; border-radius: 50%; background: var(--navy); box-shadow: 0 3px 10px rgba(10, 30, 87, .35); }
-.range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(43, 179, 177, .45); }
-.range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 5px rgba(43, 179, 177, .45); }
-.range[data-unset="true"]::-webkit-slider-thumb { background: #fff; border-color: var(--navy); }
-.range[data-unset="true"]::-moz-range-thumb { background: #fff; border-color: var(--navy); }
-.stops { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-top: 4px; }
-.stop { min-height: 44px; padding: 4px 2px; border-radius: 10px; color: var(--muted); font-size: 11.5px; line-height: 1.25; }
-.stop[aria-pressed="true"] { background: var(--ice); color: var(--navy); font-weight: 700; }
-.sliderAnswer { margin-top: 16px; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
-.sliderHint { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 13px; }
+/* Check-in answers: one tap, with a colour dot from calm (teal) to heavy (coral). */
+.levelDot { flex: 0 0 auto; width: 14px; height: 14px; margin-inline: 4px 2px; border-radius: 50%; background: var(--level); box-shadow: 0 0 0 4px color-mix(in srgb, var(--level) 22%, transparent); }
+.option[data-level="0"] { --level: #2BB3B1; }
+.option[data-level="1"] { --level: #E9C23F; }
+.option[data-level="2"] { --level: #FF9F45; }
+.option[data-level="3"] { --level: #FF6F5E; }
+.skip { display: block; min-height: 44px; margin: 10px auto 0; padding: 0 14px; color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.skip:hover, .skip[aria-pressed="true"] { color: var(--navy); }
+
+/* Reassurance under the answers. */
+.note { display: flex; align-items: flex-start; gap: 8px; margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: var(--ice); color: var(--teal-ink); font-size: 13.5px; font-weight: 600; line-height: 1.45; }
+.note svg { flex: 0 0 auto; margin-top: 2px; }
+
+/* Encouragement pill on the band. */
+.milestone { display: table; margin: 0 auto 16px; padding: 7px 15px; border-radius: 999px; background: rgba(111, 211, 196, .16); color: var(--mint); font-size: 13px; font-weight: 700; animation: pop .35s ease both; }
+@keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 @media (min-width: 640px) {
   .band { padding-top: 34px; }
   .intro { margin-top: 16px; }
   .card { padding: 34px 36px; }
-  .stop { font-size: 12.5px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .progressFill, .option { transition: none; }
+  .milestone { animation: none; }
 }

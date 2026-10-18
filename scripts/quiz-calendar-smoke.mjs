@@ -21,7 +21,7 @@ function loadLocal(name) {
 }
 const { QUESTIONS, QUIZ_VERSION, scoreQuiz, scoreBandFor } = loadLocal("@/lib/quiz");
 const { matchTherapistPair } = loadLocal("@/lib/matching");
-const answers = { ...Object.fromEntries(QUESTIONS.filter((q) => q.kind === "scored").map((q) => [q.id, 2])), duration: "a-few-weeks", impact: "a-little" };
+const answers = { ...Object.fromEntries(QUESTIONS.filter((q) => q.kind === "scored").map((q) => [q.id, 2])), duration: "acute", impact: "none" };
 const outcome = scoreQuiz(answers);
 const legacyOutcome = { ...outcome, score: null, answeredCount: 0 };
 const match = matchTherapistPair(outcome, { concerns: ["anxiety"], genderPreference: "no-preference" });
@@ -89,18 +89,24 @@ try {
     }
     const q = QUESTIONS[index];
     assert(!["age", "eligibility", "residency", "gender_preference"].includes(q.id));
-    if (["main_concern", "checkin_worry", "safety", "feel_different", "payment_readiness"].includes(q.id)) {
+    if (["intro", "stress_2", "safety", "feel_different", "call_time"].includes(q.id)) {
       await fresh.page.screenshot({ path: path.join(output, `quiz-${q.id}-390.png`), fullPage: true });
     }
-    if (q.kind === "scored" && q.input === "slider") {
-      assert.equal(await fresh.page.$eval("button", () => [...document.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("Continue")).disabled), true, "A slider needs an explicit answer");
-      await clickByText(fresh.page, "Most days");
-      assert.equal(await fresh.page.$eval('input[type="range"]', (input) => input.value), "3");
-      await fresh.page.focus('input[type="range"]');
-      await fresh.page.keyboard.press("ArrowLeft");
-      assert.equal(await fresh.page.$eval('input[type="range"]', (input) => input.getAttribute("aria-valuetext")), "About half the days");
-      await clickByText(fresh.page, "Continue");
+    if (index === 7) {
+      assert((await fresh.page.evaluate(() => document.body.innerText)).includes("Halfway there"), "Halfway encouragement shows");
+    }
+    if (q.kind === "scored") {
+      if (index === 1) {
+        // "Prefer not to answer" is recorded, then changed on the way back.
+        await clickByText(fresh.page, "Prefer not to answer");
+        await fresh.page.waitForFunction(() => document.body.textContent.includes("Question 3 of"));
+        await clickByText(fresh.page, "Back");
+        await fresh.page.waitForFunction(() => document.body.textContent.includes("Question 2 of"));
+        assert.equal(await fresh.page.$eval('button[aria-pressed="true"]', (button) => button.textContent.trim()), "Prefer not to answer");
+      }
+      await clickByText(fresh.page, "More than half the days");
     } else if (q.kind === "safety") {
+      assert((await fresh.page.evaluate(() => document.body.textContent)).includes("One question we ask everyone"), "Safety has a gentle lead-in");
       await clickByText(fresh.page, "Yes, often");
       await fresh.page.waitForFunction(() => document.body.innerText.includes("Please reach out to someone who can help today"));
       await fresh.page.screenshot({ path: path.join(output, "quiz-safety-interstitial-390.png"), fullPage: true });
@@ -116,10 +122,18 @@ try {
         assert.equal(await fresh.page.$$eval('button[aria-pressed="true"]', (items) => items.length), 1, "Not sure must be exclusive");
         await fresh.page.click('button[aria-pressed="false"]');
         assert.equal(await fresh.page.$$eval('button[aria-pressed="true"]', (items) => items.length), 1, "A specific goal must replace Not sure");
+        await clickByText(fresh.page, "Continue");
       } else {
-        await fresh.page.click('button[aria-pressed="false"]');
+        // Optional: the button offers to skip until something is chosen.
+        assert(await fresh.page.evaluate(() => [...document.querySelectorAll("button")].some((b) => b.textContent.includes("Skip — nothing specific"))));
+        await clickByText(fresh.page, "Anxiety or worry");
+        await clickByText(fresh.page, "Continue");
       }
-      await clickByText(fresh.page, "Continue");
+    } else if (q.id === "call_time") {
+      const text = await fresh.page.evaluate(() => document.body.textContent);
+      assert(text.includes("Your results are next"), "The last question says results are next");
+      assert(text.includes("You'll see your score and matches either way"), "The last question promises results either way");
+      await clickByText(fresh.page, "Weekday evenings");
     } else await fresh.page.click('button[aria-pressed="false"]');
   }
   await fresh.page.waitForSelector('input[autocomplete="given-name"]');
@@ -153,8 +167,9 @@ try {
   assert(distinctEvents.filter((event) => event.page === 'quiz').every((event) => event.quizVersion === QUIZ_VERSION));
   const submitted = fresh.quizSaves[1].answers;
   assert.equal("safety" in submitted, false, "The safety answer must stay on the device");
-  assert.deepEqual([submitted.checkin_worry, submitted.checkin_mood, submitted.checkin_sleep, submitted.checkin_coping], [2, 2, 2, 2]);
-  assert.equal(submitted.main_concern, "anxiety");
+  assert.deepEqual(QUESTIONS.filter((q) => q.kind === "scored").map((q) => submitted[q.id]), Array(12).fill(2));
+  assert.deepEqual(submitted.concerns, ["anxiety"]);
+  assert.equal(submitted.call_time, "weekday-evenings");
   assert(!JSON.stringify(fresh.funnel).includes('qa@example.invalid'));
   assert(!JSON.stringify(fresh.funnel).includes('6135550100'));
   assert.deepEqual(fresh.errors, []);

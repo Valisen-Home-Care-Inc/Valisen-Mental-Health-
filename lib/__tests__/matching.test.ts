@@ -22,7 +22,7 @@ function calmAnswers(): Answers {
 function answersWithDimension(dimension: Dimension): Answers {
   const answers = calmAnswers();
   for (const question of QUESTIONS) {
-    if (question.kind === "scored" && question.dimensions.includes(dimension)) answers[question.id] = 4;
+    if (question.kind === "scored" && question.dimensions.includes(dimension)) answers[question.id] = 3;
   }
   return answers;
 }
@@ -59,12 +59,35 @@ describe("extractPreferences", () => {
     expect(prefs.genderPreference).toBe("no-preference");
   });
 
-  it("reads the version 7 main concern and partner answer as concern tags", () => {
-    expect(extractPreferences({ main_concern: "anxiety", support_type: "couples" })).toEqual({
-      concerns: ["anxiety", "couples-therapy"],
+  it("reads selected concerns and an older 'with my partner' answer as concern tags", () => {
+    expect(extractPreferences({ concerns: ["anxiety", "grief"], support_type: "couples" })).toEqual({
+      concerns: ["anxiety", "grief", "couples-therapy"],
       genderPreference: "no-preference",
     });
-    expect(extractPreferences({ main_concern: "not-sure" }).concerns).toEqual([]);
+  });
+
+  it("turns 'how would you like to feel' goals into quoted, de-duplicated concern goals", () => {
+    expect(extractPreferences({ concerns: ["anxiety"], feel_different: ["worry-less", "closer-to-people"] })).toEqual({
+      concerns: ["anxiety"],
+      goals: [{ concern: "relationship-challenges", label: "Closer to the people I care about" }],
+      genderPreference: "no-preference",
+    });
+    expect("goals" in extractPreferences({ feel_different: ["more-in-control"] })).toBe(false);
+    expect("goals" in extractPreferences({ feel_different: ["not-sure"] })).toBe(false);
+  });
+
+  it("explains concern and goal matches in the visitor's own words", () => {
+    const outcome = scoreQuiz(calmAnswers());
+    const prefs = extractPreferences({ concerns: ["grief"], feel_different: ["worry-less"] });
+    const match = matchTherapist(outcome, prefs);
+    expect(match.status).toBe("match");
+    if (match.status === "match") {
+      const first = match.therapistSlug.split("-")[0].replace(/^./, (letter) => letter.toUpperCase());
+      expect(match.reasons.map((reason) => reason.detail)).toEqual(expect.arrayContaining([
+        `You chose “Grief or loss”, and ${first} lists grief or loss among their areas of support.`,
+        `You'd like to feel “calmer, with less worry”, and ${first} lists anxiety among their areas of support.`,
+      ]));
+    }
   });
 
   it("only treats a supported non-English language as a preference", () => {

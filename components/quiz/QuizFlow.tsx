@@ -10,16 +10,11 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import Image from "next/image";
 import {
-  Activity,
   ArrowLeft,
   ArrowRight,
-  BatteryLow,
   Check,
   CircleHelp,
-  Cloud,
   Compass,
-  History,
-  Info,
   Phone,
   Target,
   Users,
@@ -60,16 +55,18 @@ import { getActiveTherapists } from "@/lib/therapists";
 import { VALISEN_CARE_MARK_PATH } from "@/lib/valisenCare";
 import styles from "./QuizFlow.module.css";
 
-/** Icons for the first question's answers (keyed by concern value). */
-const CONCERN_ICONS: Record<string, LucideIcon> = {
-  anxiety: Activity,
-  depression: Cloud,
-  "stress-burnout": BatteryLow,
-  "relationship-challenges": Users,
-  "perfectionism-people-pleasing": Target,
-  trauma: History,
-  "life-transitions": Compass,
-  "not-sure": CircleHelp,
+/** Icons for the first question's answers. */
+const INTRO_ICONS: Record<string, LucideIcon> = {
+  unsure: CircleHelp,
+  specific: Target,
+  curious: Compass,
+  suggested: Users,
+};
+
+/** Short encouragements shown on the band at natural break points. */
+const MILESTONES: Record<number, string> = {
+  7: "Halfway there · Your score is taking shape",
+  13: "Check-in done · Just a few more",
 };
 
 type Phase = "restoring" | "quiz" | "safety" | "access" | "preparing" | "result";
@@ -607,6 +604,7 @@ export default function QuizFlow() {
         <>
           {/* The welcome only shows on the first question, so later steps sit high on the screen. */}
           {index === 0 ? <QuizIntro /> : <QuizHeading />}
+          {MILESTONES[index] ? <p className={styles.milestone}>{MILESTONES[index]}</p> : null}
           <QuizProgress label={`Question ${index + 1} of ${TOTAL_QUESTIONS}`} percent={progress} />
         </>
       }
@@ -658,13 +656,39 @@ export default function QuizFlow() {
               <ArrowRight size={17} aria-hidden="true" />
             </button>
           </>
-        ) : question.kind === "scored" && question.input === "slider" ? (
-          <CheckinSlider
-            key={question.id}
-            question={question}
-            initialValue={typeof selected === "number" ? selected : undefined}
-            onAnswer={(value) => handleSelect(question, value)}
-          />
+        ) : question.kind === "scored" ? (
+          <>
+            <div className={styles.options}>
+              {question.options
+                .filter((option) => option.value !== null)
+                .map((option) => (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    onClick={() => handleSelect(question, option.value)}
+                    aria-pressed={selected === option.value}
+                    className={styles.option}
+                    data-level={option.value}
+                  >
+                    <span className={styles.levelDot} aria-hidden="true" />
+                    <span className={styles.optionLabel}>{option.label}</span>
+                    <span className={styles.optionCheck} aria-hidden="true">
+                      <Check size={13} strokeWidth={3.4} />
+                    </span>
+                  </button>
+                ))}
+            </div>
+            {question.options.some((option) => option.value === null) ? (
+              <button
+                type="button"
+                onClick={() => handleSelect(question, null)}
+                aria-pressed={selected === null}
+                className={styles.skip}
+              >
+                Prefer not to answer
+              </button>
+            ) : null}
+          </>
         ) : question.kind === "intent" ? (
           <div className={styles.options}>
             {question.options.map((option) => {
@@ -692,7 +716,7 @@ export default function QuizFlow() {
           <div className={styles.options}>
             {visibleOptions.map((option) => {
               const active = selected === option.value;
-              const Icon = question.id === "main_concern" ? CONCERN_ICONS[String(option.value)] : undefined;
+              const Icon = question.id === "intro" ? INTRO_ICONS[String(option.value)] : undefined;
               return (
                 <button
                   key={String(option.value)}
@@ -715,6 +739,13 @@ export default function QuizFlow() {
             })}
           </div>
         )}
+
+        {"note" in question && question.note ? (
+          <p className={styles.note}>
+            <Check size={14} strokeWidth={3} aria-hidden="true" />
+            {question.note}
+          </p>
+        ) : null}
 
         <div className={styles.footer}>
           {index > 0 ? (
@@ -776,8 +807,8 @@ function QuizIntro() {
         Find the right therapist <span>for you</span>
       </h1>
       <p className={styles.introText}>
-        Tap through a few quick questions. You&apos;ll get your wellbeing score and two therapists
-        picked for you.
+        {TOTAL_QUESTIONS} quick taps. At the end you&apos;ll get your wellbeing score and two
+        therapists matched to you.
       </p>
       {team.length ? (
         <div className={styles.team}>
@@ -821,71 +852,6 @@ function QuizProgress({ label, percent }: { label: string; percent: number }) {
       >
         <div className={styles.progressFill} style={{ width: `${percent}%` }} />
       </div>
-    </div>
-  );
-}
-
-/**
- * A two-week check-in answer. Every slider position is a labelled answer and
- * the visitor must choose one (drag, arrow keys or tap a label) to continue.
- */
-function CheckinSlider({
-  question,
-  initialValue,
-  onAnswer,
-}: {
-  question: Extract<Question, { kind: "scored" }>;
-  initialValue: number | undefined;
-  onAnswer: (value: number) => void;
-}) {
-  const steps = question.options.filter(
-    (option): option is { label: string; value: number } => typeof option.value === "number",
-  );
-  const max = steps.length - 1;
-  const [value, setValue] = useState<number | undefined>(initialValue);
-  const position = value ?? Math.floor(max / 2);
-  const chosen = value === undefined ? undefined : steps[value];
-
-  return (
-    <div className={styles.slider}>
-      <p className={styles.sliderLevel}>{chosen ? `Level ${position + 1} of ${steps.length}` : "Less often ↔ More often"}</p>
-      <input
-        type="range"
-        className={styles.range}
-        min={0}
-        max={max}
-        step={1}
-        value={position}
-        data-unset={value === undefined}
-        aria-labelledby="quiz-question-text"
-        aria-valuetext={chosen ? chosen.label : "No answer chosen yet"}
-        onChange={(event) => setValue(Number(event.target.value))}
-      />
-      <div className={styles.stops} role="group" aria-label="Answer choices">
-        {steps.map((step) => (
-          <button
-            key={step.value}
-            type="button"
-            className={styles.stop}
-            aria-pressed={value === step.value}
-            onClick={() => setValue(step.value)}
-          >
-            {step.label}
-          </button>
-        ))}
-      </div>
-      <p className={styles.sliderAnswer} aria-live="polite">{chosen ? chosen.label : "Choose an answer"}</p>
-      <p className={styles.sliderHint}>
-        <Info size={14} aria-hidden="true" /> Drag the slider or tap an answer
-      </p>
-      <button
-        type="button"
-        className={styles.continue}
-        disabled={value === undefined}
-        onClick={() => value !== undefined && onAnswer(value)}
-      >
-        Continue <ArrowRight size={17} aria-hidden="true" />
-      </button>
     </div>
   );
 }

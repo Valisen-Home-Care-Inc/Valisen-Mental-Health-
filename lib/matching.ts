@@ -52,6 +52,8 @@ export const MATCHING_WEIGHTS = {
   secondaryDimension: 1,
   /** Each specific concern the visitor selected that the therapist verifiably supports. */
   selectedConcern: 2,
+  /** Each "how would you like to feel" goal that points to an area the therapist supports. */
+  feelingGoal: 1,
   /** The therapist offers the non-English language the visitor asked for. */
   preferredLanguage: 3,
 } as const;
@@ -94,19 +96,37 @@ export type LanguagePreference = keyof typeof LANGUAGE_PREFERENCES;
 
 export type MatchPreferences = {
   concerns: ConcernTag[];
+  /**
+   * Concerns inferred from "how would you like to feel" goals, mapped to the
+   * goal wording so reasons can quote the visitor. Optional for older callers.
+   */
+  goals?: { concern: ConcernTag; label: string }[];
   genderPreference: GenderPreference;
   /** Only non-English requests change the match; every therapist offers English. */
   language?: LanguagePreference;
 };
 
-/** Version 7 asks for one main concern; its values are concern tags. */
-const MAIN_CONCERN_QUESTION = QUESTIONS.find((q) => q.id === "main_concern");
-const CONCERN_LABELS = new Map<string, string>([
-  ...(MAIN_CONCERN_QUESTION?.options ?? []).map(
+/** The "anything specific" question's values are concern tags. */
+const CONCERNS_QUESTION = QUESTIONS.find((q) => q.id === "concerns");
+const CONCERN_LABELS = new Map<string, string>(
+  (CONCERNS_QUESTION?.options ?? []).map(
     (option) => [String(option.value), option.label] as [string, string],
   ),
-  ["couples-therapy", "Couples therapy"],
-]);
+);
+
+/**
+ * "A month from now, how would you most like to feel?" goals that point to a
+ * concern area. Goals without a clear area (more in control, not sure) only
+ * shape the conversation, not the match.
+ */
+const FEEL_DIFFERENT_QUESTION = QUESTIONS.find((q) => q.id === "feel_different");
+const GOAL_CONCERNS: Record<string, ConcernTag> = {
+  "worry-less": "anxiety",
+  "sleep-better": "stress-burnout",
+  "feel-like-myself": "depression",
+  "closer-to-people": "relationship-challenges",
+  "more-confident": "self-esteem",
+};
 const VALID_CONCERNS = new Set<string>([
   "anxiety",
   "depression",
@@ -157,11 +177,21 @@ export function extractPreferences(answers: Answers): MatchPreferences {
       concerns.push(value as ConcernTag);
     }
   };
-  add(answers["main_concern"]);
-  // Version 6 stored up to three concerns; keep older answer sets matchable.
-  const legacyConcerns = answers["concerns"];
-  if (Array.isArray(legacyConcerns)) legacyConcerns.forEach(add);
+  const selectedConcerns = answers["concerns"];
+  if (Array.isArray(selectedConcerns)) selectedConcerns.forEach(add);
+  // Version 6 asked "who is this for"; keep older answer sets matchable.
   if (answers.support_type === "couples") add("couples-therapy");
+
+  const goals: { concern: ConcernTag; label: string }[] = [];
+  const feelDifferent = answers["feel_different"];
+  if (Array.isArray(feelDifferent)) {
+    for (const value of feelDifferent) {
+      const concern = typeof value === "string" ? GOAL_CONCERNS[value] : undefined;
+      const label = FEEL_DIFFERENT_QUESTION?.options.find((option) => option.value === value)?.label;
+      if (!concern || !label || concerns.includes(concern) || goals.some((goal) => goal.concern === concern)) continue;
+      goals.push({ concern, label });
+    }
+  }
 
   const rawGender = answers["gender_preference"];
   const genderPreference: GenderPreference =
@@ -173,7 +203,12 @@ export function extractPreferences(answers: Answers): MatchPreferences {
       ? (rawLanguage as LanguagePreference)
       : undefined;
 
-  return { concerns, genderPreference, ...(language ? { language } : {}) };
+  return {
+    concerns,
+    genderPreference,
+    ...(goals.length ? { goals } : {}),
+    ...(language ? { language } : {}),
+  };
 }
 
 function offersLanguage(therapist: Therapist, language: LanguagePreference | undefined): boolean {
@@ -221,6 +256,7 @@ type ScoredCandidate = {
   rosterIndex: number;
   score: number;
   concernOverlap: ConcernTag[];
+  goalOverlap: { concern: ConcernTag; label: string }[];
   dimensionHits: Dimension[];
   languageMatch: boolean;
 };
@@ -287,10 +323,15 @@ export function matchTherapist(
     );
     score += concernOverlap.length * MATCHING_WEIGHTS.selectedConcern;
 
+    const goalOverlap = (prefs.goals ?? []).filter((goal) =>
+      therapist.matching.concernTags.includes(goal.concern),
+    );
+    score += goalOverlap.length * MATCHING_WEIGHTS.feelingGoal;
+
     const languageMatch = offersLanguage(therapist, prefs.language);
     if (languageMatch) score += MATCHING_WEIGHTS.preferredLanguage;
 
-    return { therapist, rosterIndex, score, concernOverlap, dimensionHits, languageMatch };
+    return { therapist, rosterIndex, score, concernOverlap, goalOverlap, dimensionHits, languageMatch };
   });
 
   // 3. Stable, documented tie-breaking.
@@ -365,6 +406,14 @@ function buildReasons(candidate: ScoredCandidate, prefs: MatchPreferences): Matc
           : answer
             ? `You chose “${answer}”, and ${firstName} lists ${area.toLowerCase()} among their areas of support.`
             : `You selected “${area.toLowerCase()}” — ${firstName} lists this among their areas of support.`,
+    });
+  }
+
+  for (const goal of candidate.goalOverlap) {
+    const area = concernLabel(goal.concern);
+    reasons.push({
+      chip: area,
+      detail: `You'd like to feel “${goal.label.toLowerCase()}”, and ${firstName} lists ${area.toLowerCase()} among their areas of support.`,
     });
   }
 

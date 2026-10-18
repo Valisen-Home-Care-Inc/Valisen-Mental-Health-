@@ -1,5 +1,6 @@
--- Quiz version 7.0.0 (17 questions: two-week check-in score plus readiness and
--- matching questions). Report its question and results-access friction as its
+-- Quiz version 7.0.0 (19 questions: the original opener and 12-item check-in,
+-- then how long, impact, concerns, safety, how they'd like to feel and the
+-- free-call question). Report its question and results-access friction as its
 -- own version while keeping 6.0.0 and older attempts separate. Only the
 -- version list and display order change; the report logic is unchanged.
 -- Transactional and safe to rerun.
@@ -25,9 +26,9 @@ begin
     join public.growth_funnel_sessions s on s.id = a.session_id
     where s.started_at >= v_from and s.started_at < v_to and not s.is_test
   ), versions as (
-    select '7.0.0'::text as version, 17 as total_questions
+    select '7.0.0'::text as version, 19 as total_questions
     union
-    select version, case version when '7.0.0' then 17 when '6.0.0' then 12
+    select version, case version when '7.0.0' then 19 when '6.0.0' then 12
       when '5.1.0' then 18 when '5.0.0' then 19
       else greatest(1, max(max_quiz_question)) end
     from attempts group by version
