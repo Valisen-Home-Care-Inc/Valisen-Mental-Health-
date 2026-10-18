@@ -1,18 +1,21 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, Languages, Video } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import type { PresentedTherapistMatch } from "@/lib/quizTherapistPresentation";
 import type { QuizOutcome } from "@/lib/quiz";
 import { getResultMatchReasons } from "@/lib/quizIntent";
 import { getTherapistBookingConfig } from "@/lib/therapistBooking";
+import { WHATSAPP_URL } from "@/lib/valisenCare";
 import styles from "./ResultsReveal.module.css";
 
-function MatchCard({ candidate, outcome, onProfile }: {
+function MatchCard({ candidate, outcome, chosen, onChoose, onProfile }: {
   candidate: PresentedTherapistMatch;
   outcome: QuizOutcome;
+  chosen: boolean;
+  onChoose: (slug: string) => void;
   onProfile: (slug: string) => void;
 }) {
   const [failedImage, setFailedImage] = useState(false);
@@ -20,69 +23,82 @@ function MatchCard({ candidate, outcome, onProfile }: {
   const booking = getTherapistBookingConfig(therapist.slug);
   const reasons = isPrimary ? getResultMatchReasons(outcome, therapist, candidate.reasons) : candidate.reasons;
   const firstName = therapist.name.split(" ")[0];
+  const languages = (booking?.languages ?? therapist.languages).filter((language) => language !== "普通话");
+  const focus = therapist.matching.concernTags
+    .slice(0, 3)
+    .map((tag) => ({ anxiety: "Anxiety", depression: "Depression", trauma: "Trauma", "stress-burnout": "Stress", "relationship-challenges": "Relationships", "couples-therapy": "Couples", grief: "Grief", "life-transitions": "Life changes", addiction: "Addiction", adhd: "ADHD", "perfectionism-people-pleasing": "Perfectionism", "self-esteem": "Self-esteem", "cultural-adjustment": "Cultural adjustment" } as Record<string, string>)[tag] ?? tag)
+    .join(" · ");
 
-  return <article className={styles.matchCard} aria-label={`Therapist: ${therapist.name}`}>
-    <p className={styles.matchEyebrow}>{isPrimary ? "Your strongest match" : "Another match for you"}</p>
-    <div className={styles.person}>
-      <div className={styles.portrait}>
-        {therapist.photo && !failedImage ? <Image src={therapist.photo} alt={therapist.name} fill sizes="80px" className="scale-[1.025] object-cover object-top" onError={() => setFailedImage(true)} /> : <span>{therapist.initials}</span>}
+  return (
+    <article className={styles.matchCard} data-chosen={chosen} aria-label={`Therapist: ${therapist.name}`}>
+      <div className={styles.photo}>
+        {therapist.photo && !failedImage ? (
+          <Image src={therapist.photo} alt={therapist.name} fill sizes="(min-width: 980px) 220px, 45vw" onError={() => setFailedImage(true)} />
+        ) : (
+          <span className={styles.photoInitials}>{therapist.initials}</span>
+        )}
+        <span className={styles.languageChip}>{languages.join(" · ")}</span>
+        {chosen ? (
+          <span className={styles.chosenBadge} aria-hidden="true"><Check size={15} strokeWidth={3.4} /></span>
+        ) : null}
       </div>
-      <div className="min-w-0">
-        <h3 className={styles.personName}>{therapist.name}</h3>
-        <p className={styles.credentials}>{therapist.credentials}</p>
+      <div className={styles.matchText}>
+        <h3 className={styles.matchName}>{therapist.name}</h3>
+        <p className={styles.matchCredentials}>{therapist.credentials}</p>
+        {focus ? <p className={styles.matchFocus}>{focus}</p> : null}
       </div>
-    </div>
-    <div className={styles.personMeta}>
-      <p><Languages size={14} aria-hidden="true" /><span>{(booking?.languages ?? therapist.languages).join(" · ")}</span></p>
-      <p><Video size={14} aria-hidden="true" /><span>{(booking?.serviceFormat ?? therapist.sessionTypes).join(" · ")}</span></p>
-    </div>
-    <div className={styles.specialties}>
-      {therapist.specialties.slice(0, 4).map((area) => <span key={area}>{area}</span>)}
-    </div>
-    {reasons.length > 0 ? <details className={styles.matchReasons}>
-      <summary>Why {firstName} may fit <ChevronDown size={15} aria-hidden="true" /></summary>
-      <ul>{reasons.slice(0, 3).map((reason) => <li key={reason.detail}>{reason.detail}</li>)}</ul>
-    </details> : null}
-    <Link href={booking?.profileUrl || "/therapists"} onClick={() => onProfile(therapist.slug)} className={styles.profileLink}>Meet {firstName}<ArrowUpRight size={16} aria-hidden="true" /></Link>
-  </article>;
+      <button type="button" className={styles.matchBook} aria-pressed={chosen} onClick={() => onChoose(therapist.slug)}>
+        Book with {firstName}
+      </button>
+      {reasons.length > 0 ? (
+        <details className={styles.matchWhy}>
+          <summary>Why {firstName} <ChevronDown size={14} aria-hidden="true" /></summary>
+          <ul>
+            {reasons.slice(0, 3).map((reason) => <li key={reason.detail}>{reason.detail}</li>)}
+            <li>
+              <Link href={booking?.profileUrl || "/therapists"} onClick={() => onProfile(therapist.slug)}>
+                View {firstName}&apos;s profile
+              </Link>
+            </li>
+          </ul>
+        </details>
+      ) : null}
+    </article>
+  );
 }
 
-export default function TherapistMatchCarousel({ candidates, outcome, reducedMotion, onProfile }: {
+export default function TherapistMatchCards({ candidates, outcome, chosenSlug, onChoose, onProfile }: {
   candidates: PresentedTherapistMatch[];
   outcome: QuizOutcome;
-  reducedMotion: boolean;
+  chosenSlug: string | null;
+  onChoose: (slug: string) => void;
   onProfile: (slug: string) => void;
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
-
-  function goTo(index: number) {
-    const track = trackRef.current;
-    const card = track?.children[index] as HTMLElement | undefined;
-    if (!track || !card) return;
-    track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: reducedMotion ? "auto" : "smooth" });
-  }
-
-  return <section className={styles.matches} id="quiz-therapist-matches" aria-label="Your therapist matches" data-result-section="therapists">
-    <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>A connection that feels right</p><h2>Recommended for you</h2></div><span className={styles.matchCount}>{candidates.length} recommendations</span></div>
-    {candidates.length > 1 ? <div className={styles.carouselNav}>
-      <p>Swipe to meet both therapists</p>
-      <div>
-        <button type="button" aria-label="Previous therapist" aria-controls="quiz-therapist-cards" disabled={active === 0} onClick={() => goTo(active - 1)}><ChevronLeft size={17} aria-hidden="true" /></button>
-        <span aria-live="polite" aria-atomic="true">{active + 1} / {candidates.length}</span>
-        <button type="button" aria-label="Next therapist" aria-controls="quiz-therapist-cards" disabled={active === candidates.length - 1} onClick={() => goTo(active + 1)}><ChevronRight size={17} aria-hidden="true" /></button>
+  return (
+    <section className={styles.matches} id="quiz-therapist-matches" aria-label="Your therapist matches" data-result-section="therapists">
+      <div className={styles.matchesHeader}>
+        <p className={styles.eyebrow}><span className={styles.liveDot} aria-hidden="true" />Your matches</p>
+        <h2>{candidates.length > 1 ? "Two therapists picked for you" : "A therapist picked for you"}</h2>
       </div>
-    </div> : null}
-    <div ref={trackRef} id="quiz-therapist-cards" className={styles.therapistTrack}
-      onScroll={() => {
-        const track = trackRef.current;
-        if (!track) return;
-        const offsets = Array.from(track.children, (child) => Math.abs((child as HTMLElement).offsetLeft - track.offsetLeft - track.scrollLeft));
-        setActive(offsets.indexOf(Math.min(...offsets)));
-      }}>
-      {candidates.map((candidate) => <MatchCard key={candidate.therapist.slug} candidate={candidate} outcome={outcome} onProfile={onProfile} />)}
-    </div>
-    {!candidates.length ? <p className={styles.noMatch}>Our team can help you choose a therapist during your free consultation.</p> : null}
-    <p className={styles.matchDisclaimer}>These are your recommended matches from our broader therapist team. Your free consultation can help confirm or refine the fit.</p>
-  </section>;
+      {candidates.length ? (
+        <div className={styles.matchGrid} data-count={candidates.length}>
+          {candidates.map((candidate) => (
+            <MatchCard
+              key={candidate.therapist.slug}
+              candidate={candidate}
+              outcome={outcome}
+              chosen={candidate.therapist.slug === chosenSlug}
+              onChoose={onChoose}
+              onProfile={onProfile}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className={styles.noMatch}>Our team can help you choose a therapist during your free consultation.</p>
+      )}
+      <p className={styles.matchesFooter}>
+        Not sure who to pick? <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">Text a care coordinator</a>.
+      </p>
+    </section>
+  );
 }

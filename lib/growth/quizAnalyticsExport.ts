@@ -32,7 +32,12 @@ function questionDefinition(question: (typeof QUESTIONS)[number], index: number)
     kind: question.kind,
     text: question.text,
     helperText: question.helper ?? null,
-    answerMode: question.kind === "multi" ? "multiple choice" : "single choice",
+    answerMode:
+      question.kind === "multi"
+        ? "multiple choice"
+        : question.kind === "scored" && question.input === "slider"
+          ? "slider with labelled steps"
+          : "single choice",
     scored: question.kind === "scored",
     dimensions: question.kind === "scored" ? question.dimensions : [],
     options: question.options.map((option) => ({

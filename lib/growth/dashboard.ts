@@ -131,22 +131,35 @@ export type GrowthDashboardData = {
 
 export const QUIZ_QUESTION_LABELS = QUESTIONS.map((question, index) => {
   const conciseById: Record<string, string> = {
-    support_type: "Type of support",
-    concerns: "Support concerns",
-    primary_concern: "First priority",
-    therapy_goals: "Therapy goals",
-    therapy_history: "Therapy history",
-    therapist_style: "Preferred therapist style",
-    gender_preference: "Therapist gender preference",
-    matching_considerations: "Matching considerations",
-    language: "Preferred language",
-    availability: "Appointment availability",
+    main_concern: "Main concern",
+    duration: "How long",
+    impact: "Daily-life impact",
+    checkin_worry: "Check-in · worry",
+    checkin_mood: "Check-in · mood",
+    checkin_sleep: "Check-in · sleep",
+    checkin_coping: "Check-in · coping",
+    safety: "Safety check",
+    feel_different: "What should feel different",
+    start_reason: "Why now",
+    tried_so_far: "Tried so far",
     start_timing: "Desired start timing",
+    support_type: "Who it's for",
+    language: "Preferred language",
+    therapist_style: "Preferred therapist style",
     payment_readiness: "Payment and insurance readiness",
+    call_time: "Best time for the call",
   };
   const concise = conciseById[question.id] ?? question.text;
   return `Q${index + 1} · ${concise}`;
 });
+
+/** Version 6.0.0 positions, kept so historical attempts stay readable. */
+const V6_QUESTION_LABELS = [
+  "Type of support", "Support concerns", "First priority", "Therapy goals",
+  "Therapy history", "Preferred therapist style", "Therapist gender preference",
+  "Matching considerations", "Preferred language", "Appointment availability",
+  "Desired start timing", "Payment and insurance readiness",
+];
 
 const LEGACY_QUESTION_LABELS = [
   "Reason for visiting", "Controlling worry", "Interest and pleasure",
@@ -158,6 +171,9 @@ const LEGACY_QUESTION_LABELS = [
 
 export function quizQuestionLabel(questionNumber: number, version = QUIZ_VERSION): string {
   if (version === QUIZ_VERSION) return QUIZ_QUESTION_LABELS[questionNumber - 1] || `Question ${questionNumber}`;
+  if (version === "6.0.0" && V6_QUESTION_LABELS[questionNumber - 1]) {
+    return `Q${questionNumber} · ${V6_QUESTION_LABELS[questionNumber - 1]}`;
+  }
   if (version === "5.0.0" || version === "5.1.0") {
     const labels = [...LEGACY_QUESTION_LABELS,
       ...(version === "5.0.0" ? ["Therapist preference"] : []),

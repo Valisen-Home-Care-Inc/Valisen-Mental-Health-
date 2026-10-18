@@ -272,20 +272,32 @@ describe("answer allow-listing", () => {
 
   it("de-duplicates valid multi-select values", () => {
     const answers = completedAnswers();
-    answers.concerns = ["anxiety", "anxiety"];
+    answers.feel_different = ["worry-less", "worry-less"];
     const cleaned = cleanAnswers(answers);
-    expect(cleaned?.concerns).toEqual(["anxiety"]);
+    expect(cleaned?.feel_different).toEqual(["worry-less"]);
   });
 
-  it("enforces selection limits, exclusive choices, and primary-concern consistency", () => {
-    expect(cleanAnswers({ ...completedAnswers(), concerns: [] })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety", "depression", "trauma", "grief"] })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety", "not-sure"] })).toBeNull();
-    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety"], primary_concern: "depression" })).toBeNull();
+  it("enforces selection limits and exclusive choices", () => {
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: [] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: ["worry-less", "sleep-better", "more-confident"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: ["worry-less", "not-sure"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), tried_so_far: ["nothing-yet", "talking"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), tried_so_far: ["talking", "doctor"] })?.tried_so_far).toEqual(["talking", "doctor"]);
   });
 
-  it("rejects invalid multi-select values", () => {
-    expect(cleanAnswers({ ...completedAnswers(), concerns: ["not-a-concern"] })).toBeNull();
+  it("accepts only labelled check-in slider steps", () => {
+    expect(cleanAnswers({ ...completedAnswers(), checkin_worry: 4 })?.checkin_worry).toBe(4);
+    expect(cleanAnswers({ ...completedAnswers(), checkin_worry: 5 })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), checkin_worry: 2.5 })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), checkin_worry: "4" })).toBeNull();
+    const { checkin_mood: _skipped, ...missingSlider } = completedAnswers();
+    expect(cleanAnswers(missingSlider)).toBeNull();
+  });
+
+  it("rejects retired version 6 answers and invalid multi-select values", () => {
+    expect(cleanAnswers({ ...completedAnswers(), concerns: ["anxiety"] })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), gender_preference: "woman" })).toBeNull();
+    expect(cleanAnswers({ ...completedAnswers(), feel_different: ["not-a-goal"] })).toBeNull();
   });
 });
 

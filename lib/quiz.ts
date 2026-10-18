@@ -7,12 +7,14 @@ import type { QuizIntentOption } from "@/lib/quizIntentContract";
  * reviewer. Everything the quiz does — the questions, the answer scale, how
  * answers map to concern areas, and how a result is chosen — lives here.
  *
- * Version 6 collects practical matching preferences and readiness signals.
- * It is not a diagnostic instrument or clinical assessment.
+ * Version 7 combines a short two-week check-in (which produces the 1–100
+ * wellbeing score) with high-intent readiness and matching questions. It is a
+ * self-reflection tool, not a diagnostic instrument or clinical assessment.
  *
- * SCORE DIRECTION: the overall Check-In Score runs 20–98 where HIGHER means
- * steadier (fewer reported concerns) and LOWER means more strain. Dimension
- * averages run 0–3 where HIGHER means the concern is MORE present.
+ * SCORE DIRECTION: the overall wellbeing score runs 1–100 where HIGHER means
+ * the person is doing better (fewer reported difficulties) and LOWER means
+ * more strain. Dimension averages run 0–3 where HIGHER means the concern is
+ * MORE present.
  */
 
 /**
@@ -21,8 +23,8 @@ import type { QuizIntentOption } from "@/lib/quizIntentContract";
  * produced it. Bump QUIZ_VERSION when questions change; bump
  * SCORING_VERSION when thresholds, weights, or bands change.
  */
-export const QUIZ_VERSION = "6.0.0";
-export const SCORING_VERSION = "1.0.0";
+export const QUIZ_VERSION = "7.0.0";
+export const SCORING_VERSION = "2.0.0";
 
 /* ────────────────────────────────────────────────────────────────────────
  * 1. Concern dimensions the quiz can reflect back
@@ -58,16 +60,29 @@ export const FREQUENCY_SCALE: ScaleOption[] = [
 
 export const MAX_SCALE_VALUE = 3;
 
+/**
+ * Two-week check-in scale used by the version 7 sliders. Every step is a
+ * labelled answer, so the slider never records a value the visitor did not
+ * choose.
+ */
+export const CHECKIN_SCALE: ScaleOption[] = [
+  { label: "Not at all", value: 0 },
+  { label: "A few days", value: 1 },
+  { label: "About half the days", value: 2 },
+  { label: "Most days", value: 3 },
+  { label: "Nearly every day", value: 4 },
+];
+
 /* ────────────────────────────────────────────────────────────────────────
  * 3. Questions (one per screen)
  * kind:
  *   "intro"      – warm opener, not scored
- *   "scored"     – contributes to one or more dimensions
- *   "context"    – duration / impact, used only for the result note
- *   "preference" – therapist-gender matching preference —
- *                  never scored, used only for matching
- *   "multi"      – optional multi-select of specific concerns — never
- *                  scored, used only for matching
+ *   "scored"     – contributes to the wellbeing score and one or more
+ *                  dimensions (shown as a slider when input = "slider")
+ *   "context"    – single-choice answers used for the score note, matching,
+ *                  readiness and the clinic's lead record
+ *   "preference" – matching preference — never scored
+ *   "multi"      – multi-select — never scored
  *   "safety"     – 🔬 gentle safety check, NOT scored, NOT tracked
  * ──────────────────────────────────────────────────────────────────────── */
 export type Question =
@@ -76,6 +91,8 @@ export type Question =
       kind: "scored";
       text: string;
       helper?: string;
+      /** "slider" renders the labelled check-in slider instead of buttons. */
+      input?: "slider";
       dimensions: Dimension[];
       options: ScaleOption[];
     }
@@ -115,200 +132,221 @@ export type Question =
       options: readonly QuizIntentOption[];
     };
 
-const CONCERN_OPTIONS = [
-  { label: "Anxiety or excessive worry", value: "anxiety" },
-  { label: "Depression or low mood", value: "depression" },
+/**
+ * Q1 answers double as concern tags for therapist matching (see
+ * lib/matching.ts). "not-sure" is the only value that is not a concern tag.
+ */
+export const MAIN_CONCERN_OPTIONS = [
+  { label: "Worry that follows me everywhere", value: "anxiety" },
+  { label: "Feeling low or unlike myself", value: "depression" },
   { label: "Stress or burnout", value: "stress-burnout" },
-  { label: "Relationship difficulties", value: "relationship-challenges" },
-  { label: "Trauma or difficult past experiences", value: "trauma" },
-  { label: "Self-esteem or confidence", value: "self-esteem" },
-  { label: "ADHD-related challenges", value: "adhd" },
-  { label: "Grief or loss", value: "grief" },
-  { label: "Anger or emotional regulation", value: "anger-emotional-regulation" },
-  { label: "Perfectionism or people-pleasing", value: "perfectionism-people-pleasing" },
-  { label: "Addiction or unhealthy habits", value: "addiction" },
-  { label: "Cultural adjustment or identity", value: "cultural-adjustment" },
-  { label: "A major life transition", value: "life-transitions" },
-  { label: "Something else", value: "other" },
-  { label: "I'm not sure yet", value: "not-sure" },
+  { label: "Patterns in my relationships", value: "relationship-challenges" },
+  { label: "Pressure to get everything right", value: "perfectionism-people-pleasing" },
+  { label: "Past experiences affecting the present", value: "trauma" },
+  { label: "Feeling stuck during a big change", value: "life-transitions" },
+  { label: "I'm not sure, I just want something to change", value: "not-sure" },
 ];
+
+/** Context answers that also add to the wellbeing score (0 = least strain). */
+export const DURATION_POINTS: Record<string, number> = {
+  "a-few-weeks": 0,
+  "a-few-months": 1,
+  "over-a-year": 2,
+  "as-long-as-i-remember": 3,
+};
+
+export const IMPACT_POINTS: Record<string, number> = {
+  "a-little": 0,
+  noticeably: 1,
+  "a-lot": 2,
+  "hard-to-get-through-the-day": 3,
+};
 
 export const QUESTIONS: Question[] = [
   {
+    id: "main_concern",
+    kind: "context",
+    text: "What's been taking up the most space lately?",
+    helper: "Choose the one that feels closest",
+    options: MAIN_CONCERN_OPTIONS,
+  },
+  {
+    id: "duration",
+    kind: "context",
+    text: "How long has this been going on?",
+    options: [
+      { label: "A few weeks", value: "a-few-weeks" },
+      { label: "A few months", value: "a-few-months" },
+      { label: "Over a year", value: "over-a-year" },
+      { label: "As long as I can remember", value: "as-long-as-i-remember" },
+    ],
+  },
+  {
+    id: "impact",
+    kind: "context",
+    text: "How much is it affecting your sleep, work or relationships?",
+    options: [
+      { label: "A little", value: "a-little" },
+      { label: "Noticeably", value: "noticeably" },
+      { label: "A lot", value: "a-lot" },
+      { label: "It's hard to get through the day", value: "hard-to-get-through-the-day" },
+    ],
+  },
+  {
+    id: "checkin_worry",
+    kind: "scored",
+    input: "slider",
+    text: "Over the past two weeks, how often has worry or stress gotten in the way?",
+    dimensions: ["worry"],
+    options: CHECKIN_SCALE,
+  },
+  {
+    id: "checkin_mood",
+    kind: "scored",
+    input: "slider",
+    text: "Over the past two weeks, how often have you felt down or unlike yourself?",
+    dimensions: ["mood"],
+    options: CHECKIN_SCALE,
+  },
+  {
+    id: "checkin_sleep",
+    kind: "scored",
+    input: "slider",
+    text: "Over the past two weeks, how often has your sleep been disrupted?",
+    dimensions: ["stress"],
+    options: CHECKIN_SCALE,
+  },
+  {
+    id: "checkin_coping",
+    kind: "scored",
+    input: "slider",
+    text: "Over the past two weeks, how often has getting through the day felt hard?",
+    dimensions: ["stress", "mood"],
+    options: CHECKIN_SCALE,
+  },
+  {
+    id: "safety",
+    kind: "safety",
+    text: "In the last little while, have you had thoughts of hurting yourself or that you'd be better off not here?",
+    helper: "You can skip this. If you answer yes, we'll show support options right away.",
+    concerningValues: ["sometimes", "often"],
+    options: [
+      { label: "No", value: "no" },
+      { label: "Yes, some of the time", value: "sometimes" },
+      { label: "Yes, often", value: "often" },
+      { label: "Prefer not to answer", value: "skip" },
+    ],
+  },
+  {
+    id: "feel_different",
+    kind: "multi",
+    text: "What would you most like to feel different?",
+    helper: "Choose up to two",
+    required: true,
+    maxSelections: 2,
+    exclusiveValues: ["not-sure"],
+    options: [
+      { label: "Worry less", value: "worry-less" },
+      { label: "Sleep better", value: "sleep-better" },
+      { label: "Feel like myself again", value: "feel-like-myself" },
+      { label: "Feel closer to the people around me", value: "closer-to-people" },
+      { label: "Feel more confident", value: "more-confident" },
+      { label: "Feel more in control", value: "more-in-control" },
+      { label: "I'm not sure yet", value: "not-sure" },
+    ],
+  },
+  {
+    id: "start_reason",
+    kind: "context",
+    text: "What made you start looking now?",
+    options: [
+      { label: "Something got worse recently", value: "got-worse" },
+      { label: "Someone close to me suggested it", value: "someone-suggested" },
+      { label: "I've put it off long enough", value: "put-off-long-enough" },
+      { label: "A big life change", value: "life-change" },
+      { label: "Just curious", value: "curious" },
+    ],
+  },
+  {
+    id: "tried_so_far",
+    kind: "multi",
+    text: "What have you tried so far?",
+    helper: "Choose all that apply",
+    required: true,
+    exclusiveValues: ["nothing-yet"],
+    options: [
+      { label: "Nothing yet", value: "nothing-yet" },
+      { label: "Talking to people I trust", value: "talking" },
+      { label: "Apps, books or videos", value: "self-help" },
+      { label: "Therapy before", value: "therapy-before" },
+      { label: "My doctor", value: "doctor" },
+    ],
+  },
+  {
+    id: "start_timing",
+    kind: "context",
+    text: "How soon would you like to start?",
+    options: [
+      { label: "This week", value: "asap" },
+      { label: "Within 2 weeks", value: "within-two-weeks" },
+      { label: "This month", value: "this-month" },
+      { label: "In the next few months", value: "next-few-months" },
+      { label: "Just exploring for now", value: "exploring" },
+    ],
+  },
+  {
     id: "support_type",
-    kind: "intro",
-    text: "What type of support are you looking for?",
-    helper: "Let's start with what feels closest.",
-    options: [
-      { label: "Individual therapy", value: "individual" },
-      { label: "Couples therapy", value: "couples" },
-      { label: "I'm not sure yet", value: "not-sure" },
-    ],
-  },
-  {
-    id: "concerns",
-    kind: "multi",
-    text: "What would you most like support with?",
-    helper: "Choose up to three",
-    required: true,
-    maxSelections: 3,
-    exclusiveValues: ["not-sure"],
-    options: CONCERN_OPTIONS,
-  },
-  {
-    id: "primary_concern",
     kind: "context",
-    text: "Which of those feels most important to address first?",
-    helper: "Choose the closest answer",
-    filterFromAnswer: {
-      questionId: "concerns",
-      alwaysInclude: ["equal", "help-deciding"],
-    },
+    text: "Who is this for?",
     options: [
-      ...CONCERN_OPTIONS,
-      { label: "They feel equally important", value: "equal" },
-      { label: "I'd like help deciding", value: "help-deciding" },
-    ],
-  },
-  {
-    id: "therapy_goals",
-    kind: "multi",
-    text: "What are you hoping therapy will help you do?",
-    helper: "Choose up to three",
-    required: true,
-    maxSelections: 3,
-    exclusiveValues: ["not-sure"],
-    options: [
-      { label: "Feel less anxious or overwhelmed", value: "reduce-anxiety" },
-      { label: "Improve my mood and motivation", value: "improve-mood" },
-      { label: "Manage stress more effectively", value: "manage-stress" },
-      { label: "Improve my relationships", value: "improve-relationships" },
-      { label: "Communicate more clearly", value: "communicate" },
-      { label: "Work through something from my past", value: "process-past" },
-      { label: "Build confidence and self-worth", value: "build-confidence" },
-      { label: "Change patterns that aren't helping me", value: "change-patterns" },
-      { label: "Understand my thoughts and emotions", value: "understand-self" },
-      { label: "Feel more in control of my life", value: "feel-in-control" },
-      { label: "Get support through a difficult transition", value: "transition-support" },
-      { label: "I'm not sure yet", value: "not-sure" },
-    ],
-  },
-  {
-    id: "therapy_history",
-    kind: "context",
-    text: "Have you worked with a therapist before?",
-    options: [
-      { label: "No, this would be my first time", value: "first-time" },
-      { label: "Yes, and it was helpful", value: "helpful" },
-      { label: "Yes, but the therapist wasn't the right fit", value: "not-right-fit" },
-      { label: "Yes, with mixed results", value: "mixed" },
-      { label: "I'd rather discuss this privately", value: "private" },
-    ],
-  },
-  {
-    id: "therapist_style",
-    kind: "multi",
-    text: "What would you like your therapist to be like?",
-    helper: "Choose up to three",
-    required: true,
-    maxSelections: 3,
-    exclusiveValues: ["help-deciding"],
-    options: [
-      { label: "Warm and easy to talk to", value: "warm" },
-      { label: "Practical and solution-focused", value: "practical" },
-      { label: "Structured and goal-oriented", value: "structured" },
-      { label: "Patient and reflective", value: "reflective" },
-      { label: "Direct and willing to challenge me", value: "direct" },
-      { label: "Someone who gives me strategies to practise", value: "strategies" },
-      { label: "Someone who helps me understand my past", value: "understand-past" },
-      { label: "I'd like help deciding", value: "help-deciding" },
-    ],
-  },
-  {
-    id: "gender_preference",
-    kind: "preference",
-    text: "Do you have a therapist gender preference?",
-    helper: "This helps our team narrow the fit.",
-    options: [
-      { label: "A woman", value: "woman" },
-      { label: "A man", value: "man" },
-      { label: "No preference", value: "no-preference" },
-      { label: "I'd rather discuss this during the consultation", value: "discuss" },
-    ],
-  },
-  {
-    id: "matching_considerations",
-    kind: "multi",
-    text: "Is there anything important for your therapist to understand?",
-    helper: "Optional — choose anything that matters to you",
-    maxSelections: 3,
-    exclusiveValues: ["private", "none"],
-    options: [
-      { label: "My cultural background", value: "cultural-background" },
-      { label: "Religion or spirituality", value: "religion-spirituality" },
-      { label: "Immigration or adjustment experiences", value: "immigration-adjustment" },
-      { label: "LGBTQ+ experiences", value: "lgbtq" },
-      { label: "Men's issues", value: "mens-issues" },
-      { label: "Women's issues", value: "womens-issues" },
-      { label: "Family or cultural expectations", value: "family-cultural-expectations" },
-      { label: "Something else", value: "other" },
-      { label: "I'd rather discuss this privately", value: "private" },
-      { label: "No specific preference", value: "none" },
+      { label: "Just me", value: "individual" },
+      { label: "Me and my partner", value: "couples" },
     ],
   },
   {
     id: "language",
     kind: "preference",
-    text: "What language would you prefer for therapy?",
+    text: "What language would you prefer?",
     options: [
       { label: "English", value: "english" },
       { label: "French", value: "french" },
       { label: "Arabic", value: "arabic" },
       { label: "Mandarin", value: "mandarin" },
       { label: "No preference", value: "no-preference" },
-      { label: "Another language", value: "other" },
     ],
   },
   {
-    id: "availability",
-    kind: "multi",
-    text: "When could you usually attend therapy?",
-    helper: "Choose all that apply",
-    required: true,
-    exclusiveValues: ["not-sure"],
-    options: [
-      { label: "Weekday mornings", value: "weekday-mornings" },
-      { label: "Weekday afternoons", value: "weekday-afternoons" },
-      { label: "Weekday evenings", value: "weekday-evenings" },
-      { label: "Saturdays", value: "saturdays" },
-      { label: "Sundays", value: "sundays" },
-      { label: "My schedule is flexible", value: "flexible" },
-      { label: "I'm not sure yet", value: "not-sure" },
-    ],
-  },
-  {
-    id: "start_timing",
+    id: "therapist_style",
     kind: "context",
-    text: "How soon would you like to begin therapy?",
+    text: "What kind of therapist would suit you?",
     options: [
-      { label: "As soon as possible", value: "asap" },
-      { label: "Within the next two weeks", value: "within-two-weeks" },
-      { label: "Sometime this month", value: "this-month" },
-      { label: "Within the next few months", value: "next-few-months" },
-      { label: "I'm only exploring right now", value: "exploring" },
+      { label: "Warm and easy to talk to", value: "warm" },
+      { label: "Practical, gives me tools", value: "practical" },
+      { label: "Direct, challenges me", value: "direct" },
+      { label: "Help me decide", value: "help-deciding" },
     ],
   },
   {
     id: "payment_readiness",
     kind: "context",
-    text: "Therapy sessions are $160–$180 per 50 minutes. Which best describes you?",
+    text: "Sessions are $160–$180 for 50 minutes. How would you pay?",
     helper: "Official receipts are provided for insurance reimbursement",
     options: [
-      { label: "I have insurance and plan to check my coverage", value: "insurance" },
-      { label: "I'm comfortable paying privately", value: "private-pay" },
-      { label: "I'll use insurance and private payment", value: "combined" },
-      { label: "I'm unsure about coverage and would like help", value: "needs-coverage-help" },
-      { label: "I'm not ready to pay for therapy right now", value: "not-ready" },
+      { label: "Benefits or insurance", value: "insurance" },
+      { label: "I'll pay myself", value: "private-pay" },
+      { label: "A mix of both", value: "combined" },
+      { label: "Not sure what I'm covered for", value: "needs-coverage-help" },
+      { label: "I need a lower-cost option", value: "lower-cost" },
+    ],
+  },
+  {
+    id: "call_time",
+    kind: "context",
+    text: "Your free 20-minute call is by phone. When is usually best?",
+    options: [
+      { label: "Weekday daytime", value: "weekday-daytime" },
+      { label: "Weekday evenings", value: "weekday-evenings" },
+      { label: "Weekends", value: "weekends" },
     ],
   },
 ];
@@ -330,10 +368,16 @@ export const SCORED_QUESTION_COUNT = QUESTIONS.filter((q) => q.kind === "scored"
 
 /* ────────────────────────────────────────────────────────────────────────
  * 4. Scoring
- * For each dimension we take the AVERAGE of the answered scored questions
- * that feed it (skipped answers are excluded, so skipping never distorts a
- * score). We then decide between a single dominant concern, several
- * overlapping concerns, or no clear pattern.
+ * Version 7 wellbeing score (1–100, HIGHER = doing better):
+ *   points = the four check-in sliders (0–4 each)
+ *          + how long it has been going on (0–3)
+ *          + how much it affects daily life (0–3)
+ *   score  = 100 − round(points ÷ maximum points × 99)
+ * Only answered questions count toward both points and the maximum, so a
+ * skipped answer never distorts the score.
+ *
+ * Dimension averages are normalized to 0–3 so the existing bands, matching
+ * floor and lead reporting keep their meaning.
  * ──────────────────────────────────────────────────────────────────────── */
 
 /** A dimension must average at least this to be considered "present". */
@@ -360,28 +404,77 @@ export type QuizOutcome = {
   duration?: string;
   impact?: string;
   /**
-   * Overall well-being reflection score, 20–98 (higher = steadier).
-   * Derived from ALL answered scored questions, so it varies with responses.
+   * Overall wellbeing score, 1–100 (higher = doing better). Version 5
+   * results used 20–98 and version 6 results have no score (null).
    * This is a self-reflection number, NOT a clinical or diagnostic score.
    */
   score: number | null;
-  /** Number of the 12 scored questions the visitor chose to answer. */
+  /** Number of scored check-in questions the visitor answered. */
   answeredCount: number;
 };
 
-/**
- * Score is mapped into a friendly range (never a shaming single digit and
- * never a misleading "perfect 100"): lowest distress ≈ 98, highest ≈ 20.
- */
-export const SCORE_MAX = 98;
-export const SCORE_MIN = 20;
+export const SCORE_MAX = 100;
+export const SCORE_MIN = 1;
+
+export type ScoreBand = {
+  key: "hard" | "struggling" | "managing" | "well";
+  min: number;
+  max: number;
+  /** Short label shown under the score bar. */
+  short: string;
+  /** Plain-language meaning shown with the score and in the lead record. */
+  title: string;
+  description: string;
+};
+
+/** 🔬 Band wording and thresholds are flagged for Valisen's clinical review. */
+export const SCORE_BANDS: readonly ScoreBand[] = [
+  {
+    key: "hard",
+    min: 1,
+    max: 39,
+    short: "Hard time",
+    title: "You're having a hard time",
+    description:
+      "You don't have to carry this alone. Talking to someone soon is a good next step.",
+  },
+  {
+    key: "struggling",
+    min: 40,
+    max: 59,
+    short: "Struggling",
+    title: "You're struggling more than usual",
+    description:
+      "Things feel heavier than they should right now. This is a good time to get support.",
+  },
+  {
+    key: "managing",
+    min: 60,
+    max: 79,
+    short: "Managing",
+    title: "You're managing, with some strain",
+    description:
+      "Something is weighing on you. A few sessions can help you get ahead of it.",
+  },
+  {
+    key: "well",
+    min: 80,
+    max: 100,
+    short: "Doing well",
+    title: "You're doing well overall",
+    description:
+      "You're in a good place. Therapy can still help you grow or work through something specific.",
+  },
+];
+
+export function scoreBandDetailsFor(score: number | null): ScoreBand | null {
+  if (score === null || !Number.isFinite(score)) return null;
+  const clamped = Math.min(SCORE_MAX, Math.max(SCORE_MIN, Math.round(score)));
+  return SCORE_BANDS.find((band) => clamped >= band.min && clamped <= band.max) ?? null;
+}
 
 export function scoreBandFor(score: number | null): string {
-  if (score === null) return "Not enough answered to calculate a score";
-  if (score >= 80) return "Generally steady right now";
-  if (score >= 60) return "Coping, but under some strain";
-  if (score >= 40) return "Carrying a real load right now";
-  return "Running low — support could really help";
+  return scoreBandDetailsFor(score)?.title ?? "Not enough answered to calculate a score";
 }
 
 export type Answers = Record<string, number | string | string[] | null | undefined>;
@@ -401,32 +494,56 @@ export function bandFor(average: number | null): Band {
   return { label: "Front and centre", fill: 96 };
 }
 
+function maxOptionValue(question: Extract<Question, { kind: "scored" }>): number {
+  return Math.max(
+    1,
+    ...question.options
+      .map((option) => option.value)
+      .filter((value): value is number => typeof value === "number"),
+  );
+}
+
 export function scoreQuiz(answers: Answers): QuizOutcome {
+  const scoredQuestions = QUESTIONS.filter(
+    (q): q is Extract<Question, { kind: "scored" }> => q.kind === "scored",
+  );
+
   const scores: DimensionScore[] = DIMENSIONS.map((dimension) => {
     const values: number[] = [];
-    for (const q of QUESTIONS) {
-      if (q.kind !== "scored" || !q.dimensions.includes(dimension)) continue;
+    for (const q of scoredQuestions) {
+      if (!q.dimensions.includes(dimension)) continue;
       const raw = answers[q.id];
-      if (typeof raw === "number") values.push(raw);
+      if (typeof raw === "number") values.push((raw / maxOptionValue(q)) * MAX_SCALE_VALUE);
     }
     const average =
       values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
     return { dimension, average, answered: values.length };
   });
 
-  // Overall well-being score across every answered scored question.
-  const allValues: number[] = [];
-  for (const q of QUESTIONS) {
-    if (q.kind !== "scored") continue;
+  let points = 0;
+  let maximum = 0;
+  let answeredCount = 0;
+  for (const q of scoredQuestions) {
     const raw = answers[q.id];
-    if (typeof raw === "number") allValues.push(raw);
+    if (typeof raw !== "number") continue;
+    points += raw;
+    maximum += maxOptionValue(q);
+    answeredCount += 1;
   }
-  const overallDistress =
-    allValues.length > 0 ? allValues.reduce((a, b) => a + b, 0) / allValues.length : null;
+  const duration = typeof answers["duration"] === "string" ? (answers["duration"] as string) : undefined;
+  const impact = typeof answers["impact"] === "string" ? (answers["impact"] as string) : undefined;
+  if (answeredCount > 0 && duration !== undefined && duration in DURATION_POINTS) {
+    points += DURATION_POINTS[duration];
+    maximum += 3;
+  }
+  if (answeredCount > 0 && impact !== undefined && impact in IMPACT_POINTS) {
+    points += IMPACT_POINTS[impact];
+    maximum += 3;
+  }
   const score =
-    overallDistress === null
+    answeredCount === 0 || maximum === 0
       ? null
-      : Math.round(SCORE_MAX - (overallDistress / MAX_SCALE_VALUE) * (SCORE_MAX - SCORE_MIN));
+      : Math.round(SCORE_MAX - (points / maximum) * (SCORE_MAX - SCORE_MIN));
 
   const ranked = scores
     .filter((s) => s.average !== null)
@@ -447,15 +564,7 @@ export function scoreQuiz(answers: Answers): QuizOutcome {
     resultKey = isMixed ? "mixed" : top.dimension;
   }
 
-  return {
-    scores,
-    resultKey,
-    ordered,
-    duration: typeof answers["duration"] === "string" ? (answers["duration"] as string) : undefined,
-    impact: typeof answers["impact"] === "string" ? (answers["impact"] as string) : undefined,
-    score,
-    answeredCount: allValues.length,
-  };
+  return { scores, resultKey, ordered, duration, impact, score, answeredCount };
 }
 
 /* ────────────────────────────────────────────────────────────────────────

@@ -8,7 +8,23 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Phone } from "lucide-react";
+import Image from "next/image";
+import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
+  BatteryLow,
+  Check,
+  CircleHelp,
+  Cloud,
+  Compass,
+  History,
+  Info,
+  Phone,
+  Target,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import CrisisNote from "@/components/CrisisNote";
 import {
   QUESTIONS,
@@ -40,6 +56,20 @@ import ResultsAccessForm, {
   type ResultsAccessDetails,
 } from "@/components/quiz/ResultsAccessForm";
 import ResultsReveal from "@/components/quiz/ResultsReveal";
+import { VALISEN_CARE_MARK_PATH } from "@/lib/valisenCare";
+import styles from "./QuizFlow.module.css";
+
+/** Icons for the first question's answers (keyed by concern value). */
+const CONCERN_ICONS: Record<string, LucideIcon> = {
+  anxiety: Activity,
+  depression: Cloud,
+  "stress-burnout": BatteryLow,
+  "relationship-challenges": Users,
+  "perfectionism-people-pleasing": Target,
+  trauma: History,
+  "life-transitions": Compass,
+  "not-sure": CircleHelp,
+};
 
 type Phase = "restoring" | "quiz" | "safety" | "access" | "preparing" | "result";
 
@@ -105,7 +135,9 @@ function readFirstTouchAttribution(): CampaignAttribution {
 export default function QuizFlow() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
-  const [phase, setPhase] = useState<Phase>("restoring");
+  // Question 1 renders immediately. Only a visitor returning with a saved
+  // result token sees the brief "checking for your saved results" state.
+  const [phase, setPhase] = useState<Phase>("quiz");
   const [outcome, setOutcome] = useState<QuizOutcome | null>(null);
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [intent, setIntent] = useState<QuizIntent | null>(null);
@@ -158,6 +190,7 @@ export default function QuizFlow() {
         return;
       }
 
+      if (!cancelled) setPhase("restoring");
       try {
         const response = await fetch("/api/quiz-lead/result", {
           method: "POST",
@@ -505,6 +538,7 @@ export default function QuizFlow() {
           initialPhone={phone}
           intent={intent}
           attribution={attribution}
+          answers={Object.keys(answers).length ? withoutSafety(answers) : undefined}
           initialContactHelpSent={contactHelpSent}
           userEmailDeliveryFailed={userEmailDeliveryFailed}
           onRestart={restart}
@@ -566,9 +600,9 @@ export default function QuizFlow() {
       : question.options;
 
   return (
-    <div ref={quizTopRef} className="mx-auto max-w-[640px] scroll-mt-28">
-      <div className="mb-6">
-        <div className="mb-2 flex items-center justify-between text-vxs uppercase tracking-[1.2px] text-ink-secondary">
+    <div ref={quizTopRef} className={`mx-auto max-w-[640px] scroll-mt-28 ${styles.shell}`}>
+      <div>
+        <div className={styles.progressMeta}>
           <span>
             Question {index + 1} of {TOTAL_QUESTIONS}
           </span>
@@ -580,31 +614,22 @@ export default function QuizFlow() {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={progress}
-          className="h-1 w-full overflow-hidden rounded-pill bg-black/10"
+          className={styles.progressTrack}
         >
-          <div
-            className="h-full rounded-pill bg-teal transition-all duration-300 motion-reduce:transition-none"
-            style={{ width: `${progress}%` }}
-          />
+          <div className={styles.progressFill} style={{ width: `${progress}%` }} />
         </div>
       </div>
 
-      <div className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-9">
-        {question.helper ? (
-          <p className="mb-2 text-[12.5px] font-medium uppercase tracking-[1px] text-teal">
-            {question.helper}
-          </p>
-        ) : null}
-        <h2
-          aria-live="polite"
-          className="font-serif text-[24px] font-medium leading-[1.25] tracking-[-0.4px] text-ink md:text-[28px]"
-        >
+      <div className={styles.card}>
+        <Image src={VALISEN_CARE_MARK_PATH} alt="" width={44} height={45} className={styles.mark} priority />
+        {question.helper ? <p className={styles.helper}>{question.helper}</p> : null}
+        <h2 id="quiz-question-text" aria-live="polite" className={styles.question}>
           {question.text}
         </h2>
 
         {question.kind === "multi" ? (
           <>
-            <div className="mt-6 flex flex-wrap gap-2.5">
+            <div className={styles.chips}>
               {question.options.map((option) => {
                 const active = multiSelected.includes(String(option.value));
                 const atLimit = Boolean(
@@ -620,15 +645,9 @@ export default function QuizFlow() {
                     onClick={() => toggleMultiValue(question, String(option.value))}
                     aria-pressed={active}
                     disabled={atLimit}
-                    className={`inline-flex min-h-[44px] items-center gap-2 rounded-pill border px-4 py-2.5 text-left text-[14px] transition-all duration-150 ${
-                      active
-                        ? "border-teal bg-teal text-white"
-                        : atLimit
-                          ? "cursor-not-allowed border-black/8 text-ink-hint opacity-45"
-                          : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
-                    }`}
+                    className={styles.chip}
                   >
-                    {active ? <Check size={14} aria-hidden="true" /> : null}
+                    {active ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : null}
                     {option.label}
                   </button>
                 );
@@ -638,18 +657,25 @@ export default function QuizFlow() {
               type="button"
               onClick={continueFromMulti}
               disabled={question.required && multiSelected.length === 0}
-              className="btn-primary mt-7 w-full justify-center"
+              className={styles.continue}
             >
               {multiSelected.length > 0
                 ? "Continue"
                 : question.required
                   ? "Choose at least one"
                   : "Skip — nothing specific"}
-              <ArrowRight size={16} className="ml-2" aria-hidden="true" />
+              <ArrowRight size={17} aria-hidden="true" />
             </button>
           </>
+        ) : question.kind === "scored" && question.input === "slider" ? (
+          <CheckinSlider
+            key={question.id}
+            question={question}
+            initialValue={typeof selected === "number" ? selected : undefined}
+            onAnswer={(value) => handleSelect(question, value)}
+          />
         ) : question.kind === "intent" ? (
-          <div className="mt-6 grid gap-3">
+          <div className={styles.options}>
             {question.options.map((option) => {
               const active = selected === option.value;
               return (
@@ -658,56 +684,40 @@ export default function QuizFlow() {
                   type="button"
                   onClick={() => handleSelect(question, option.value)}
                   aria-pressed={active}
-                  className={`group flex min-h-[82px] items-center justify-between gap-4 rounded-[16px] border px-5 py-4 text-left transition-all duration-150 ${
-                    active
-                      ? "border-teal bg-teal/5 shadow-[0_0_0_1px_rgba(42,127,127,0.25)]"
-                      : "border-black/12 hover:border-teal hover:bg-teal/[0.03]"
-                  }`}
+                  className={styles.option}
                 >
-                  <span>
-                    <span className="block text-[15px] font-semibold leading-[1.35] text-ink">
-                      {option.label}
-                    </span>
-                    <span className="mt-1 block text-[13.5px] leading-[1.5] text-ink-secondary">
-                      {option.description}
-                    </span>
+                  <span className={styles.optionLabel}>
+                    <strong className="block">{option.label}</strong>
+                    <span className="mt-1 block text-[13.5px] text-[#566282]">{option.description}</span>
                   </span>
-                  <span
-                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
-                      active ? "border-teal bg-teal text-white" : "border-black/20 text-transparent"
-                    }`}
-                    aria-hidden="true"
-                  >
-                    <Check size={14} strokeWidth={3} />
+                  <span className={styles.optionCheck} aria-hidden="true">
+                    <Check size={13} strokeWidth={3.4} />
                   </span>
                 </button>
               );
             })}
           </div>
         ) : (
-          <div className="mt-6 flex flex-col gap-2.5">
+          <div className={styles.options}>
             {visibleOptions.map((option) => {
               const active = selected === option.value;
+              const Icon = question.id === "main_concern" ? CONCERN_ICONS[String(option.value)] : undefined;
               return (
                 <button
                   key={String(option.value)}
                   type="button"
                   onClick={() => handleSelect(question, option.value)}
                   aria-pressed={active}
-                  className={`flex min-h-[54px] items-center justify-between gap-3 rounded-[14px] border px-5 py-4 text-left text-[15px] transition-all duration-150 ${
-                    active
-                      ? "border-teal bg-teal/5 text-ink"
-                      : "border-black/12 text-ink hover:border-teal hover:bg-teal/[0.03]"
-                  }`}
+                  className={styles.option}
                 >
-                  <span>{option.label}</span>
-                  <span
-                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
-                      active ? "border-teal bg-teal text-white" : "border-black/20 text-transparent"
-                    }`}
-                    aria-hidden="true"
-                  >
-                    <Check size={11} strokeWidth={3} />
+                  {Icon ? (
+                    <span className={styles.optionIcon} aria-hidden="true">
+                      <Icon size={19} aria-hidden={true} />
+                    </span>
+                  ) : null}
+                  <span className={styles.optionLabel}>{option.label}</span>
+                  <span className={styles.optionCheck} aria-hidden="true">
+                    <Check size={13} strokeWidth={3.4} />
                   </span>
                 </button>
               );
@@ -715,25 +725,84 @@ export default function QuizFlow() {
           </div>
         )}
 
-        <div className="mt-7 flex items-center justify-between gap-4">
+        <div className={styles.footer}>
           {index > 0 ? (
-            <button
-              type="button"
-              onClick={goBack}
-              className="inline-flex min-h-[44px] items-center gap-1.5 text-[13px] font-medium text-ink-secondary hover:text-teal"
-            >
-              <ArrowLeft size={15} aria-hidden="true" /> Back
+            <button type="button" onClick={goBack} className={styles.back}>
+              <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
           ) : (
             <span />
           )}
-          <span className="text-right text-[12px] text-ink-hint">
-            Private · used to help find your fit
-          </span>
+          <span className={styles.private}>Private · used to help find your fit</span>
         </div>
       </div>
 
       <CrisisNote className="mt-5 text-center" />
+    </div>
+  );
+}
+
+/**
+ * A two-week check-in answer. Every slider position is a labelled answer and
+ * the visitor must choose one (drag, arrow keys or tap a label) to continue.
+ */
+function CheckinSlider({
+  question,
+  initialValue,
+  onAnswer,
+}: {
+  question: Extract<Question, { kind: "scored" }>;
+  initialValue: number | undefined;
+  onAnswer: (value: number) => void;
+}) {
+  const steps = question.options.filter(
+    (option): option is { label: string; value: number } => typeof option.value === "number",
+  );
+  const max = steps.length - 1;
+  const [value, setValue] = useState<number | undefined>(initialValue);
+  const position = value ?? Math.floor(max / 2);
+  const chosen = value === undefined ? undefined : steps[value];
+
+  return (
+    <div className={styles.slider}>
+      <p className={styles.sliderLevel}>{chosen ? `Level ${position + 1} of ${steps.length}` : "Less often ↔ More often"}</p>
+      <input
+        type="range"
+        className={styles.range}
+        min={0}
+        max={max}
+        step={1}
+        value={position}
+        data-unset={value === undefined}
+        aria-labelledby="quiz-question-text"
+        aria-valuetext={chosen ? chosen.label : "No answer chosen yet"}
+        onChange={(event) => setValue(Number(event.target.value))}
+      />
+      <div className={styles.stops} role="group" aria-label="Answer choices">
+        {steps.map((step) => (
+          <button
+            key={step.value}
+            type="button"
+            className={styles.stop}
+            aria-pressed={value === step.value}
+            onClick={() => setValue(step.value)}
+          >
+            {step.label}
+          </button>
+        ))}
+      </div>
+      <p className={styles.sliderAnswer} aria-live="polite">{chosen ? chosen.label : "Choose an answer"}</p>
+      <p className={styles.sliderHint}>
+        <Info size={14} aria-hidden="true" /> Drag the slider or tap an answer
+      </p>
+      <button
+        type="button"
+        className={styles.continue}
+        disabled={value === undefined}
+        onClick={() => value !== undefined && onAnswer(value)}
+      >
+        Continue <ArrowRight size={17} aria-hidden="true" />
+      </button>
     </div>
   );
 }

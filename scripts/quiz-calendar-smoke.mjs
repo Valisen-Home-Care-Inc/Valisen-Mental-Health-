@@ -19,17 +19,22 @@ function loadLocal(name) {
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename })(loadLocal, compiledModule, compiledModule.exports);
   return compiledModule.exports;
 }
-const { QUESTIONS, scoreQuiz } = loadLocal("@/lib/quiz");
+const { QUESTIONS, QUIZ_VERSION, scoreQuiz, scoreBandFor } = loadLocal("@/lib/quiz");
 const { matchTherapistPair } = loadLocal("@/lib/matching");
-const answers = Object.fromEntries(QUESTIONS.filter((q) => q.kind === "scored").map((q) => [q.id, 2]));
+const answers = { ...Object.fromEntries(QUESTIONS.filter((q) => q.kind === "scored").map((q) => [q.id, 2])), duration: "a-few-weeks", impact: "a-little" };
 const outcome = scoreQuiz(answers);
+const legacyOutcome = { ...outcome, score: null, answeredCount: 0 };
 const match = matchTherapistPair(outcome, { concerns: ["anxiety"], genderPreference: "no-preference" });
 const token = "quiz-calendar-browser-test-token-1234567890";
 const origin = process.env.SITE_URL || "http://127.0.0.1:3010";
 const output = fs.mkdtempSync(path.join(os.tmpdir(), "valisen-quiz-calendar-"));
-const browser = await puppeteer.launch({ headless: true });
+const browser = await puppeteer.launch({
+  headless: true,
+  // CI containers often run as root, where Chromium needs --no-sandbox.
+  args: process.getuid?.() === 0 ? ["--no-sandbox"] : [],
+});
 try {
-  async function pageFor(width, restore, savedMatch = match) {
+  async function pageFor(width, restore, savedMatch = match, savedOutcome = outcome) {
     const page = await browser.newPage();
     const requests = [], metrics = [], errors = [], quizSaves = [], funnel = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -39,7 +44,7 @@ try {
     await page.setRequestInterception(true);
     page.on("request", (request) => {
       const url = new URL(request.url());
-      if (url.hostname === "challenges.cloudflare.com") return void request.respond({ status: 200, contentType: "application/javascript", body: 'window.turnstile={render:function(el,options){setTimeout(function(){options.callback("test-turnstile-token")},0);return "qa"},remove:function(){},execute:function(){}};' });
+      if (url.hostname === "challenges.cloudflare.com") return void request.respond({ status: 200, contentType: "application/javascript", body: 'window.turnstile={render:function(el,options){el.__qa=options;setTimeout(function(){options.callback("test-turnstile-token")},0);return "qa"},remove:function(){},execute:function(el){setTimeout(function(){el.__qa&&el.__qa.callback("test-turnstile-token")},0)}};' });
       if (url.origin !== origin) return void request.abort();
       if (url.pathname === "/api/consultation-slots") return void request.respond({ status: 200, contentType: "application/json", body: '{"booked":[]}' });
       if (url.pathname === "/api/funnel-events") {
@@ -50,9 +55,9 @@ try {
         quizSaves.push(JSON.parse(request.postData()));
         return void request.respond({ status: quizSaves.length === 1 ? 503 : 200, contentType: "application/json", body: JSON.stringify(quizSaves.length === 1
           ? { error: "Temporary access-form test failure" }
-          : { ok: true, referenceId: "VQ-ACCESSQA", submissionToken: token, outcome, match: savedMatch, intent: "exploring" }) });
+          : { ok: true, referenceId: "VQ-ACCESSQA", submissionToken: token, outcome: savedOutcome, match: savedMatch, intent: "exploring" }) });
       }
-      if (url.pathname === "/api/quiz-lead/result") return void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, referenceId: "VQ-CALENDARQA", firstName: "Alex", email: "qa@example.invalid", phone: "613-555-0100", outcome, match: savedMatch, intent: "see_recommended_therapist", attribution: {} }) });
+      if (url.pathname === "/api/quiz-lead/result") return void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, referenceId: "VQ-CALENDARQA", firstName: "Alex", email: "qa@example.invalid", phone: "613-555-0100", outcome: savedOutcome, match: savedMatch, intent: "see_recommended_therapist", attribution: {} }) });
       if (url.pathname === "/api/submit-intake") {
         requests.push(JSON.parse(request.postData()));
         return void request.respond({ status: requests.length === 1 ? 503 : 200, contentType: "application/json", body: JSON.stringify(requests.length === 1 ? { error: "Temporary test failure" } : { ok: true, referenceId: "VC-CALENDARQA", crmSaved: true }) });
@@ -67,6 +72,12 @@ try {
   const fresh = await pageFor(390, false);
   await fresh.page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
   await fresh.page.screenshot({ path: path.join(output, "quiz-question-1-390.png"), fullPage: true });
+  assert.equal(await fresh.page.$('[role="status"] .animate-spin'), null, "Question 1 must render without the saved-result spinner");
+  const clickByText = (page, text) => page.evaluate((label) => {
+    const button = [...document.querySelectorAll("button")].find((item) => item.textContent.trim() === label);
+    if (!button) throw new Error(`Missing button: ${label}`);
+    button.click();
+  }, text);
   for (let index = 0; index < QUESTIONS.length; index++) {
     console.log(`Checking question ${index + 1} of ${QUESTIONS.length}`);
     try {
@@ -77,23 +88,38 @@ try {
       throw error;
     }
     const q = QUESTIONS[index];
-    assert(!["age", "eligibility", "residency"].includes(q.id));
-    if (q.id === "concerns" || q.id === "payment_readiness") {
+    assert(!["age", "eligibility", "residency", "gender_preference"].includes(q.id));
+    if (["main_concern", "checkin_worry", "safety", "feel_different", "payment_readiness"].includes(q.id)) {
       await fresh.page.screenshot({ path: path.join(output, `quiz-${q.id}-390.png`), fullPage: true });
     }
-    if (q.kind === "multi") {
-      if (q.id === "concerns") {
+    if (q.kind === "scored" && q.input === "slider") {
+      assert.equal(await fresh.page.$eval("button", () => [...document.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("Continue")).disabled), true, "A slider needs an explicit answer");
+      await clickByText(fresh.page, "Most days");
+      assert.equal(await fresh.page.$eval('input[type="range"]', (input) => input.value), "3");
+      await fresh.page.focus('input[type="range"]');
+      await fresh.page.keyboard.press("ArrowLeft");
+      assert.equal(await fresh.page.$eval('input[type="range"]', (input) => input.getAttribute("aria-valuetext")), "About half the days");
+      await clickByText(fresh.page, "Continue");
+    } else if (q.kind === "safety") {
+      await clickByText(fresh.page, "Yes, often");
+      await fresh.page.waitForFunction(() => document.body.innerText.includes("Please reach out to someone who can help today"));
+      await fresh.page.screenshot({ path: path.join(output, "quiz-safety-interstitial-390.png"), fullPage: true });
+      await clickByText(fresh.page, "Go back");
+      await fresh.page.waitForFunction((counter) => document.body.textContent.includes(counter), {}, `Question ${index + 1} of ${QUESTIONS.length}`);
+      await clickByText(fresh.page, "No");
+    } else if (q.kind === "multi") {
+      if (q.id === "feel_different") {
         const choices = await fresh.page.$$('button[aria-pressed="false"]');
-        for (const choice of choices.slice(0, 3)) await choice.click();
-        assert.equal(await fresh.page.$eval('button[aria-pressed="false"]', (button) => button.disabled), true, "Concern choices must stop at three");
-        await fresh.page.evaluate(() => [...document.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent.trim() === "I'm not sure yet").click());
+        for (const choice of choices.slice(0, 2)) await choice.click();
+        assert.equal(await fresh.page.$eval('button[aria-pressed="false"]', (button) => button.disabled), true, "Choices must stop at two");
+        await clickByText(fresh.page, "I'm not sure yet");
         assert.equal(await fresh.page.$$eval('button[aria-pressed="true"]', (items) => items.length), 1, "Not sure must be exclusive");
         await fresh.page.click('button[aria-pressed="false"]');
-        assert.equal(await fresh.page.$$eval('button[aria-pressed="true"]', (items) => items.length), 1, "A specific concern must replace Not sure");
+        assert.equal(await fresh.page.$$eval('button[aria-pressed="true"]', (items) => items.length), 1, "A specific goal must replace Not sure");
       } else {
         await fresh.page.click('button[aria-pressed="false"]');
       }
-      await fresh.page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Continue").click());
+      await clickByText(fresh.page, "Continue");
     } else await fresh.page.click('button[aria-pressed="false"]');
   }
   await fresh.page.waitForSelector('input[autocomplete="given-name"]');
@@ -124,7 +150,11 @@ try {
     assert.equal(distinctEvents.filter((event) => event.event === name).length, 1, name);
   }
   assert.equal(distinctEvents.filter((event) => event.event === 'quiz_access_form_submit_attempted').length, 2);
-  assert(distinctEvents.filter((event) => event.page === 'quiz').every((event) => event.quizVersion === '6.0.0'));
+  assert(distinctEvents.filter((event) => event.page === 'quiz').every((event) => event.quizVersion === QUIZ_VERSION));
+  const submitted = fresh.quizSaves[1].answers;
+  assert.equal("safety" in submitted, false, "The safety answer must stay on the device");
+  assert.deepEqual([submitted.checkin_worry, submitted.checkin_mood, submitted.checkin_sleep, submitted.checkin_coping], [2, 2, 2, 2]);
+  assert.equal(submitted.main_concern, "anxiety");
   assert(!JSON.stringify(fresh.funnel).includes('qa@example.invalid'));
   assert(!JSON.stringify(fresh.funnel).includes('6135550100'));
   assert.deepEqual(fresh.errors, []);
@@ -136,11 +166,17 @@ try {
   for (const width of [320, 375, 390, 768, 1024, 1440]) {
     const { page, requests, errors } = await pageFor(width, true, malePrimary);
     await page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
-    await page.waitForSelector('#quiz-therapist-cards article');
-    const cards = await page.$$eval('#quiz-therapist-cards article', (items) => items.map((item) => ({ name: item.querySelector('h3').textContent, text: item.textContent })));
+    await page.waitForSelector('#quiz-therapist-matches article');
+    const cards = await page.$$eval('#quiz-therapist-matches article', (items) => items.map((item) => ({ name: item.querySelector('h3').textContent, photo: Boolean(item.querySelector('img')) })));
+    assert.equal(cards.length, 2);
     assert.equal(cards[0].name, "Meryem Ibrahim");
-    assert(cards[1].text.includes("Your strongest match"));
-    assert.equal(await page.$('#quiz-result-details'), null, 'The retired score breakdown must stay removed');
+    assert(cards.every((card) => card.photo), "Each match shows the therapist's photo");
+    const resultsText = await page.$eval('[data-quiz-results]', (el) => el.innerText);
+    assert(resultsText.includes(String(outcome.score)), "The wellbeing score is shown");
+    assert(resultsText.includes(scoreBandFor(outcome.score)), "The score band meaning is shown");
+    assert.equal(await page.$eval('[role="meter"]', (el) => el.getAttribute('aria-valuenow')), String(outcome.score));
+    assert.equal(await page.$eval('a[href="/valisen-care.vcf"]', (el) => el.hasAttribute('download')), true, "Save contact downloads the vCard");
+    assert(await page.$('a[href="https://wa.me/16137070333"]'), "WhatsApp link is present");
     assert.equal((await page.$eval('[data-quiz-results]', (el) => el.textContent)).includes('Download My Results PDF'), false);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.$eval('[data-quiz-results]', (el) => el.scrollIntoView());
@@ -148,29 +184,9 @@ try {
     await page.screenshot({ path: path.join(output, `results-${width}.png`), fullPage: true });
     console.log(`Results height at ${width}px: ${await page.$eval('[data-quiz-results]', (el) => Math.round(el.getBoundingClientRect().height))}px`);
 
-    if (width < 640) {
-      await page.click('[aria-label="Next therapist"]');
-      await page.waitForFunction(() => document.querySelector('[aria-label="Next therapist"]').disabled);
-      await page.click('[aria-label="Previous therapist"]');
-      await page.waitForFunction(() => document.querySelector('[aria-label="Previous therapist"]').disabled);
-      await page.$eval('#quiz-therapist-cards', (el) => el.scrollIntoView({ block: "center" }));
-      const rect = await page.$eval('#quiz-therapist-cards', (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width }; });
-      const client = await page.createCDPSession();
-      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: rect.x + rect.width - 30, y: rect.y + 90 }] });
-      for (let step = 1; step <= 6; step++) await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: rect.x + rect.width - 30 - (rect.width - 60) * step / 6, y: rect.y + 90 }] });
-      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await page.waitForFunction(() => document.querySelector('[aria-label="Next therapist"]').disabled);
-      // Let touch scrolling settle before switching input methods.
-      await page.waitForFunction(() => !document.querySelector('[aria-label="Previous therapist"]').disabled);
-      await page.bringToFront();
-      await page.focus('[aria-label="Previous therapist"]');
-      await page.waitForFunction(() => document.activeElement === document.querySelector('[aria-label="Previous therapist"]'));
-      await page.keyboard.press('Enter');
-      await page.waitForFunction(() => document.querySelector('[aria-label="Previous therapist"]').disabled);
-    }
-    await page.click('#quiz-therapist-cards article:first-child summary');
-    await page.waitForFunction(() => document.querySelector('#quiz-therapist-cards article:first-child details').open);
-    await page.click('#quiz-therapist-cards article:first-child summary');
+    await page.click('#quiz-therapist-matches article:first-child summary');
+    await page.waitForFunction(() => document.querySelector('#quiz-therapist-matches article:first-child details').open);
+    await page.click('#quiz-therapist-matches article:first-child summary');
     await page.click('#quiz-consultation-booking [aria-label="Next month"]');
     await page.click('#quiz-consultation-booking [aria-label="Previous month"]');
     assert.equal(await page.$eval('#quiz-consultation-booking [aria-label="Previous month"]', (el) => el.disabled), true);
@@ -187,37 +203,58 @@ try {
     assert.equal(await page.$$eval('[aria-label^="Choose a time"] button[aria-pressed="true"]', (items) => items.length), 0, 'Changing the date must clear the old time');
     assert.equal(requests.length, 0);
     assert.deepEqual(errors, []);
-    console.log(`PASS design ${width}px: female first, swipe/keyboard, score removed, overflow, month navigation, all time slots, date reset`);
+    console.log(`PASS design ${width}px: score, female first photo cards, contact and WhatsApp links, no overflow, month navigation, time slots, date reset`);
+    await page.close();
+  }
+
+  {
+    // A saved version 6 result has no score: show matches without a number.
+    const { page, errors } = await pageFor(390, true, match, legacyOutcome);
+    await page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
+    await page.waitForSelector('#quiz-therapist-matches article');
+    assert.equal(await page.$('[role="meter"]'), null);
+    assert((await page.$eval('[data-quiz-results]', (el) => el.innerText)).includes("Your therapist matches are ready"));
+    assert.deepEqual(errors, []);
+    console.log("PASS restored version 6 result without a score");
     await page.close();
   }
 
   for (const width of [375, 1440]) {
     const { page, requests, metrics, errors } = await pageFor(width, true);
+    if (width >= 1024) await page.evaluateOnNewDocument(() => {
+      const original = window.matchMedia.bind(window);
+      window.matchMedia = (query) => query === "(hover: hover) and (pointer: fine)"
+        ? { matches: true, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }
+        : original(query);
+    });
     await page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
     await page.waitForSelector('[data-result-section="therapists"] article');
     assert.equal(await page.$$eval('[data-result-section="therapists"] article', (cards) => cards.length), 2);
     assert.equal(await page.$$eval('#quiz-consultation-booking input:not([type="hidden"]):not([type="checkbox"])', (inputs) => inputs.length), 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    await page.$eval('#quiz-consultation-booking', (el) => el.scrollIntoView());
-    await page.click('#quiz-consultation-booking button[type="submit"]');
-    assert.equal(requests.length, 0);
+    const bookNow = async () => (await page.evaluateHandle(() => [...document.querySelectorAll('#quiz-consultation-booking button')].find((b) => b.textContent.includes('Book now') || b.textContent.includes('Booking')))).asElement();
+    assert.equal(await (await bookNow()).evaluate((button) => button.disabled), true, "Book now waits for a time");
+    await page.evaluate(() => [...document.querySelectorAll('#quiz-therapist-matches button')].find((b) => b.textContent.trim() === 'Book with Meryem').click());
+    await page.waitForFunction(() => document.querySelector('#quiz-consultation-booking').innerText.includes("like to meet Meryem"));
     await page.click('[aria-label^="Choose a date"] button:not([disabled])');
     await page.waitForSelector('[aria-label^="Choose a time"] button');
     await page.click('[aria-label^="Choose a time"] button');
-    await page.click('#quiz-consultation-booking button[type="submit"]');
-    assert.equal(requests.length, 0, "Consent is required");
-    await page.click('#quiz-consultation-booking input[type="checkbox"]');
-    await page.click('#quiz-consultation-booking button[type="submit"]');
+    assert.equal(await page.$$eval('#quiz-consultation-booking input[type="checkbox"]', (items) => items.length), 0, "No consent checkbox: one tap books");
+    assert((await page.$eval('#quiz-consultation-booking', (el) => el.innerText)).includes('By tapping “Book now”'));
+    await (await bookNow()).click();
     await page.waitForFunction(() => document.body.innerText.includes("Temporary test failure"));
     await page.waitForFunction(() => !document.querySelector('#quiz-consultation-booking fieldset').disabled);
-    await page.click('#quiz-consultation-booking button[type="submit"]');
-    await page.waitForFunction(() => document.body.innerText.includes("Your free consultation is booked."));
+    await (await bookNow()).click();
+    await page.waitForFunction(() => document.body.innerText.includes("You're booked, Alex!"));
     assert.equal(requests.length, 2);
     assert.equal(requests[0].clientSubmissionId, requests[1].clientSubmissionId);
     assert.equal(requests[1].email, "qa@example.invalid");
     assert.equal(requests[1].phone, "613-555-0100");
     assert.equal(requests[1].quizSubmissionToken, token);
     assert.equal(requests[1].formVariant, "quiz_calendar");
+    assert.equal(requests[1].preferredTherapist, "meryem-ibrahim");
+    assert.equal(requests[1].consent, true);
+    assert(requests[1].consentLanguage.startsWith("I agree that Valisen Mental Health"));
     await new Promise((resolve) => setTimeout(resolve, 2000));
     await page.screenshot({ path: path.join(output, `quiz-${width}.png`), fullPage: true });
     const serialized = JSON.stringify(metrics.map((entry) => entry.snapshot));
@@ -225,7 +262,39 @@ try {
     assert(!/qa@example|613-555|Alex|consultationDate|consultationTime|answers|safety/.test(serialized));
     assert(metrics.some((entry) => entry.snapshot.actions.booking_completed === 1));
     assert.deepEqual(errors, []);
-    console.log(`PASS ${width}px: two therapists, saved details, calendar, consent, retry, confirmation, privacy-safe metrics`);
+    if (width >= 1024) {
+      // Desktop "before you go" prompt appears once after a short stay and closes with Escape.
+      await new Promise((resolve) => setTimeout(resolve, 8300));
+      await page.evaluate(() => document.dispatchEvent(new MouseEvent("mouseout", { clientY: -2, relatedTarget: null, bubbles: true })));
+      assert.equal(await page.$('[aria-labelledby="exit-save-title"]'), null, "No exit prompt after booking");
+    }
+    console.log(`PASS ${width}px: two therapists, saved details, one-tap booking, preference, retry, confirmation, privacy-safe metrics`);
+    await page.close();
+  }
+  {
+    const { page, errors } = await pageFor(1440, true);
+    // Headless Chromium reports no mouse, so present a desktop pointer for the
+    // "before you go" prompt, which only arms on hover-capable devices.
+    await page.evaluateOnNewDocument(() => {
+      const original = window.matchMedia.bind(window);
+      window.matchMedia = (query) => query === "(hover: hover) and (pointer: fine)"
+        ? { matches: true, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }
+        : original(query);
+    });
+    await page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
+    await page.waitForSelector('#quiz-therapist-matches article');
+    await page.evaluate(() => document.dispatchEvent(new MouseEvent("mouseout", { clientY: -2, relatedTarget: null, bubbles: true })));
+    assert.equal(await page.$('[aria-labelledby="exit-save-title"]'), null, "No exit prompt in the first seconds");
+    await new Promise((resolve) => setTimeout(resolve, 8300));
+    await page.evaluate(() => document.dispatchEvent(new MouseEvent("mouseout", { clientY: -2, relatedTarget: null, bubbles: true })));
+    await page.waitForSelector('[aria-labelledby="exit-save-title"]');
+    await page.screenshot({ path: path.join(output, "exit-prompt-1440.png") });
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector('[aria-labelledby="exit-save-title"]'));
+    await page.evaluate(() => document.dispatchEvent(new MouseEvent("mouseout", { clientY: -2, relatedTarget: null, bubbles: true })));
+    assert.equal(await page.$('[aria-labelledby="exit-save-title"]'), null, "The exit prompt shows once per session");
+    assert.deepEqual(errors, []);
+    console.log("PASS exit prompt: delayed, once per session, Escape closes");
     await page.close();
   }
   }

@@ -235,21 +235,22 @@ export default function ResultsAccessForm({
         onSubmit={handleSubmit}
         noValidate
         aria-busy={submitting || verifying}
-        className="rounded-card border-[0.5px] border-hairline bg-white p-6 shadow-card md:p-9"
+        className="rounded-[28px] border border-[#DDE6E9] bg-white p-6 text-[#0A1E57] shadow-[0_10px_30px_-22px_rgba(10,30,87,0.35)] md:p-9"
       >
-        <div className="flex items-center gap-2 text-[12.5px] font-semibold uppercase tracking-[1px] text-teal-dark">
+        <div className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[0.16em] text-[#1C6F7D]">
           <LockKeyhole size={15} aria-hidden="true" />
-          Your matches are ready
+          All done
         </div>
         <h2
           ref={headingRef}
           tabIndex={-1}
-          className="mt-3 font-serif text-[27px] font-medium leading-[1.16] tracking-[-0.5px] text-ink outline-none md:text-[32px]"
+          className="mt-3 text-[27px] font-extrabold leading-[1.16] tracking-[-0.02em] text-[#0A1E57] outline-none md:text-[32px]"
         >
-          Meet your recommended therapists
+          Your score and matches are ready
         </h2>
-        <p className="mt-3 text-[14.5px] leading-[1.65] text-ink-secondary">
-          Enter your information below to see your two therapist recommendations and book a free consultation.
+        <p className="mt-3 text-[15px] leading-[1.65] text-[#2D3A5C]">
+          Where should we send them? We&apos;ll also use these details to book your free call in one
+          tap, so you never fill out a form twice.
         </p>
 
         <div className="mt-7 space-y-5">
@@ -451,13 +452,13 @@ export default function ResultsAccessForm({
           type="submit"
           disabled={!canSubmit || submitting || verifying}
           aria-busy={submitting || verifying}
-          className="btn-primary mt-6 min-h-[56px] w-full justify-center text-[16px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/25"
+          className="mt-6 inline-flex min-h-[56px] w-full items-center justify-center rounded-full bg-[#0A1E57] px-6 text-[16px] font-bold text-white transition-colors hover:bg-[#17357F] disabled:cursor-not-allowed disabled:bg-[#A7B2C8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2BB3B1]/45"
         >
           {submitting
             ? "Saving Your Results…"
             : verifying
               ? "Securing Your Results…"
-              : "View My Results"}
+              : "See my results"}
           {!submitting && !verifying ? (
             <ArrowRight size={17} className="ml-2" aria-hidden="true" />
           ) : null}

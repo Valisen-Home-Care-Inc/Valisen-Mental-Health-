@@ -588,10 +588,14 @@ describe("POST /api/quiz-lead", () => {
     });
     expect(body.referenceId).toMatch(/^VQ-[0-9A-F]{12}$/);
     expect(body.submissionToken).toMatch(/^v1\.VQ-/);
-    expect(body.outcome.score).toBeNull();
+    // Four sliders at 2 (8 points) + "a few weeks" (0) + "a little" (0) = 8 of 22.
+    expect(body.outcome.score).toBe(64);
+    expect(body.outcome.answeredCount).toBe(4);
 
     const stored = mocks.records[0];
     expect(stored.intent).toBe("brief_consultation");
+    expect(stored.scoreBand).toBe("You're managing, with some strain");
+    expect(stored.scoringVersion).toBe("2.0.0");
     expect(stored.attribution).toEqual(payload.attribution);
     expect(stored.phone).toBe("613-555-0100");
     expect(stored.privacyText).toBe(RESULTS_ACCESS_PRIVACY_TEXT);
