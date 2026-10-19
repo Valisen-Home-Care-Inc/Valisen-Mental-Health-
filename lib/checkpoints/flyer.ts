@@ -190,12 +190,16 @@ function crc32(bytes: Uint8Array): number {
  * Adds a pHYs chunk so the PNG keeps the flyer's US Letter print size at any
  * export scale. Canvas-encoded PNGs carry no physical size of their own.
  */
-export function pngWithFlyerPrintSize(png: Uint8Array, scale: FlyerScale): Uint8Array {
+export function pngWithFlyerPrintSize(
+  png: Uint8Array,
+  scale: FlyerScale,
+  templatePixelsPerMetre: number = FLYER_TEMPLATE.pixelsPerMetre,
+): Uint8Array {
   const ihdrEnd = 33;
   if (String.fromCharCode(...png.subarray(ihdrEnd + 4, ihdrEnd + 8)) === "pHYs") return png;
   const chunk = new Uint8Array(21);
   const view = new DataView(chunk.buffer);
-  const pixelsPerMetre = Math.round(FLYER_TEMPLATE.pixelsPerMetre * scale);
+  const pixelsPerMetre = Math.round(templatePixelsPerMetre * scale);
   view.setUint32(0, 9);
   chunk.set([0x70, 0x48, 0x59, 0x73], 4); // "pHYs"
   view.setUint32(8, pixelsPerMetre);
