@@ -104,16 +104,6 @@ export default function TherapistsPage() {
                   View All Therapists &amp; Fees
                 </TrackedLink>
               </div>
-              <TrackedLink
-                href={MATCHING_FORM_URL}
-                event="consultation_request_clicked"
-                page="therapist_directory"
-                placement="hero_booking"
-                className="btn-dark mt-3 hidden min-h-[52px] justify-center px-7 sm:inline-flex"
-              >
-                Book Free Consultation
-                <ExternalLink size={14} className="ml-2" aria-hidden="true" />
-              </TrackedLink>
             </div>
             <ul className="mt-8 grid max-w-[700px] gap-3 border-t border-black/10 pt-6 text-[13px] text-ink-secondary sm:grid-cols-2">
               {[

@@ -252,6 +252,23 @@ describe("consultation submission boundary", () => {
     expect(flowMocks.sendMail).toHaveBeenCalledTimes(before);
   });
 
+  it("assigns a flexible website booking from the full pool and preserves its therapist on retries", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
+    const contact = payload({ formVariant: "website", bookingStage: "contact", lastName: "", preferredTherapist: "flexible", timeOfDay: "flexible" });
+    const saved = await (await POST(request(contact))).json();
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: true, capacityTherapistId: "wilfred-bengnwi" });
+    const booking = { ...contact, clientSubmissionId: "booking-" + saved.referenceId.slice(3), bookingStage: "booking", continuationToken: saved.continuationToken, consultationDate: "2026-09-08", consultationTime: "9:20 AM" };
+    const response = await POST(request(booking)); expect(response.status).toBe(200);
+    expect((await response.json()).bookedTherapistSlug).toBe("wilfred-bengnwi");
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ pool: ["ryann-simpson", "wilfred-bengnwi", "meryem-ibrahim", "tim-kahtava", "dayong-quan"] }));
+    expect(flowMocks.upsertConsultationLead).toHaveBeenLastCalledWith(expect.objectContaining({ previousContactReference: saved.referenceId, preferredTherapist: "Wilfred Bengnwi" }));
+    expect(flowMocks.sendMail.mock.calls.findLast(([mail]) => mail.to === "alex@example.com")?.[0].text).toContain("Wilfred Bengnwi");
+    const mailCount = flowMocks.sendMail.mock.calls.length;
+    const replay = await POST(request(booking)); expect(replay.status).toBe(200);
+    expect((await replay.json()).bookedTherapistSlug).toBe("wilfred-bengnwi");
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(mailCount);
+  });
+
   it("retains a website request when the optional slot is taken", async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
     const contact = payload({ formVariant: "website", bookingStage: "contact", lastName: "", preferredTherapist: "meryem-ibrahim", timeOfDay: "flexible" });

@@ -59,6 +59,7 @@ const RANGE_OPTIONS: Array<{
   label: string;
 }> = [
   { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
   { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
@@ -523,7 +524,7 @@ export default function GoogleAdsDashboardClient({
         <span className="inline-flex items-center gap-1.5">
           <CalendarDays size={13} aria-hidden="true" />
           {data
-            ? `${formatDate(data.range.from)} – ${formatDate(data.range.to)}`
+            ? (range === "yesterday" ? formatDate(data.range.from) : `${formatDate(data.range.from)} – ${formatDate(data.range.to)}`)
             : "No range loaded"}
         </span>
         <span aria-live="polite">Updated {formatDate(lastUpdated, true)}</span>

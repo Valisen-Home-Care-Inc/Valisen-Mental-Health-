@@ -3,6 +3,7 @@ import type { JourneyReport } from "@/lib/checkpoints/journey/contract";
 
 export const CHECKPOINT_DATE_PRESETS = [
   "today",
+  "yesterday",
   "7d",
   "30d",
   "90d",
@@ -298,6 +299,11 @@ export function resolveCheckpointDateRange(
     };
   }
 
+  if (preset === "yesterday") return {
+    from: startOfTorontoDay(now, 1).toISOString(),
+    to: startOfTorontoDay(now).toISOString(),
+    preset,
+  };
   if (preset === "today") from = startOfTorontoDay(now);
   else if (preset === "7d") from = startOfTorontoDay(now, 6);
   else if (preset === "30d") from = startOfTorontoDay(now, 29);

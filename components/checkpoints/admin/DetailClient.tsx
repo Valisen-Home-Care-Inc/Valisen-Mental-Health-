@@ -31,6 +31,7 @@ import {
 
 const RANGES: Array<{ value: Exclude<CheckpointDatePreset, "custom">; label: string }> = [
   { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
   { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },

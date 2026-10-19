@@ -195,6 +195,16 @@ describe("consultation checkpoint attribution", () => {
 });
 
 describe("dashboard ranges and conversion math", () => {
+  it.each([
+    ["2026-10-19T14:30:00.000Z", "2026-10-18T04:00:00.000Z", "2026-10-19T04:00:00.000Z"],
+    ["2026-10-19T01:00:00.000Z", "2026-10-17T04:00:00.000Z", "2026-10-18T04:00:00.000Z"],
+    ["2026-03-09T14:30:00.000Z", "2026-03-08T05:00:00.000Z", "2026-03-09T04:00:00.000Z"],
+    ["2026-11-02T14:30:00.000Z", "2026-11-01T04:00:00.000Z", "2026-11-02T05:00:00.000Z"],
+    ["2026-01-01T18:00:00.000Z", "2025-12-31T05:00:00.000Z", "2026-01-01T05:00:00.000Z"],
+  ])("filters the complete previous Toronto day at %s", (now, from, to) => {
+    expect(resolveCheckpointDateRange("yesterday", null, null, new Date(now))).toEqual({ from, to, preset: "yesterday" });
+  });
+
   it("uses Toronto calendar boundaries for preset date filters", () => {
     const now = new Date("2026-08-06T18:30:00.000Z");
     expect(resolveCheckpointDateRange("today", null, null, now)).toEqual({

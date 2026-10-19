@@ -922,9 +922,6 @@ export async function POST(request: NextRequest) {
       if (namedBooking && claim.capacityTherapistId !== preferredTherapist) {
         throw new Error("Named therapist claim mismatch");
       }
-      if (completedSubmission && completedSubmission.referenceId === referenceId && sameCheckpointAttribution(completedSubmission.checkpointAttribution, payload.checkpointAttribution)) {
-        return consultationSuccessResponse({ request, payload, referenceId, body: { ok: true, referenceId, duplicate: true } });
-      }
       if (claim.capacityTherapistId && payload.pool?.includes(claim.capacityTherapistId)) {
         const coverage = getPreferredTherapistLabel(claim.capacityTherapistId);
         payload.notes = `${namedBooking ? "Booked therapist" : "Internal calendar coverage"}: ${coverage}. Reserve this therapist's 20-minute capacity in the operational calendar.${namedBooking ? " The client selected this therapist and will speak directly with them at the booked time." : " This is a clinic consultation; the client did not select a particular therapist."}\n${payload.notes || ""}`.slice(0, 1500);
@@ -934,6 +931,9 @@ export async function POST(request: NextRequest) {
           preferredTherapistLabel = coverage;
           payload.pool = [claim.capacityTherapistId];
         }
+      }
+      if (completedSubmission && completedSubmission.referenceId === referenceId && sameCheckpointAttribution(completedSubmission.checkpointAttribution, payload.checkpointAttribution)) {
+        return consultationSuccessResponse({ request, payload, referenceId, body: { ok: true, referenceId, duplicate: true } });
       }
     } catch (error) {
       console.error(

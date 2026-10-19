@@ -86,18 +86,6 @@ export default function HeroSection() {
           </div>
 
           <TrackedLink
-            href={MATCHING_FORM_URL}
-            event="consultation_request_clicked"
-            secondaryEvent="hero_booking_clicked"
-            page="homepage"
-            placement="hero_booking"
-            className="btn-dark mt-3 min-h-[48px] w-full justify-center px-7 sm:w-auto lg:min-h-[50px]"
-          >
-            Book Free Consultation
-            <ArrowRight size={14} className="ml-2" aria-hidden="true" />
-          </TrackedLink>
-
-          <TrackedLink
             href="#therapist-comparison"
             event="hero_compare_clicked"
             page="homepage"

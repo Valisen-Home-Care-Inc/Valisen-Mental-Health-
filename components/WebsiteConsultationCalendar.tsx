@@ -17,16 +17,13 @@ export default function WebsiteConsultationCalendar({ contact, contactReference,
   continuationToken: string;
   onBooked: (reference: string, conversionReceipt?: string) => void;
 }) {
-  const initialTherapist = String(contact.preferredTherapist || "");
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // This panel mounts only after the visitor's successful submission.
     panelRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   }, []);
-  const [therapistSlug, setTherapistSlug] = useState<ConsultationTherapist>(
-    ALL_CONSULTATION_THERAPISTS.find((slug) => slug === initialTherapist) || ALL_CONSULTATION_THERAPISTS[0],
-  );
-  const therapist = getTherapistBySlug(therapistSlug)!;
+  const [therapistSlug, setTherapistSlug] = useState<ConsultationTherapist | "flexible">("flexible");
+  const therapist = therapistSlug === "flexible" ? undefined : getTherapistBySlug(therapistSlug);
   const [selection, setSelection] = useState<ConsultationSlotSelection | null>(null);
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -59,7 +56,7 @@ export default function WebsiteConsultationCalendar({ contact, contactReference,
         if ([400, 403].includes(response.status)) { request.current = null; setLocked(false); }
         throw new Error(body?.error || "We couldn't confirm this booking. Your contact request is still saved. Please retry or let our team help.");
       }
-      setBooked({ name: getTherapistBySlug(String(body.bookedTherapistSlug))?.name || therapist.name, label: formatPreferredSlotLabel(String(request.current.consultationDate), String(request.current.consultationTime)) });
+      setBooked({ name: getTherapistBySlug(String(body.bookedTherapistSlug))?.name || therapist?.name || "Valisen Mental Health", label: formatPreferredSlotLabel(String(request.current.consultationDate), String(request.current.consultationTime)) });
       announceConsultationBooked();
       onBooked(reference, body.googleAdsConversionReceipt);
     } catch (caught) {
@@ -101,27 +98,28 @@ export default function WebsiteConsultationCalendar({ contact, contactReference,
   </div>;
 
   return <div ref={panelRef} className="scroll-mt-24 space-y-5" data-website-calendar>
-    <p role="status" className="rounded-xl bg-[#edf6f1] p-3 text-sm font-semibold text-teal-dark">Your details are saved.</p>
+    <p role="status" className="rounded-xl bg-[#edf6f1] p-3 text-sm font-semibold text-teal-dark">Your consultation details are saved.</p>
     <div>
       <h2 className="font-serif text-[28px] leading-tight text-ink">Want to book your free call now?</h2>
       <p className="mt-3 text-sm leading-6 text-ink-secondary">Scheduling is optional. If you don&apos;t choose a time now, our team will contact you within 24 hours to help arrange your free consultation.</p>
     </div>
     <fieldset disabled={busy || locked} className="min-w-0 space-y-4">
       <label className="block text-sm font-medium" htmlFor="website-booking-therapist">Choose your therapist</label>
-      <select id="website-booking-therapist" value={therapistSlug} onChange={(event) => { setTherapistSlug(event.target.value as ConsultationTherapist); setSelection(null); setError(""); }} className="form-input w-full">
+      <select id="website-booking-therapist" value={therapistSlug} onChange={(event) => { setTherapistSlug(event.target.value as ConsultationTherapist | "flexible"); setSelection(null); setError(""); }} className="form-input w-full">
+        <option value="flexible">Flexible — any therapist</option>
         {ALL_CONSULTATION_THERAPISTS.map((slug) => <option key={slug} value={slug}>{getTherapistBySlug(slug)?.name}</option>)}
       </select>
       <div className="flex items-center gap-3">
-        {therapist.photo ? <Image src={therapist.photo} alt="" width={48} height={48} className="h-12 w-12 rounded-full object-cover" /> : null}
-        <div><p className="font-semibold">{therapist.name}</p><p className="text-xs text-ink-secondary">Free · 20 minutes · by phone · Toronto time</p></div>
+        {therapist?.photo ? <Image src={therapist.photo} alt="" width={48} height={48} className="h-12 w-12 rounded-full object-cover" /> : null}
+        <div><p className="font-semibold">{therapist?.name || "All available therapists"}</p><p className="text-xs text-ink-secondary">Free · 20 minutes · by phone · Toronto time</p></div>
       </div>
-      <ConsultationTimeSlotPicker key={therapistSlug} therapistSlug={therapistSlug} idPrefix="website-consultation-slot" value={selection} onChange={(slot) => { setSelection(slot); setError(""); }} allowFlexible={false} availabilityRefreshKey={refreshKey} />
+      <ConsultationTimeSlotPicker key={therapistSlug} therapistSlug={therapistSlug === "flexible" ? undefined : therapistSlug} idPrefix="website-consultation-slot" value={selection} onChange={(slot) => { setSelection(slot); setError(""); }} allowFlexible={false} availabilityRefreshKey={refreshKey} />
     </fieldset>
     {error ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
     <button type="button" className="btn-primary min-h-[52px] w-full justify-center" disabled={busy || (!locked && selection?.kind !== "specific")} onClick={confirm}>{busy ? "Confirming…" : locked ? "Retry this booking" : "Confirm my free consultation"}</button>
     <TurnstileWidget action="consultation_request" execution="execute" reserveSpace={false} executeKey={executeKey} resetKey={resetKey} onToken={handleToken} onError={handleError} />
     <button type="button" className="min-h-11 text-sm font-semibold text-teal underline underline-offset-4" onClick={() => setHelp(true)}>Have our team help me schedule</button>
     {help ? <p role="status" className="rounded-xl bg-[#edf6f1] p-4 text-sm leading-6">Your request is already saved. Our team will contact you within 24 hours to help arrange a time. You don&apos;t need to submit anything else.</p> : null}
-    <p className="text-xs leading-5 text-ink-secondary">Your free consultation is separate from paid therapy. <a className="text-teal underline" href={`/therapists/${therapistSlug}`} target="_blank" rel="noreferrer">View {therapist.name.split(" ")[0]}&apos;s session fees and profile</a>.</p>
+    <p className="text-xs leading-5 text-ink-secondary">Your free consultation is separate from paid therapy. <a className="text-teal underline" href={therapist ? `/therapists/${therapistSlug}` : "/therapists"} target="_blank" rel="noreferrer">{therapist ? `View ${therapist.name.split(" ")[0]}'s session fees and profile` : "View our therapists and session fees"}</a>.</p>
   </div>;
 }
