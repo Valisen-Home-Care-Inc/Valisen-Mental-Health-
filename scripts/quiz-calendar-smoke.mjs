@@ -46,7 +46,7 @@ try {
       const url = new URL(request.url());
       if (url.hostname === "challenges.cloudflare.com") return void request.respond({ status: 200, contentType: "application/javascript", body: 'window.turnstile={render:function(el,options){el.__qa=options;setTimeout(function(){options.callback("test-turnstile-token")},0);return "qa"},remove:function(){},execute:function(el){setTimeout(function(){el.__qa&&el.__qa.callback("test-turnstile-token")},0)}};' });
       if (url.origin !== origin) return void request.abort();
-      if (url.pathname === "/api/consultation-slots") return void request.respond({ status: 200, contentType: "application/json", body: '{"booked":[]}' });
+      if (url.pathname === "/api/consultation-slots") return void request.respond({ status: 200, contentType: "application/json", body: '{"booked":[],"calendarVersion":"therapist-capacity-v2"}' });
       if (url.pathname === "/api/funnel-events") {
         funnel.push(...JSON.parse(request.postData()).events);
         return void request.respond({ status: 204 });
@@ -72,6 +72,7 @@ try {
   const fresh = await pageFor(390, false);
   await fresh.page.goto(origin + "/quiz", { waitUntil: "networkidle2", timeout: 120000 });
   await fresh.page.screenshot({ path: path.join(output, "quiz-question-1-390.png"), fullPage: true });
+  assert.equal(await fresh.page.evaluate(() => (document.body.innerText.match(/If you are in crisis, please call/g) || []).length), 1, "Only one bottom crisis sentence");
   assert.equal(await fresh.page.$('[role="status"] .animate-spin'), null, "Question 1 must render without the saved-result spinner");
   const clickByText = (page, text) => page.evaluate((label) => {
     const button = [...document.querySelectorAll("button")].find((item) => item.textContent.trim() === label);
@@ -254,7 +255,7 @@ try {
     const bookNow = async () => (await page.evaluateHandle(() => [...document.querySelectorAll('#quiz-consultation-booking button')].find((b) => b.textContent.includes('Book now') || b.textContent.includes('Booking')))).asElement();
     assert.equal(await (await bookNow()).evaluate((button) => button.disabled), true, "Book now waits for a time");
     await page.evaluate(() => [...document.querySelectorAll('#quiz-therapist-matches button')].find((b) => b.textContent.trim() === 'Book with Meryem').click());
-    await page.waitForFunction(() => document.querySelector('#quiz-consultation-booking').innerText.includes("like to meet Meryem"));
+    await page.waitForFunction(() => document.querySelector('#quiz-consultation-booking').innerText.includes("Available times with Meryem"));
     await page.click('[aria-label^="Choose a date"] button:not([disabled])');
     await page.waitForSelector('[aria-label^="Choose a time"] button');
     await page.click('[aria-label^="Choose a time"] button');
@@ -262,7 +263,7 @@ try {
     assert((await page.$eval('#quiz-consultation-booking', (el) => el.innerText)).includes('By tapping “Book now”'));
     await (await bookNow()).click();
     await page.waitForFunction(() => document.body.innerText.includes("Temporary test failure"));
-    await page.waitForFunction(() => !document.querySelector('#quiz-consultation-booking fieldset').disabled);
+    assert.equal(await page.$eval('#quiz-consultation-booking fieldset', (el) => el.disabled), true, 'Keep the original appointment locked during an uncertain retry');
     await (await bookNow()).click();
     await page.waitForFunction(() => document.body.innerText.includes("You're booked, Alex!"));
     assert.equal(requests.length, 2);
@@ -335,6 +336,10 @@ try {
   for (const width of [320, 390, 1440]) {
     const { page, requests, errors } = await pageFor(width, false);
     await page.goto(origin + '/welcome', { waitUntil: 'networkidle2', timeout: 120000 });
+    await page.waitForFunction(() => {
+      const input = document.querySelector('form[data-google-ads-consultation-form] input[autocomplete="name"]');
+      return input && Object.keys(input).some((key) => key.startsWith('__reactProps$'));
+    });
     const form = await page.$('form[data-google-ads-consultation-form]');
     await (await form.$('input[autocomplete="name"]')).type('Alex');
     await (await form.$('input[type="tel"]')).type('6135550100');

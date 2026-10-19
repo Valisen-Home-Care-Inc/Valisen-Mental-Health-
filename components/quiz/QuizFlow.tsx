@@ -20,7 +20,6 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import CrisisNote from "@/components/CrisisNote";
 import {
   QUESTIONS,
   QUIZ_VERSION,
@@ -769,7 +768,6 @@ export default function QuizFlow() {
 function QuizStage({
   band,
   children,
-  note = true,
   stageRef,
 }: {
   band?: ReactNode;
@@ -783,7 +781,6 @@ function QuizStage({
         <div className={styles.bandInner}>{band}</div>
       </div>
       <div className={styles.overlap}>{children}</div>
-      {note ? <CrisisNote className="mt-6 text-center" /> : null}
     </div>
   );
 }

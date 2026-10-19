@@ -13,7 +13,6 @@ import Footer from "@/components/Footer";
 import FunnelPageAnalytics from "@/components/FunnelPageAnalytics";
 import HeroSection from "@/components/HeroSection";
 import NavBar from "@/components/NavBar";
-import PossibilityBuilder from "@/components/PossibilityBuilder";
 import { TherapistPreviewGrid } from "@/components/TherapistDirectoryExperience";
 import TrackedLink from "@/components/TrackedLink";
 import {
@@ -28,7 +27,7 @@ import {
 export const metadata: Metadata = {
   title: "Find a Therapist in Ontario | Fees & Free Consultation",
   description:
-    "Compare Valisen therapists, see the $160–$180 per 50-minute fee range upfront, use a short private therapist finder, and book a free 20-minute consultation.",
+    "Compare Valisen therapists, see the $160–$180 per 50-minute fee range upfront, and book a free 20-minute consultation.",
   alternates: {
     canonical: "https://valisenmentalhealth.com",
   },
@@ -110,7 +109,6 @@ export default function HomePage() {
         </dl>
       </section>
 
-      <PossibilityBuilder />
 
       <section
         id="therapist-comparison"
@@ -167,7 +165,7 @@ export default function HomePage() {
               number="01"
               icon={<Search size={20} aria-hidden="true" />}
               title="Tell us what matters"
-              body="Use the short therapist finder or compare the team directly."
+              body="Compare the team or share your therapist preference with us."
             />
             <ProcessCard
               number="02"
@@ -308,19 +306,18 @@ export default function HomePage() {
             Ready to meet a therapist—or still deciding?
           </h2>
           <p className="mx-auto mt-4 max-w-[620px] text-[15px] leading-7 text-white/70">
-            Use the private finder for a focused suggestion, or compare every
-            therapist’s areas, availability, and fee.
+            Request a free consultation, or compare every therapist’s areas,
+            availability, and fee.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <TrackedLink
-              href="#therapist-finder"
-              event="therapist_finder_started"
+              href="/consultation?source=website"
+              event="consultation_request_clicked"
               page="homepage"
               placement="final_primary"
-              finderUsed
               className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-white px-7 text-sm font-semibold text-[#123F40] shadow-lg"
             >
-              Help Me Find My Therapist
+              Book Free Consultation
               <ArrowRight size={16} className="ml-2" aria-hidden="true" />
             </TrackedLink>
             <TrackedLink

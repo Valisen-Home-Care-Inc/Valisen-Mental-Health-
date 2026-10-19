@@ -114,7 +114,7 @@ describe("consultation form contract", () => {
     expect(page).toContain('data-lpignore="true"');
     expect(
       page.match(/stageGoogleAdsInternalNavigation\(thankYouUrl\)/g),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 
   it("emits a confirmed submission conversion at most once per reference", () => {

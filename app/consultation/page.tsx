@@ -3,16 +3,11 @@
 import Link from "next/link";
 import { formatReferralPhone } from "@/lib/phoneFormatting";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
-  Clock3,
   ExternalLink,
   Link2,
   RefreshCw,
-  Sun,
-  Sunrise,
-  Sunset,
 } from "lucide-react";
 import {
   useCallback,
@@ -23,6 +18,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import WebsiteConsultationCalendar from "@/components/WebsiteConsultationCalendar";
 import CrisisNote from "@/components/CrisisNote";
 import Footer from "@/components/Footer";
 import NavBar from "@/components/NavBar";
@@ -53,14 +49,11 @@ import {
   type CheckpointSessionContext,
 } from "@/lib/checkpoints/session";
 import {
-  CONSULTATION_AVAILABILITY_WINDOWS,
   CONSULTATION_DAYS,
-  CONSULTATION_DAYS_LABEL,
   confirmedConsultationReferenceFromResponse,
   consumeConsultationPrefill,
   isValidConsultationPhone,
   shouldTrackConsultationSubmission,
-  type ConsultationAvailability,
 } from "@/lib/consultation";
 import {
   SPECIFIC_THERAPIST_VALUES,
@@ -70,7 +63,6 @@ import {
 import { getFirstPartyFunnelSessionId } from "@/lib/funnelTracking";
 import {
   captureGoogleAdsJourneyFromUrl,
-  confirmedConsultationReferenceIsValid,
   getGoogleAdsJourneyToken,
   googleAdsThankYouUrl,
   isGoogleAdsJourneyActive,
@@ -99,7 +91,6 @@ type ConsultationFormData = {
   therapyType: string;
   preferredTherapist: string;
   additionalInfo: string;
-  availability: ConsultationAvailability | "";
   consent: boolean;
   website: string;
 };
@@ -113,33 +104,9 @@ const INITIAL: ConsultationFormData = {
   therapyType: "",
   preferredTherapist: "",
   additionalInfo: "",
-  availability: "",
   consent: false,
   website: "",
 };
-
-const AVAILABILITY_OPTIONS: Array<{
-  value: ConsultationAvailability;
-  time: string;
-  label: string;
-  icon: ReactNode;
-}> = [
-  {
-    value: "morning",
-    ...CONSULTATION_AVAILABILITY_WINDOWS.morning,
-    icon: <Sunrise size={25} />,
-  },
-  {
-    value: "afternoon",
-    ...CONSULTATION_AVAILABILITY_WINDOWS.afternoon,
-    icon: <Sun size={25} />,
-  },
-  {
-    value: "late_afternoon",
-    ...CONSULTATION_AVAILABILITY_WINDOWS.late_afternoon,
-    icon: <Sunset size={25} />,
-  },
-];
 
 const CONSENT_TEXT =
   "I consent to Valisen Mental Health using the name, email address, and phone number I have provided to contact me regarding my consultation request and to coordinate a consultation within my preferred availability.";
@@ -154,7 +121,6 @@ const GOOGLE_ADS_ERROR_FIELDS: Partial<
   therapyType: "therapy-type",
   preferredTherapist: "preferred-therapist",
   additionalInfo: "additional-info",
-  availability: "availability",
   consent: "consent",
 };
 
@@ -258,7 +224,13 @@ function Field({
 
 export default function ConsultationPage() {
   const [data, setData] = useState<ConsultationFormData>(INITIAL);
-  const [step, setStep] = useState<FormStep>(1);
+  const step: FormStep = 1;
+  const [savedRequest, setSavedRequest] = useState<Record<string, unknown> | null>(null);
+  const [contactReference, setContactReference] = useState("");
+  const [continuationToken, setContinuationToken] = useState("");
+  const contactPayloadRef = useRef<Record<string, unknown> | null>(null);
+  const contactInFlightRef = useRef(false);
+  const [contactLocked, setContactLocked] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -582,12 +554,6 @@ export default function ConsultationPage() {
       next.phone = "Please enter a valid phone number.";
     }
     if (!data.therapyType) next.therapyType = "Please select a therapy type.";
-    return next;
-  }
-
-  function validateStepTwo(): FormErrors {
-    const next: FormErrors = {};
-    if (!data.availability) next.availability = "Choose the time range that works best.";
     if (!data.consent) next.consent = "Please provide consent so we can coordinate with you.";
     return next;
   }
@@ -616,37 +582,11 @@ export default function ConsultationPage() {
     }, 0);
   }
 
-  function continueToAvailability() {
-    const next = validateStepOne();
-    if (Object.keys(next).length) {
-      showErrors(next, 1);
-      return;
-    }
-    setErrors({});
-    setStep(2);
-    trackFunnelEvent("consultation_step_viewed", {
-      page: "consultation",
-      ctaPlacement: "consultation_primary",
-      funnelStep: 2,
-    });
-    if (googleAdsJourneyRef.current) {
-      recordGoogleAdsEvent("consultation_step_viewed", { formStep: 2 });
-    }
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (step === 1) {
-      continueToAvailability();
-      return;
-    }
-    const next = validateStepTwo();
-    if (Object.keys(next).length) {
-      showErrors(next, 2);
-      return;
-    }
-    if (submitting) return;
+    const next = validateStepOne();
+    if (Object.keys(next).length) { showErrors(next, 1); return; }
+    if (submitting || contactInFlightRef.current) return;
     const secureToken = turnstileTokenRef.current;
     if (!secureToken) {
       if (verifyingSubmission || pendingSecureSubmitRef.current) return;
@@ -657,13 +597,14 @@ export default function ConsultationPage() {
       return;
     }
 
+    contactInFlightRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     const name = splitFullName(data.fullName);
     if (!name) {
       showErrors({ fullName: "Please enter your name." }, 1);
-      setStep(1);
       setSubmitting(false);
+      contactInFlightRef.current = false;
       return;
     }
     try {
@@ -674,46 +615,36 @@ export default function ConsultationPage() {
         // Analytics is best-effort and must never gate the intake request.
         void flushGoogleAdsEvents(false, 1_200);
       }
-      const response = await fetch("/api/submit-intake", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
+      contactPayloadRef.current ||= {
+          formVariant: "website", bookingStage: "contact",
           clientSubmissionId: submissionIdRef.current,
           formStartedAt: formStartedAtRef.current,
-          firstName: name.firstName,
-          lastName: name.lastName,
-          email: data.email.trim(),
-          phone: data.phone.trim(),
-          reason: data.therapyType,
+          firstName: name.firstName, lastName: name.lastName,
+          email: data.email.trim(), phone: data.phone.trim(), reason: data.therapyType,
           preferredTherapist: data.preferredTherapist || "flexible",
-          notes: data.additionalInfo.trim() || undefined,
-          days: CONSULTATION_DAYS,
-          timeOfDay: data.availability,
-          consent: data.consent,
-          consentLanguage: CONSENT_TEXT,
-          consentVersion: CONSENT_VERSION,
-          source,
+          notes: data.additionalInfo.trim() || undefined, days: CONSULTATION_DAYS, timeOfDay: "flexible",
+          consent: data.consent, consentLanguage: CONSENT_TEXT, consentVersion: CONSENT_VERSION, source,
           quizSubmissionToken: quizSubmissionTokenRef.current ?? undefined,
           funnelSessionId: funnelSessionIdRef.current ?? undefined,
           googleAdsSessionId: googleAdsSessionIdRef.current ?? undefined,
           googleAdsJourneyToken: googleAdsJourneyTokenRef.current ?? undefined,
-          attribution:
-            Object.keys(attributionRef.current).length > 0
-              ? attributionRef.current
-              : undefined,
-          checkpointAttribution: checkpointContext
-            ? attributionFromCheckpointSession(checkpointContext)
-            : undefined,
+          attribution: Object.keys(attributionRef.current).length > 0 ? attributionRef.current : undefined,
+          checkpointAttribution: checkpointContext ? attributionFromCheckpointSession(checkpointContext) : undefined,
           website: data.website,
-          turnstileToken: secureToken,
-        }),
+      };
+      setContactLocked(true);
+      const response = await fetch("/api/submit-intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ ...contactPayloadRef.current, turnstileToken: secureToken }),
       });
       const body = (await response.json().catch(() => null)) as
           | {
             ok?: boolean;
             error?: string;
             referenceId?: string;
+            continuationToken?: string;
             checkpointAttributionSaved?: boolean;
             checkpointAttributionRepairToken?: string;
             googleAdsThankYouReady?: boolean;
@@ -721,12 +652,14 @@ export default function ConsultationPage() {
           }
         | null;
       if (!response.ok || !body?.ok) {
+        if ([400, 403].includes(response.status)) { contactPayloadRef.current = null; setContactLocked(false); }
         throw new Error(body?.error || "Something went wrong. Please try again.");
       }
 
       const durableReference =
         confirmedConsultationReferenceFromResponse(body);
       if (!durableReference) {
+        contactPayloadRef.current = null; setContactLocked(false);
         // Password managers occasionally populate visually hidden fields even
         // when asked not to. Clear that value so a real person can complete a
         // fresh Turnstile-protected retry instead of being trapped in fake bot
@@ -738,6 +671,10 @@ export default function ConsultationPage() {
           "We could not confirm that your request was saved. Please try again.",
         );
       }
+      if (typeof body.continuationToken !== "string") throw new Error("We could not open scheduling. Please retry; your details will not be duplicated.");
+      setSavedRequest(contactPayloadRef.current);
+      setContactReference(durableReference);
+      setContinuationToken(body.continuationToken);
       const confirmedReference = shouldTrackConsultationSubmission(
         durableReference,
         submittedConversionReferenceRef.current,
@@ -746,55 +683,18 @@ export default function ConsultationPage() {
         submittedConversionReferenceRef.current = durableReference;
         if (googleAdsJourneyRef.current) {
           recordGoogleAdsEvent("consultation_submitted", {
-            formStep: 2,
+            formStep: 1,
             submissionReference: durableReference,
           });
         } else {
           trackFunnelEvent("consultation_request_submitted", {
             page: "consultation",
             ctaPlacement: "consultation_primary",
-            funnelStep: 2,
+            funnelStep: 1,
             funnelCompleted: true,
             submissionReference: durableReference,
           });
         }
-      }
-      if (
-        googleAdsJourneyRef.current &&
-        confirmedReference &&
-        confirmedConsultationReferenceIsValid(durableReference) &&
-        body.googleAdsThankYouReady === true
-      ) {
-        const thankYouUrl = googleAdsThankYouUrl(
-          body.googleAdsConversionReceipt,
-        );
-        if (thankYouUrl) {
-          stageGoogleAdsInternalNavigation(thankYouUrl);
-          void flushGoogleAdsEvents(true);
-          window.location.replace(thankYouUrl);
-          return;
-        }
-      }
-      if (
-        googleAdsJourneyRef.current &&
-        confirmedReference &&
-        googleAdsSessionIdRef.current &&
-        googleAdsJourneyTokenRef.current &&
-        confirmedConsultationReferenceIsValid(durableReference)
-      ) {
-        setSubmitted(true);
-        void retryGoogleAdsThankYouReceipt(
-          googleAdsSessionIdRef.current,
-          durableReference,
-          googleAdsJourneyTokenRef.current || "",
-        ).then((receipt) => {
-          const thankYouUrl = googleAdsThankYouUrl(receipt);
-          if (!thankYouUrl) return;
-          stageGoogleAdsInternalNavigation(thankYouUrl);
-          void flushGoogleAdsEvents(true);
-          window.location.replace(thankYouUrl);
-        });
-        return;
       }
       setSubmitted(true);
       if (checkpointContext) {
@@ -831,6 +731,7 @@ export default function ConsultationPage() {
       setTurnstileToken(null);
       setTurnstileResetKey((current) => current + 1);
     } finally {
+      contactInFlightRef.current = false;
       setSubmitting(false);
     }
   }
@@ -849,8 +750,8 @@ export default function ConsultationPage() {
             Request Your Free Consultation
           </h1>
           <p className="mx-auto mt-4 max-w-[680px] text-vbase leading-[1.65] text-ink-secondary">
-            Tell us what you need and when you are available. Our team will reach out within one
-            business day to coordinate the best therapist and time with you.
+            Tell us what you need. Our team will contact you within 24 hours to help arrange your free
+            consultation. After sending your details, you can also choose an available time right away.
           </p>
         </div>
       </section>
@@ -893,18 +794,19 @@ export default function ConsultationPage() {
             <div className="flex-1 bg-white">
               <div className="p-6 sm:p-8 md:p-10">
                 {submitted ? (
-                  <div className="flex min-h-[520px] flex-col items-center justify-center py-10 text-center">
-                    <div className="grid h-14 w-14 place-items-center rounded-full bg-teal text-white">
-                      <Check size={28} strokeWidth={2.5} aria-hidden="true" />
-                    </div>
-                    <h2 className="mt-5 font-serif text-[28px] font-medium text-ink">
-                      Your request is in.
-                    </h2>
-                    <p className="mt-3 max-w-[420px] text-[15px] leading-[1.65] text-ink-secondary">
-                      A member of the Valisen team will contact you within one business day to
-                      coordinate your free consultation. Your requested time range is a preference,
-                      not a confirmed appointment yet.
-                    </p>
+                  <div>
+                    {savedRequest && continuationToken ? <WebsiteConsultationCalendar contact={savedRequest} contactReference={contactReference} continuationToken={continuationToken} onBooked={(reference, receipt) => {
+                      if (googleAdsJourneyRef.current) recordGoogleAdsEvent("consultation_submitted", { formStep: 2, submissionReference: reference });
+                      else trackFunnelEvent("consultation_request_submitted", { page: "consultation", ctaPlacement: "consultation_primary", funnelStep: 2, submissionReference: reference });
+                      if (googleAdsJourneyRef.current && googleAdsSessionIdRef.current && googleAdsJourneyTokenRef.current) {
+                        const redirect = (value: unknown) => {
+                          const thankYouUrl = googleAdsThankYouUrl(value);
+                          if (thankYouUrl) { stageGoogleAdsInternalNavigation(thankYouUrl); void flushGoogleAdsEvents(true); window.location.replace(thankYouUrl); }
+                        };
+                        if (googleAdsThankYouUrl(receipt)) redirect(receipt);
+                        else void retryGoogleAdsThankYouReceipt(googleAdsSessionIdRef.current, contactReference, googleAdsJourneyTokenRef.current).then(redirect);
+                      }
+                    }} /> : null}
                     {checkpointAttributionStatus !== "none" ? (
                       <div
                         className={`mt-6 w-full max-w-[460px] rounded-2xl border px-4 py-4 text-left ${
@@ -1003,19 +905,6 @@ export default function ConsultationPage() {
                       />
                     </div>
 
-                    <div className="mb-7">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-[1.2px] text-teal-dark">
-                          {step === 1 ? "About you" : "Your availability"}
-                        </span>
-                        <span className="text-[12px] font-medium text-ink-hint">{step} / 2</span>
-                      </div>
-                      <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-black/10">
-                        <div className="h-full rounded-full bg-teal transition-all" style={{ width: step === 1 ? "50%" : "100%" }} />
-                      </div>
-                    </div>
-
-                    {step === 1 ? (
                       <div className="space-y-5">
                         <div>
                           <h2 className="font-serif text-[28px] font-medium leading-tight text-ink">
@@ -1025,6 +914,7 @@ export default function ConsultationPage() {
                             We&apos;ll only use this information to respond to your consultation request.
                           </p>
                         </div>
+                        <fieldset className="min-w-0 space-y-5" disabled={submitting || verifyingSubmission || contactLocked}>
                         <Field id="full-name" label="Full Name" required error={errors.fullName}>
                             <input id="full-name" data-google-ads-field-id="full-name" type="text" autoComplete="name" maxLength={160} value={data.fullName} onChange={(event) => set("fullName", event.target.value)} className={inputClass} placeholder="Full name" aria-invalid={Boolean(errors.fullName)} />
                         </Field>
@@ -1049,47 +939,6 @@ export default function ConsultationPage() {
                         <Field id="additional-info" label="Anything else you'd like us to know? (optional)">
                           <textarea id="additional-info" data-google-ads-field-id="additional-info" rows={3} maxLength={1500} value={data.additionalInfo} onChange={(event) => set("additionalInfo", event.target.value)} className={inputClass} placeholder="Share only what feels useful for coordinating your consultation." />
                         </Field>
-                        <button type="button" onClick={continueToAvailability} className="btn-primary min-h-[54px] w-full justify-center text-[15px]">
-                          Continue to Availability
-                          <ArrowRight size={17} className="ml-2" aria-hidden="true" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        <div>
-                          <h2 className="font-serif text-[29px] font-medium leading-tight text-ink">
-                            When works best for you?
-                          </h2>
-                          <p className="mt-2 flex items-center gap-2 text-[13.5px] text-ink-secondary">
-                            <Clock3 size={15} className="text-teal" aria-hidden="true" />
-                            {CONSULTATION_DAYS_LABEL} · Toronto time
-                          </p>
-                        </div>
-
-                        <div data-error={errors.availability ? true : undefined}>
-                          <div className="grid gap-3 sm:grid-cols-3">
-                            {AVAILABILITY_OPTIONS.map((option) => {
-                              const selected = data.availability === option.value;
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  data-google-ads-field-id="availability"
-                                  aria-pressed={selected}
-                                  onClick={() => set("availability", option.value)}
-                                  className={`relative flex min-h-[124px] flex-col items-center justify-center border px-3 py-4 text-center transition-all ${selected ? "border-teal bg-teal/[0.06] shadow-[0_0_0_1px_rgba(42,127,127,0.25)]" : "border-black/15 bg-[#FCFBF8] hover:border-teal/60"}`}
-                                >
-                                  {selected ? <span className="absolute right-2.5 top-2.5 grid h-5 w-5 place-items-center rounded-full bg-teal text-white"><Check size={12} strokeWidth={3} /></span> : null}
-                                  <span className="text-teal-dark" aria-hidden="true">{option.icon}</span>
-                                  <span className="mt-2 text-[13.5px] font-semibold text-ink">{option.time}</span>
-                                  <span className="mt-1 text-[11.5px] text-ink-secondary">{option.label}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {errors.availability ? <p role="alert" className="mt-2 text-[12px] text-red-700">{errors.availability}</p> : null}
-                        </div>
-
                         <div data-error={errors.consent ? true : undefined} className="border border-black/10 bg-canvas p-4 sm:p-5">
                           <label className="flex cursor-pointer items-start gap-3">
                             <input type="checkbox" data-google-ads-field-id="consent" checked={data.consent} onChange={(event) => set("consent", event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-teal" />
@@ -1100,6 +949,7 @@ export default function ConsultationPage() {
                           {errors.consent ? <p role="alert" className="ml-8 mt-2 text-[12px] text-red-700">{errors.consent}</p> : null}
                         </div>
 
+                        </fieldset>
                         <div data-error={errors.turnstile ? true : undefined}>
                           <TurnstileWidget
                             action="consultation_request"
@@ -1119,11 +969,7 @@ export default function ConsultationPage() {
 
                         {submitError ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{submitError}</div> : null}
 
-                        <div className="grid grid-cols-[auto_1fr] gap-3">
-                          <button type="button" disabled={verifyingSubmission} onClick={() => { setErrors({}); setStep(1); trackFunnelEvent("consultation_step_viewed", { page: "consultation", ctaPlacement: "consultation_primary", funnelStep: 1 }); }} className="btn-outline min-h-[54px] px-5 disabled:cursor-wait disabled:opacity-60">
-                            <ArrowLeft size={16} className="mr-2" aria-hidden="true" />
-                            Back
-                          </button>
+                        <div className="grid gap-3">
                           <button type="submit" disabled={submitting || verifyingSubmission} className="btn-primary min-h-[54px] w-full justify-center text-[15px]">
                             {submitting
                               ? "Submitting…"
@@ -1134,7 +980,6 @@ export default function ConsultationPage() {
                           </button>
                         </div>
                       </div>
-                    )}
                   </form>
                 )}
               </div>

@@ -65,14 +65,13 @@ export default function HeroSection() {
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-8">
             <TrackedLink
-              href="#therapist-finder"
-              event="hero_finder_clicked"
+              href={MATCHING_FORM_URL}
+              event="consultation_request_clicked"
               page="homepage"
               placement="hero_primary"
               className="btn-primary min-h-[50px] w-full justify-center px-6 sm:w-auto lg:min-h-[52px] lg:px-7"
             >
-              <span className="lg:hidden">Find My Therapist</span>
-              <span className="hidden lg:inline">Help Me Find My Therapist</span>
+              Book Free Consultation
               <ArrowRight size={17} className="ml-2" aria-hidden="true" />
             </TrackedLink>
             <TrackedLink

@@ -169,7 +169,7 @@ type IntakePayload = {
   landingLocale?: LandingLocale;
   consultationLanguage?: string;
   pool?: ConsultationTherapist[];
-  formVariant?: "welcome" | "quiz_calendar";
+  formVariant?: "welcome" | "quiz_calendar" | "website";
   bookedSlot?: QuizConsultationSlot;
   clientSubmissionId: string;
   formStartedAt: number;
@@ -245,19 +245,22 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
   if (Object.keys(input).some((key) => !ALLOWED_KEYS.has(key))) {
     return { error: "Invalid request fields." };
   }
-  if (input.formVariant !== undefined && input.formVariant !== "welcome" && input.formVariant !== "quiz_calendar") {
+  if (input.formVariant !== undefined && input.formVariant !== "welcome" && input.formVariant !== "quiz_calendar" && input.formVariant !== "website") {
     return { error: "Invalid consultation form." };
   }
   const isQuizBooking = input.formVariant === "quiz_calendar";
   const isWelcomeBooking = input.formVariant === "welcome";
+  const isWebsiteBooking = input.formVariant === "website";
   const bookingStage = input.bookingStage;
-  if (bookingStage !== undefined && (!isWelcomeBooking || (bookingStage !== "contact" && bookingStage !== "booking"))) return { error: "Invalid booking stage." };
+  if (bookingStage !== undefined && (!(isWelcomeBooking || isWebsiteBooking) || (bookingStage !== "contact" && bookingStage !== "booking"))) return { error: "Invalid booking stage." };
+  if (isWebsiteBooking && !bookingStage) return { error: "Please submit your contact details before booking." };
   if (input.continuationToken !== undefined && bookingStage !== "booking") return { error: "Invalid booking continuation." };
   const landingConcept = input.landingConcept;
   if (landingConcept !== undefined && (typeof landingConcept !== "string" || !landingConcept || !isWelcomeBooking)) return { error: "Invalid landing calendar." };
   const eligiblePool = consultationPoolForConcept(landingConcept as string | undefined);
   if (!eligiblePool?.length) return { error: "Invalid landing calendar." };
-  const selectedTherapist = landingConcept && typeof input.preferredTherapist === "string" && eligiblePool.some((slug) => slug === input.preferredTherapist)
+  if ((isQuizBooking || isWebsiteBooking) && input.preferredTherapist && input.preferredTherapist !== "flexible" && !eligiblePool.some((slug) => slug === input.preferredTherapist)) return { error: "Invalid consultation therapist." };
+  const selectedTherapist = (landingConcept || isQuizBooking || isWebsiteBooking) && typeof input.preferredTherapist === "string" && eligiblePool.some((slug) => slug === input.preferredTherapist)
     ? getTherapistBySlug(input.preferredTherapist) : null;
   if (landingConcept && !selectedTherapist) return { error: "Please choose a therapist from this page." };
   const pool = selectedTherapist ? [selectedTherapist.slug as ConsultationTherapist] : eligiblePool;
@@ -273,16 +276,16 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
     return { error: "Please choose both a consultation date and time." };
   }
   const bookedSlot =
-    (isQuizBooking || isWelcomeBooking) && hasConsultationDate
+    (isQuizBooking || isWelcomeBooking || isWebsiteBooking) && hasConsultationDate
       ? parseQuizConsultationSlot(input.consultationDate, input.consultationTime, new Date(), pool)
       : null;
   if (isQuizBooking && (!bookedSlot || !isValidSubmissionToken(input.quizSubmissionToken) || input.source !== "quiz_result")) {
     return { error: "Please choose a valid consultation date and time from your quiz results." };
   }
-  if (isWelcomeBooking && hasConsultationDate && !bookedSlot) {
+  if ((isWelcomeBooking || isWebsiteBooking) && hasConsultationDate && !bookedSlot) {
     return { error: "Please choose an available consultation date and time." };
   }
-  if (!isQuizBooking && !isWelcomeBooking && hasConsultationDate) {
+  if (!isQuizBooking && !isWelcomeBooking && !isWebsiteBooking && hasConsultationDate) {
     return { error: "Invalid consultation fields." };
   }
   if ((landingConcept && bookingStage !== "contact" || bookingStage === "booking") && !bookedSlot) return { error: "Please choose an available therapist consultation time." };
@@ -420,7 +423,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       previousContactReference: previousContactReference || undefined,
       clientSubmissionId: input.clientSubmissionId,
       formStartedAt: input.formStartedAt,
-      formVariant: isQuizBooking ? "quiz_calendar" : input.formVariant === "welcome" ? "welcome" : undefined,
+      formVariant: isQuizBooking ? "quiz_calendar" : isWebsiteBooking ? "website" : isWelcomeBooking ? "welcome" : undefined,
       landingConcept: landingConcept as string | undefined,
       pool,
       bookedSlot: bookedSlot || undefined,
@@ -433,7 +436,7 @@ function parsePayload(body: unknown): { payload?: IntakePayload; error?: string 
       notes: bookingStage === "contact"
         ? `CONTACT DETAILS RECEIVED — DATE/TIME NOT SELECTED. No appointment is reserved. Follow up to arrange the free 20-minute phone call.\n${landingConcept ? `Landing page: /welcome/${landingConcept}. Preferred therapist: ${selectedTherapist?.name}. Consultation language: ${consultationLanguage}.\n` : ""}${notes || ""}`.slice(0, 1500)
         : bookedSlot
-        ? `20-minute phone consultation booked through ${isQuizBooking ? "/quiz" : landingConcept ? `/welcome/${landingConcept}` : "/welcome"}: ${bookedSlot.label}${selectedTherapist ? `\nSelected therapist: ${selectedTherapist.name}. Consultation language: ${consultationLanguage}. Page language: ${landingLocale}. The client speaks directly with this therapist at the selected time.` : ""}${notes ? `\n${notes}` : ""}`.slice(0, 1500)
+        ? `20-minute phone consultation booked through ${isQuizBooking ? "/quiz" : isWebsiteBooking ? "/consultation" : landingConcept ? `/welcome/${landingConcept}` : "/welcome"}: ${bookedSlot.label}${selectedTherapist ? `\nSelected therapist: ${selectedTherapist.name}.${consultationLanguage ? ` Consultation language: ${consultationLanguage}. Page language: ${landingLocale}.` : ""} The client speaks directly with this therapist at the selected time.` : ""}${notes ? `\n${notes}` : ""}`.slice(0, 1500)
         : notesWithSlot || undefined,
       days: [...expectedDays],
       timeOfDay: bookedSlot?.availability || timeOfDay,
@@ -591,6 +594,7 @@ async function consultationSuccessResponse(input: {
   const response = NextResponse.json(
     {
       ...input.body,
+      ...(input.payload.bookedSlot && input.payload.pool?.length === 1 ? { bookedTherapistSlug: input.payload.pool[0] } : {}),
       ...(input.payload.bookingStage === "contact" ? { bookingStage: "contact", continuationToken: createConsultationContinuation(input.payload, input.referenceId) } : {}),
       ...(input.payload.googleAdsSessionId
         ? {
@@ -860,24 +864,22 @@ export async function POST(request: NextRequest) {
     payload.email = quizAttribution.lead.email;
     payload.phone = quizAttribution.lead.phone;
     payload.reason = "Not Sure";
-    // The visitor may say which of their two saved matches they would like to
-    // meet. Anything else (or no choice) stays "flexible"; the clinic calendar
-    // remains pooled either way, so this is a preference, not a routing claim.
+    // A chosen clinician must be one of the server-stored matches. The same
+    // singleton pool drives validation, live availability and the slot claim.
     const savedMatch = quizAttribution.lead.match;
     const matchedSlugs =
       savedMatch?.status === "match"
         ? [savedMatch.therapistSlug, savedMatch.alternative?.therapistSlug].filter(Boolean)
         : [];
-    payload.preferredTherapist =
-      typeof payload.preferredTherapist === "string" && matchedSlugs.includes(payload.preferredTherapist)
-        ? payload.preferredTherapist
-        : "flexible";
+    if (payload.preferredTherapist && payload.preferredTherapist !== "flexible" && !matchedSlugs.includes(payload.preferredTherapist)) {
+      return badRequest("Please choose one of your saved therapist matches.", 400);
+    }
   }
 
-  const preferredTherapist = payload.preferredTherapist
+  let preferredTherapist = payload.preferredTherapist
     ? normalizePreferredTherapist(payload.preferredTherapist)
     : null;
-  const preferredTherapistLabel = preferredTherapist
+  let preferredTherapistLabel = preferredTherapist
     ? getPreferredTherapistLabel(preferredTherapist)
     : undefined;
   const submittedAt = new Date().toISOString();
@@ -916,7 +918,8 @@ export async function POST(request: NextRequest) {
           },
         );
       }
-      if (payload.landingConcept && claim.capacityTherapistId !== preferredTherapist) {
+      const namedBooking = Boolean(payload.landingConcept || ((payload.formVariant === "quiz_calendar" || payload.formVariant === "website") && payload.pool?.length === 1));
+      if (namedBooking && claim.capacityTherapistId !== preferredTherapist) {
         throw new Error("Named therapist claim mismatch");
       }
       if (completedSubmission && completedSubmission.referenceId === referenceId && sameCheckpointAttribution(completedSubmission.checkpointAttribution, payload.checkpointAttribution)) {
@@ -924,7 +927,13 @@ export async function POST(request: NextRequest) {
       }
       if (claim.capacityTherapistId && payload.pool?.includes(claim.capacityTherapistId)) {
         const coverage = getPreferredTherapistLabel(claim.capacityTherapistId);
-        payload.notes = `${payload.landingConcept ? "Booked therapist" : "Internal calendar coverage"}: ${coverage}. Reserve this therapist's 20-minute capacity in the operational calendar.${payload.landingConcept ? " The client selected this therapist and will speak directly with them at the booked time." : " This is a clinic consultation; the client did not select a particular therapist."}\n${payload.notes || ""}`.slice(0, 1500);
+        payload.notes = `${namedBooking ? "Booked therapist" : "Internal calendar coverage"}: ${coverage}. Reserve this therapist's 20-minute capacity in the operational calendar.${namedBooking ? " The client selected this therapist and will speak directly with them at the booked time." : " This is a clinic consultation; the client did not select a particular therapist."}\n${payload.notes || ""}`.slice(0, 1500);
+        if (!namedBooking && (payload.formVariant === "website" || payload.formVariant === "quiz_calendar")) {
+          payload.preferredTherapist = claim.capacityTherapistId;
+          preferredTherapist = claim.capacityTherapistId;
+          preferredTherapistLabel = coverage;
+          payload.pool = [claim.capacityTherapistId];
+        }
       }
     } catch (error) {
       console.error(
@@ -1113,12 +1122,13 @@ ${payload.bookedSlot ? "OFFICIAL CONSULTATION BOOKING: This date and time is con
     return badRequest("We couldn't send your request. Please try again or call us.", 503);
   }
 
-  if (payload.formVariant === "welcome" || payload.bookedSlot) {
+  if (payload.formVariant === "welcome" || payload.formVariant === "website" || payload.bookedSlot) {
     // Only the durable notification-claim owner sends the visitor receipt.
     // Keep intake successful if SMTP fails after the clinic has been notified.
-    const confirmation = payload.bookingStage === "contact" ? buildConsultationContactEmail(payload.firstName, referenceId, payload.landingLocale,Boolean(payload.landingConcept)) : payload.bookedSlot && payload.landingConcept && preferredTherapistLabel && payload.consultationLanguage
+    const bookedTherapist = payload.pool?.length === 1 ? getTherapistBySlug(payload.pool[0]) : null;
+    const confirmation = payload.bookingStage === "contact" ? buildConsultationContactEmail(payload.firstName, referenceId, payload.landingLocale,Boolean(payload.landingConcept || payload.formVariant === "website")) : payload.bookedSlot && payload.landingConcept && preferredTherapistLabel && payload.consultationLanguage
       ? buildNamedConsultationEmail({ firstName: payload.firstName, therapistName: preferredTherapistLabel, slot: payload.bookedSlot, language: payload.consultationLanguage, locale: payload.landingLocale || "en", referenceId })
-      : payload.bookedSlot ? buildQuizConsultationBookingEmail(payload.firstName, payload.bookedSlot) : buildConsultationConfirmationEmail({
+      : payload.bookedSlot ? buildQuizConsultationBookingEmail(payload.firstName, payload.bookedSlot, bookedTherapist?.name) : buildConsultationConfirmationEmail({
       firstName: payload.firstName,
       referenceId,
     });

@@ -36,7 +36,14 @@ describe("shared consultation availability route", () => {
     expect(getBookedConsultationSlots).toHaveBeenCalledWith(expect.any(String), expect.any(String), ["ryann-simpson"]);
   });
 
-  it.each(["concept=arabic&therapist=ryann-simpson", "therapist=ryann-simpson", "concept=ocd&therapist=unknown", "concept=unknown"])("rejects an invalid named calendar: %s", async (query) => {
+  it.each(["ryann-simpson", "wilfred-bengnwi", "meryem-ibrahim", "tim-kahtava", "dayong-quan"])("shares %s inventory with quiz and website calendars", async (slug) => {
+    getBookedConsultationSlots.mockResolvedValue([]);
+    const response = await GET(new Request(`https://valisenmentalhealth.com/api/consultation-slots?therapist=${slug}`));
+    expect(response.status).toBe(200);
+    expect(getBookedConsultationSlots).toHaveBeenCalledWith(expect.any(String), expect.any(String), [slug]);
+  });
+
+  it.each(["concept=arabic&therapist=ryann-simpson", "concept=ocd&therapist=unknown", "concept=unknown"])("rejects an invalid named calendar: %s", async (query) => {
     expect((await GET(new Request(`https://valisenmentalhealth.com/api/consultation-slots?${query}`))).status).toBe(400);
     expect(getBookedConsultationSlots).not.toHaveBeenCalled();
   });
@@ -89,7 +96,7 @@ describe("shared consultation picker", () => {
       "utf8",
     );
 
-    expect(picker).toContain('useConsultationAvailability(undefined, availabilityRefreshKey)');
+    expect(picker).toContain('useConsultationAvailability(undefined, availabilityRefreshKey, false, therapistSlug)');
     expect(picker).toContain("disabled={disabled}");
     expect(picker).toContain("<small>Booked</small>");
     expect(readFileSync(join(process.cwd(), "lib/useConsultationAvailability.ts"), "utf8")).toContain("30_000");

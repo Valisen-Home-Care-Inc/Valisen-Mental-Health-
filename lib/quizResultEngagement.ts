@@ -19,7 +19,7 @@ export type ResultEngagementReport = {
   views: number; visitors: number; averageActiveSeconds: number; averageScrollDepth: number;
   /** Every action in the period: total taps and how many saved results had one. Absent before the v7 migration. */
   actionTotals?: Partial<Record<ResultAction, ResultActionTotal>>;
-  records: Array<{ referenceId: string; views: number; activeSeconds: number; elapsedSeconds: number; scrollDepth: number; sections: ResultSection[]; lastSection?: ResultSection; actions: Partial<Record<ResultAction, number>>; lastSeenAt: string }>;
+  records: Array<{ referenceId: string; firstName?: string | null; views: number; activeSeconds: number; elapsedSeconds: number; scrollDepth: number; sections: ResultSection[]; lastSection?: ResultSection; actions: Partial<Record<ResultAction, number>>; lastSeenAt: string }>;
 };
 
 export function parseResultEngagement(value: unknown): ResultEngagementSnapshot | null {

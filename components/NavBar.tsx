@@ -7,7 +7,6 @@ import { ChevronDown } from "lucide-react";
 import TrackedLink from "@/components/TrackedLink";
 import { MATCHING_FORM_URL } from "@/lib/intake";
 
-const FINDER_URL = "/therapists#therapist-finder";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -179,16 +178,6 @@ export default function NavBar({
                 >
                   Book Free Consultation
                 </TrackedLink>
-                <p className="mt-2 px-1 text-center text-[13px] leading-[1.5] text-ink-secondary">
-                  Need help choosing?{" "}
-                  <Link
-                    href={FINDER_URL}
-                    className="font-semibold text-teal no-underline"
-                    onClick={() => setOpen(false)}
-                  >
-                    Find my therapist
-                  </Link>
-                </p>
               </li>
             ) : null}
           </ul>

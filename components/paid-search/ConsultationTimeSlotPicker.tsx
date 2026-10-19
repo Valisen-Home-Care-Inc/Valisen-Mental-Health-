@@ -4,6 +4,7 @@ import { Check, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3 } f
 import { useEffect, useMemo, useState } from "react";
 import { useConsultationAvailability } from "@/lib/useConsultationAvailability";
 import { torontoCalendarToday } from "@/lib/quizConsultation";
+import { ALL_CONSULTATION_THERAPISTS, type ConsultationTherapist } from "@/lib/consultationSchedules";
 import styles from "./ConsultationTimeSlotPicker.module.css";
 import {
   CONSULTATION_MONTH_NAMES,
@@ -24,6 +25,7 @@ export default function ConsultationTimeSlotPicker({
   calendarToday,
   availabilityRefreshKey = 0,
   tone = "default",
+  therapistSlug,
 }: {
   idPrefix: string;
   value: ConsultationSlotSelection | null;
@@ -34,23 +36,25 @@ export default function ConsultationTimeSlotPicker({
   availabilityRefreshKey?: number;
   /** "brand" applies the Valisen navy/teal palette used on quiz results. */
   tone?: "default" | "brand";
+  therapistSlug?: ConsultationTherapist;
 }) {
   const today = useMemo(() => calendarToday ?? torontoCalendarToday(), [calendarToday]);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const { booked: bookedSlots, status: availabilityStatus } = useConsultationAvailability(undefined, availabilityRefreshKey);
+  const pool = useMemo(() => therapistSlug ? [therapistSlug] : ALL_CONSULTATION_THERAPISTS, [therapistSlug]);
+  const { booked: bookedSlots, status: availabilityStatus } = useConsultationAvailability(undefined, availabilityRefreshKey, false, therapistSlug);
   useEffect(() => {
     if (value?.kind === "specific" && bookedSlots.has(`${value.date}|${value.time}`)) onChange(null);
   }, [bookedSlots, onChange, value]);
 
   const cells = useMemo(
-    () => getConsultationCalendarMonth(viewYear, viewMonth, today),
-    [viewYear, viewMonth, today],
+    () => getConsultationCalendarMonth(viewYear, viewMonth, today, pool),
+    [viewYear, viewMonth, today, pool],
   );
   const dayTimeSlots = useMemo(
-    () => (selectedDate ? getAvailableTimeSlotsForDate(selectedDate) : []),
-    [selectedDate],
+    () => (selectedDate ? getAvailableTimeSlotsForDate(selectedDate, pool) : []),
+    [selectedDate, pool],
   );
 
   const hasSelectableInView = cells.some((cell) => cell.selectable);
@@ -60,6 +64,7 @@ export default function ConsultationTimeSlotPicker({
     nextMonthDate.getFullYear(),
     nextMonthDate.getMonth(),
     today,
+    pool,
   ).some((cell) => cell.selectable);
 
   function goToMonth(delta: number) {

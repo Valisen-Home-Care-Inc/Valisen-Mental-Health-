@@ -61,16 +61,18 @@ describe("CRM results-engagement panel", () => {
     const html = renderToStaticMarkup(createElement(Panel, { data: {
       views: 3, visitors: 2, averageActiveSeconds: 75, averageScrollDepth: 88,
       actionTotals: { save_contact_clicked: { count: 3, results: 2 }, whatsapp_clicked: { count: 1, results: 1 } },
-      records: [{ referenceId: "VQ-TEST", views: 1, activeSeconds: 40, elapsedSeconds: 90, scrollDepth: 100,
+      records: [{ referenceId: "VQ-TEST", firstName: "Alex", views: 1, activeSeconds: 40, elapsedSeconds: 90, scrollDepth: 100,
         sections: ["summary", "save_contact"], lastSection: "save_contact",
         actions: { exit_prompt_shown: 1, exit_prompt_saved: 1 }, lastSeenAt: "2026-10-18T19:00:00Z" }],
     } }));
-    expect(html).toContain("Saved Valisen Care");
+    expect(html).toContain("Tapped Save contact");
+    expect(html).toContain("Alex");
+    expect(html).toContain("VQ-TEST");
     expect(html).toContain("2 people");
     expect(html).toContain("3 taps");
     expect(html).toContain("Tapped WhatsApp");
     expect(html).toContain("Saw before-you-go pop-up: 1");
-    expect(html).toContain("Saved from pop-up: 1");
+    expect(html).toContain("Tapped Save contact in pop-up: 1");
     expect(html).toContain("save contact");
     const legacy = renderToStaticMarkup(createElement(Panel, { data: { views: 0, visitors: 0, averageActiveSeconds: 0, averageScrollDepth: 0, records: [] } }));
     expect(legacy).toContain("Apply the version 7 result-engagement migration");

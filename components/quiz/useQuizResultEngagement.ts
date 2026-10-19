@@ -30,7 +30,13 @@ export function useQuizResultEngagement(root: RefObject<HTMLDivElement>, submiss
     };
     const activity = () => { measure(); lastActivity = performance.now(); };
     const schedule = () => { if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = undefined; flush(); }, 1500); };
-    record.current = (action) => { activity(); snapshot.actions[action] = Math.min(10000, (snapshot.actions[action] || 0) + 1); schedule(); };
+    record.current = (action) => {
+      activity(); snapshot.actions[action] = Math.min(10000, (snapshot.actions[action] || 0) + 1);
+      // A contact file can open another app immediately on phones. Persist
+      // this tap before navigating; monotonic snapshots make retries safe.
+      if (action === "save_contact_clicked") flush();
+      else schedule();
+    };
     const observer = new IntersectionObserver((entries) => {
       if (document.visibilityState !== "visible") return;
       for (const entry of entries) if (entry.isIntersecting) {

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const concept = request ? new URL(request.url).searchParams.get("concept") || undefined : undefined;
   const selected = request ? new URL(request.url).searchParams.get("therapist") : null;
   const eligible = consultationPoolForConcept(concept);
-  if (selected !== null && (!concept || !eligible?.some((slug) => slug === selected))) return NextResponse.json({ error: "Invalid therapist." }, { status: 400 });
+  if (selected !== null && !eligible?.some((slug) => slug === selected)) return NextResponse.json({ error: "Invalid therapist." }, { status: 400 });
   const pool = selected ? eligible?.filter((slug) => slug === selected) : eligible;
   if (!pool?.length) return NextResponse.json({ error: "Invalid calendar." }, { status: 400 });
   const today = torontoCalendarToday();

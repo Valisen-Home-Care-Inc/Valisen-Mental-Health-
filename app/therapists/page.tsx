@@ -11,7 +11,6 @@ import Footer from "@/components/Footer";
 import FunnelPageAnalytics from "@/components/FunnelPageAnalytics";
 import NavBar from "@/components/NavBar";
 import TherapistDirectoryExperience from "@/components/TherapistDirectoryExperience";
-import TherapistFinder from "@/components/TherapistFinder";
 import TrackedLink from "@/components/TrackedLink";
 import { MATCHING_FORM_URL } from "@/lib/intake";
 import {
@@ -81,28 +80,16 @@ export default function TherapistsPage() {
             </h1>
             <p className="mt-6 max-w-[650px] text-[16px] leading-7 text-ink-secondary">
               Compare areas of practice, language, approach, availability, and
-              price—or answer three quick questions and we’ll narrow the
-              options.
+              price.
             </p>
             <div className="mt-8">
               <div className="flex flex-col gap-3 sm:flex-row">
-                <TrackedLink
-                  href="#therapist-finder"
-                  event="therapist_finder_started"
-                  page="therapist_directory"
-                  placement="hero_primary"
-                  finderUsed
-                  className="btn-primary min-h-[52px] justify-center px-7"
-                >
-                  Find My Therapist
-                  <ArrowRight size={17} className="ml-2" aria-hidden="true" />
-                </TrackedLink>
                 <TrackedLink
                   href={MATCHING_FORM_URL}
                   event="consultation_request_clicked"
                   page="therapist_directory"
                   placement="hero_booking"
-                  className="btn-dark min-h-[52px] justify-center px-7 sm:hidden"
+                  className="btn-dark min-h-[52px] justify-center px-7"
                 >
                   Book Free Consultation
                   <ExternalLink size={14} className="ml-2" aria-hidden="true" />
@@ -211,7 +198,7 @@ export default function TherapistsPage() {
         </div>
       </section>
 
-      <TherapistFinder page="therapist_directory" />
+
       <TherapistDirectoryExperience />
 
       <section className="border-y border-hairline bg-white py-16 md:py-20">
@@ -242,21 +229,9 @@ export default function TherapistsPage() {
             Still deciding between therapists?
           </h2>
           <p className="mx-auto mt-4 max-w-[620px] text-[14px] leading-7 text-white/70">
-            Return to the short finder for a focused option, or ask Valisen to
-            help you choose.
+            Ask Valisen to help you choose a therapist.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <TrackedLink
-              href="#therapist-finder"
-              event="therapist_finder_started"
-              page="therapist_directory"
-              placement="final_primary"
-              finderUsed
-              className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-white px-7 text-sm font-semibold text-[#123F40]"
-            >
-              Find My Therapist
-              <ArrowRight size={16} className="ml-2" aria-hidden="true" />
-            </TrackedLink>
             <TrackedLink
               href="/consultation?source=directory_help"
               event="request_help_opened"

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, MessageCircle, Phone, RotateCcw } from "lucide-react";
-import CrisisNote from "@/components/CrisisNote";
 import ExitSaveContactPrompt from "@/components/quiz/ExitSaveContactPrompt";
 import QuizConsultationBooking from "@/components/quiz/QuizConsultationBooking";
 import SaveContactBand from "@/components/quiz/SaveContactBand";
@@ -126,6 +125,7 @@ export default function ResultsReveal({
     match.status === "match" ? getTherapistBySlug(match.therapistSlug) : undefined;
   const candidates = getPresentedTherapistMatches(match);
   const [chosenSlug, setChosenSlug] = useState<string | null>(null);
+  const [bookingLocked, setBookingLocked] = useState(false);
   const chosen = candidates.find((candidate) => candidate.therapist.slug === chosenSlug)?.therapist;
   const exploring = intent === "exploring";
   const properties = {
@@ -214,6 +214,7 @@ export default function ResultsReveal({
             <p className={styles.bandText}>Meet the therapists picked for you, then choose a time for a free 20-minute call.</p>
           </div>
         )}
+        <fieldset disabled={bookingLocked} className="min-w-0">
         <TherapistMatchCards
           candidates={candidates}
           outcome={outcome}
@@ -234,10 +235,12 @@ export default function ResultsReveal({
           }}
           onWhatsApp={() => recordAction("whatsapp_clicked")}
         />
+        </fieldset>
       </div>
 
       <div ref={calendarRef} id="quiz-consultation-booking" tabIndex={-1} className={styles.bookingPlacement}>
         <QuizConsultationBooking
+          onLockChange={setBookingLocked}
           submissionToken={submissionToken}
           firstName={firstName}
           email={initialEmail}
@@ -288,7 +291,6 @@ export default function ResultsReveal({
         </button>
         {referenceId ? <p className={styles.reference}>Submission reference: {referenceId}</p> : null}
       </div>
-      <CrisisNote className="mt-5 text-center" />
       {stickyVisible && !booked ? (
         <div className={styles.sticky}>
           <button type="button" onClick={scrollToBooking}>

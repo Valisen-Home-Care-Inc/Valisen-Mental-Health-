@@ -60,8 +60,10 @@ someone shown crisis resources.
 details, so the visitor picks a time and taps "Book now". The consent wording
 (`QUIZ_BOOKING_CONSENT_TEXT`, unchanged) sits directly under the button and is
 submitted verbatim; the invisible security check runs on that tap. Choosing
-"Book with {name}" records that therapist as a preference only when they are
-one of the visitor's two saved matches; the calendar stays pooled.
+"Book with {name}" uses that saved match's own weekly shifts and live
+availability. The booking API validates the choice against the stored matches
+and reserves that therapist's capacity in the same shared inventory used by
+Google Ads landing pages. Without a named choice, the calendar remains pooled.
 
 **Reporting.** Apply both version 7 migrations:
 
@@ -77,6 +79,13 @@ one of the visitor's two saved matches; the calendar stays pooled.
   - the save-contact section being seen (`save_contact`)
 
 The CRM's results-engagement panel shows each of these as people and taps.
+
+The October 19 contact-reporting migration (also packaged as
+`artifacts/quiz/LAUNCH_QUIZ_CONTACT_TRACKING.sql`) associates result actions with
+the saved first name in authenticated CRM reports. "Tapped Save contact"
+means the visitor requested the contact file; browsers cannot verify a save in
+the phone's contacts app. Contact taps flush immediately before a phone opens
+the file. No contact values are added to browser engagement snapshots.
 
 The clinic's new-lead email now shows:
 

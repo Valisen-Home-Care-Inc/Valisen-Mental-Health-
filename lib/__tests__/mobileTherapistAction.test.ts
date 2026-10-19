@@ -3,11 +3,11 @@ import { getDirectoryMobileAction } from "@/lib/mobileTherapistAction";
 import { therapists } from "@/lib/therapists";
 
 describe("responsive directory CTA behavior", () => {
-  it("shows the finder action before a therapist card is active", () => {
+  it("shows the general consultation action before a therapist card is active", () => {
     expect(getDirectoryMobileAction()).toEqual({
-      kind: "finder",
-      label: "Find My Therapist",
-      href: "#therapist-finder",
+      kind: "booking",
+      label: "Book Free Consultation",
+      href: "/consultation?source=directory_help",
       external: false,
     });
   });
@@ -26,7 +26,7 @@ describe("responsive directory CTA behavior", () => {
     });
   });
 
-  it("does not show a booking action for an unavailable therapist", () => {
+  it("offers a general consultation instead of an unavailable therapist", () => {
     const tim = therapists.find(
       (therapist) => therapist.slug === "tim-kahtava",
     );
@@ -38,6 +38,6 @@ describe("responsive directory CTA behavior", () => {
         acceptingNewClients: false,
         availability: "Not currently accepting",
       }),
-    ).toMatchObject({ kind: "finder", href: "#therapist-finder" });
+    ).toMatchObject({ kind: "booking", href: "/consultation?source=directory_help" });
   });
 });

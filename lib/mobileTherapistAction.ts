@@ -28,9 +28,9 @@ export function getDirectoryMobileAction(
   }
 
   return {
-    kind: "finder",
-    label: "Find My Therapist",
-    href: "#therapist-finder",
+    kind: "booking",
+    label: "Book Free Consultation",
+    href: getConsultationRequestUrl(undefined, "directory_help"),
     external: false,
   };
 }

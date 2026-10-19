@@ -145,10 +145,10 @@ beforeEach(() => {
     attemptCount: 1,
     rowVersion: 1,
   });
-  flowMocks.claimConsultationSlot.mockReset().mockResolvedValue({
-    accepted: true,
-    replayed: false,
-  });
+  flowMocks.claimConsultationSlot.mockReset().mockImplementation(async (input: { pool?: string[] }) => ({
+    accepted: true, replayed: false,
+    ...(input.pool?.length === 1 ? { capacityTherapistId: input.pool[0] } : {}),
+  }));
   flowMocks.markConsultationSlotBooked.mockReset().mockResolvedValue(undefined);
   flowMocks.completeConsultationNotificationClaim.mockReset().mockResolvedValue({
     accepted: true,
@@ -221,6 +221,49 @@ describe("consultation submission boundary", () => {
     expect(flowMocks.upsertConsultationLead).toHaveBeenCalled(); expect(flowMocks.claimConsultationSlot).not.toHaveBeenCalled();
     expect(flowMocks.completeConsultationNotificationClaim).toHaveBeenCalledWith(expect.any(String),expect.any(String),expect.any(String),"failed");
   });
+  it.each([
+    ["ryann-simpson", "2026-09-08", "5:00 PM", "Ryann Simpson"],
+    ["wilfred-bengnwi", "2026-09-08", "9:00 AM", "Wilfred Bengnwi"],
+    ["meryem-ibrahim", "2026-09-08", "9:20 AM", "Meryem Ibrahim"],
+    ["tim-kahtava", "2026-09-08", "10:00 AM", "Tim Kahtava"],
+    ["dayong-quan", "2026-09-11", "9:00 AM", "Dayong Quan"],
+  ])("saves a one-name website request before optional booking with %s", async (slug, date, time, name) => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
+    const contact = payload({ formVariant: "website", bookingStage: "contact", firstName: "Alex", lastName: "", preferredTherapist: slug, timeOfDay: "flexible", source: "website" });
+    const first = await POST(request(contact));
+    expect(first.status).toBe(200);
+    const saved = await first.json(); expect(saved.continuationToken).toEqual(expect.any(String));
+    expect(flowMocks.claimConsultationSlot).not.toHaveBeenCalled();
+    expect(flowMocks.markConsultationSlotBooked).not.toHaveBeenCalled();
+    const contactMail = flowMocks.sendMail.mock.calls.map(([mail]) => mail).find(mail => mail.to === "alex@example.com");
+    expect(contactMail.text).toContain("within 24 hours");
+    expect(contactMail.text).toContain("have not been booked");
+    const booking = { ...contact, clientSubmissionId: "booking-" + saved.referenceId.slice(3), bookingStage: "booking", continuationToken: saved.continuationToken, consultationDate: date, consultationTime: time };
+    const response = await POST(request(booking)); expect(response.status).toBe(200);
+    expect((await response.json()).bookedTherapistSlug).toBe(slug);
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ pool: [slug], date, time }));
+    expect(flowMocks.upsertConsultationLead).toHaveBeenLastCalledWith(expect.objectContaining({ previousContactReference: saved.referenceId, firstName: "Alex", lastName: "", preferredTherapist: name }));
+    expect(flowMocks.markConsultationSlotBooked).toHaveBeenCalledOnce();
+    const messages = flowMocks.sendMail.mock.calls.map(([mail]) => mail);
+    expect(messages.filter(mail => mail.to === "info@valisenmentalhealth.com")).toHaveLength(2);
+    expect(messages.filter(mail => mail.to === "alex@example.com").at(-1).text).toContain(name);
+    const before = flowMocks.sendMail.mock.calls.length;
+    await POST(request(booking)); await POST(request(contact));
+    expect(flowMocks.sendMail).toHaveBeenCalledTimes(before);
+  });
+
+  it("retains a website request when the optional slot is taken", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
+    const contact = payload({ formVariant: "website", bookingStage: "contact", lastName: "", preferredTherapist: "meryem-ibrahim", timeOfDay: "flexible" });
+    const saved = await (await POST(request(contact))).json();
+    flowMocks.claimConsultationSlot.mockResolvedValue({ accepted: false, reason: "slot_unavailable" });
+    const response = await POST(request({ ...contact, clientSubmissionId: "booking-" + saved.referenceId.slice(3), bookingStage: "booking", continuationToken: saved.continuationToken, consultationDate: "2026-09-08", consultationTime: "9:20 AM" }));
+    expect(response.status).toBe(409);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledTimes(1);
+    expect(flowMocks.markConsultationSlotBooked).not.toHaveBeenCalled();
+    expect(flowMocks.sendMail.mock.calls.filter(([mail]) => mail.to === "info@valisenmentalhealth.com")).toHaveLength(1);
+  });
+
   function landingBooking(overrides: Record<string, unknown> = {}) {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-07T15:00:00Z"));
     return payload({ formVariant: "welcome", landingConcept: "arabic", landingLocale: "ar", preferredTherapist: "meryem-ibrahim", consultationLanguage: "Arabic", source: "paid_search_landing", consultationDate: "2026-09-08", consultationTime: "9:20 AM", consentLanguage: LANDING_BOOKING_CONSENT.ar, consentVersion: LANDING_BOOKING_CONSENT_VERSION, ...overrides });
@@ -326,6 +369,23 @@ describe("consultation submission boundary", () => {
     expect(flowMocks.sendMail).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    ["ryann-simpson", "2026-09-08", "5:00 PM"],
+    ["wilfred-bengnwi", "2026-09-08", "9:00 AM"],
+    ["meryem-ibrahim", "2026-09-08", "9:20 AM"],
+    ["tim-kahtava", "2026-09-08", "10:00 AM"],
+    ["dayong-quan", "2026-09-11", "9:00 AM"],
+  ])("books the quiz visitor's actual matched therapist %s", async (slug, date, time) => {
+    const input = quizBooking({ preferredTherapist: slug, consultationDate: date, consultationTime: time });
+    flowMocks.findBySubmissionTokenHash.mockResolvedValue({ referenceId: "VQ-CALENDAR1", firstName: "Alex", email: "alex@example.com", phone: "416-555-0100", attribution: {}, match: { status: "match", therapistSlug: slug } });
+    const response = await POST(request(input)); expect(response.status).toBe(200);
+    expect((await response.json()).bookedTherapistSlug).toBe(slug);
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ pool: [slug], date, time, source: "quiz_calendar" }));
+    expect(flowMocks.markConsultationSlotBooked).toHaveBeenCalledOnce();
+    const clinic = flowMocks.sendMail.mock.calls.find(([mail]) => mail.to === "info@valisenmentalhealth.com")?.[0];
+    expect(clinic?.text).toContain("The client selected this therapist");
+  });
+
   it("records a quiz visitor's chosen therapist only when it is one of their saved matches", async () => {
     const savedLead = {
       referenceId: "VQ-CALENDAR1", firstName: "Alex", email: "alex@example.com", phone: "416-555-0100", attribution: {},
@@ -338,10 +398,9 @@ describe("consultation submission boundary", () => {
 
     const other = quizBooking({ preferredTherapist: "wilfred-bengnwi", clientSubmissionId: "quiz-calendar-other-choice-0001", consultationTime: "9:20 AM" });
     flowMocks.findBySubmissionTokenHash.mockResolvedValue(savedLead);
-    expect((await POST(request(other))).status).toBe(200);
-    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledTimes(2);
-    expect(flowMocks.upsertConsultationLead.mock.lastCall?.[0]).toEqual(expect.objectContaining({ quizReferenceId: "VQ-CALENDAR1" }));
-    expect(flowMocks.upsertConsultationLead.mock.lastCall?.[0].preferredTherapist).not.toMatch(/Wilfred|Meryem|Tim/);
+    expect((await POST(request(other))).status).toBe(400);
+    expect(flowMocks.upsertConsultationLead).toHaveBeenCalledTimes(1);
+    expect(flowMocks.claimConsultationSlot).toHaveBeenCalledWith(expect.objectContaining({ pool: ["meryem-ibrahim"] }));
   });
 
   it("books a /welcome slot through the same claim and high-priority notification path", async () => {
