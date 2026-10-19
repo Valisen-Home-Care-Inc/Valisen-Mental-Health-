@@ -1,4 +1,4 @@
--- Tracked booking links (/booking/<code>, e.g. /booking/bc).
+-- Flyer area QR links (/booking/<code>, e.g. /booking/bh for Beacon Hill).
 --
 -- Each row is one QR scan that was redirected to the external booking page.
 -- Privacy boundary: only the link code, a coarse device category and the time

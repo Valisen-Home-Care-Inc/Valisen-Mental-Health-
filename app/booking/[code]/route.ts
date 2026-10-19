@@ -7,7 +7,7 @@ import {
 import { recordBookingLinkScan } from "@/lib/server/bookingLinkRepository";
 
 /**
- * Tracked QR destination, e.g. https://valisenmentalhealth.com/booking/bc.
+ * Tracked QR destination, e.g. https://valisenmentalhealth.com/booking/bh (Beacon Hill).
  * Redirects immediately; the scan is written after the response is sent so a
  * slow or unavailable database never delays or blocks the visitor.
  */

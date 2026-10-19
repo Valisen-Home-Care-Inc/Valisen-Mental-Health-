@@ -1,19 +1,23 @@
 /**
- * Tracked booking links: short QR destinations such as /booking/bc.
+ * Tracked booking links, one per flyer area: /booking/bh is Beacon Hill,
+ * /booking/ka is Kanata, and so on.
  *
- * A scan of the printed QR code is logged (link code and a coarse device
+ * A scan of the printed QR code is logged (area code and a coarse device
  * category only) and the visitor is redirected straight to the external
- * booking page. To add a placement, add one entry here and print a QR code for
- * `https://valisenmentalhealth.com/booking/<code>`; the admin "Booking" tab
- * picks it up automatically.
+ * booking page. To add an area, add one entry to BOOKING_LINKS and print a QR
+ * code for `https://valisenmentalhealth.com/booking/<code>`; the admin
+ * "Booking" tab shows a section for it automatically.
  */
 
 export const JANE_BOOKING_URL = "https://valisenmentalhealth.janeapp.com/";
 
+/** Admin navigation label for the booking scan tab. */
+export const BOOKING_NAV_LABEL = "Booking";
+
 export type BookingLink = {
   /** Lowercase path segment used in /booking/<code>. */
   code: string;
-  /** Name shown in the admin dashboard. */
+  /** Flyer area name shown in the admin dashboard. */
   label: string;
   /** Where the visitor is sent after the scan is logged. */
   destination: string;
@@ -27,8 +31,11 @@ function janeDestination(code: string): string {
   return url.toString();
 }
 
+// One entry per flyer area. The code is printed in the QR address, so do not
+// change a code once its flyers are out; add a new area instead.
 export const BOOKING_LINKS: readonly BookingLink[] = [
-  { code: "bc", label: "Booking BC", destination: janeDestination("bc") },
+  { code: "bh", label: "Beacon Hill", destination: janeDestination("bh") },
+  { code: "ka", label: "Kanata", destination: janeDestination("ka") },
 ];
 
 export const BOOKING_LINK_CODE_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
@@ -45,12 +52,7 @@ export function findBookingLink(code: unknown): BookingLink | null {
 }
 
 export function bookingLinkLabel(code: string): string {
-  return findBookingLink(code)?.label ?? `Booking ${code.toUpperCase()}`;
-}
-
-/** Name for the admin navigation: the link's own name while there is only one. */
-export function bookingNavigationLabel(): string {
-  return BOOKING_LINKS.length === 1 ? BOOKING_LINKS[0].label : "Booking links";
+  return findBookingLink(code)?.label ?? code.toUpperCase();
 }
 
 export type BookingScanDevice = "ios" | "android" | "other";

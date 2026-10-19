@@ -14,7 +14,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { bookingNavigationLabel } from "@/lib/bookingLinks";
+import { BOOKING_NAV_LABEL } from "@/lib/bookingLinks";
 
 const NAVIGATION = [
   {
@@ -50,7 +50,7 @@ const NAVIGATION = [
   },
   {
     href: "/admin/checkpoints/booking",
-    label: bookingNavigationLabel(),
+    label: BOOKING_NAV_LABEL,
     icon: CalendarCheck,
     active: (pathname: string) => pathname.startsWith("/admin/checkpoints/booking"),
   },

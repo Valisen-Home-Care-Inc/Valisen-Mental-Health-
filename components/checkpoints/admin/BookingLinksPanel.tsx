@@ -60,6 +60,64 @@ function DailyBars({ section }: { section: BookingLinkSection }) {
   );
 }
 
+function AreaOverview({ sections }: { sections: BookingLinkSection[] }) {
+  const ranked = [...sections].sort(
+    (a, b) => b.last30Days - a.last30Days || b.allTime - a.allTime || a.label.localeCompare(b.label),
+  );
+  const total = (key: "today" | "last7Days" | "last30Days" | "allTime") =>
+    sections.reduce((sum, section) => sum + section[key], 0);
+  const cell = "px-4 py-3 text-right tabular-nums";
+  return (
+    <section
+      aria-labelledby="booking-overview"
+      className="mt-6 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6"
+    >
+      <h2 id="booking-overview" className="text-[18px] font-semibold tracking-[-0.4px] text-[#192725]">
+        All areas
+      </h2>
+      <p className="mt-1 text-[12px] text-[#667471]">Ranked by scans in the last {BOOKING_REPORT_DAYS} days.</p>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[400px] text-[12.5px]">
+          <thead>
+            <tr className="border-b border-black/[0.07] text-[10px] font-bold uppercase tracking-[0.8px] text-[#7b8784]">
+              <th scope="col" className="px-4 py-2 text-left">Area</th>
+              <th scope="col" className="px-4 py-2 text-right">Today</th>
+              <th scope="col" className="px-4 py-2 text-right">7 days</th>
+              <th scope="col" className="px-4 py-2 text-right">{BOOKING_REPORT_DAYS} days</th>
+              <th scope="col" className="px-4 py-2 text-right">All time</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-black/[0.06]">
+            {ranked.map((section) => (
+              <tr key={section.code}>
+                <th scope="row" className="px-4 py-3 text-left font-semibold text-[#1d2b29]">
+                  <a href={`#booking-${section.code}`} className="no-underline hover:underline">
+                    {section.label}
+                  </a>
+                  <span className="ml-2 hidden font-normal text-[#8a9491] sm:inline">/booking/{section.code}</span>
+                </th>
+                <td className={cell}>{formatCount(section.today)}</td>
+                <td className={cell}>{formatCount(section.last7Days)}</td>
+                <td className={`${cell} font-semibold text-[#1e5f5a]`}>{formatCount(section.last30Days)}</td>
+                <td className={cell}>{formatCount(section.allTime)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-black/[0.1] font-semibold text-[#1d2b29]">
+              <th scope="row" className="px-4 py-3 text-left">Total</th>
+              <td className={cell}>{formatCount(total("today"))}</td>
+              <td className={cell}>{formatCount(total("last7Days"))}</td>
+              <td className={cell}>{formatCount(total("last30Days"))}</td>
+              <td className={cell}>{formatCount(total("allTime"))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function LinkSection({ section }: { section: BookingLinkSection }) {
   const metrics = [
     { label: "Today", value: section.today },
@@ -72,7 +130,7 @@ function LinkSection({ section }: { section: BookingLinkSection }) {
   return (
     <section
       aria-labelledby={`booking-${section.code}`}
-      className="mt-6 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6"
+      className="mt-6 scroll-mt-24 rounded-[20px] border border-black/[0.065] bg-white p-5 shadow-[0_8px_35px_rgba(25,47,43,0.05)] sm:p-6"
     >
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0">
@@ -87,7 +145,7 @@ function LinkSection({ section }: { section: BookingLinkSection }) {
         </div>
         <p className="text-[11px] text-[#7a8582]">
           {section.lastScanAt ? `Last scan ${formatDateTime(section.lastScanAt)}` : "No scans yet"}
-          {!section.configured ? " · link removed from the website" : ""}
+          {!section.configured ? " · area removed from the website" : ""}
         </p>
       </div>
 
@@ -161,14 +219,14 @@ export default function BookingLinksPanel({
     <main className="mx-auto w-full max-w-[1280px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
       <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[1.5px] text-[#497a73]">
         <span className="h-px w-5 bg-[#79a89d]" />
-        QR booking links
+        Flyer QR scans by area
       </div>
       <h1 className="text-[31px] font-semibold tracking-[-1.25px] text-[#192725] sm:text-[38px]">
-        Booking scans
+        Booking
       </h1>
       <p className="mt-2 max-w-[660px] text-[13px] leading-5 text-[#667471]">
-        Each scan of a booking QR code is counted here, then the visitor goes straight to Jane. Link previews and
-        bots are not counted. Bookings themselves are recorded in Jane.
+        Each flyer area has its own QR link. Every scan is counted under its area, then the visitor goes straight
+        to Jane. Link previews and bots are not counted. Bookings themselves are recorded in Jane.
       </p>
       <p className="mt-3 inline-flex items-center gap-1.5 text-[10.5px] text-[#7a8582]">
         <CalendarDays size={13} aria-hidden="true" />
@@ -185,11 +243,13 @@ export default function BookingLinksPanel({
         </div>
       ) : null}
 
+      {sections && sections.length > 1 ? <AreaOverview sections={sections} /> : null}
+
       {sections?.map((section) => <LinkSection key={section.code} section={section} />)}
 
       {sections && !sections.length ? (
         <p className="mt-6 inline-flex items-center gap-2 text-[12px] text-[#667471]">
-          <ScanQrCode size={15} aria-hidden="true" /> No booking links are set up.
+          <ScanQrCode size={15} aria-hidden="true" /> No flyer areas are set up.
         </p>
       ) : null}
     </main>
