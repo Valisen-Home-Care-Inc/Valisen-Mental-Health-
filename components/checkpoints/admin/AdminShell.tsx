@@ -6,6 +6,7 @@ import {
   Activity,
   BarChart3,
   BriefcaseBusiness,
+  CalendarCheck,
   ClipboardList,
   LogOut,
   Megaphone,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { bookingNavigationLabel } from "@/lib/bookingLinks";
 
 const NAVIGATION = [
   {
@@ -45,6 +47,12 @@ const NAVIGATION = [
     label: "Flyers",
     icon: QrCode,
     active: (pathname: string) => pathname.startsWith("/admin/checkpoints/flyers"),
+  },
+  {
+    href: "/admin/checkpoints/booking",
+    label: bookingNavigationLabel(),
+    icon: CalendarCheck,
+    active: (pathname: string) => pathname.startsWith("/admin/checkpoints/booking"),
   },
 ] as const;
 
