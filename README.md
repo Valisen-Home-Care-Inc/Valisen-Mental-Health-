@@ -12,3 +12,6 @@ Money Bag Making Machine
 - [Mental Battery Checkpoints](docs/MENTAL_BATTERY_CHECKPOINTS.md) — permanent
   NFC/QR routes, local-only wellness scoring, transactional placement history,
   private analytics/CRM dashboard, QR operations, security, and deployment.
+- [Subsidized therapy contributions](docs/DONATIONS.md) — `/donate` page,
+  Stripe Checkout, signature-verified webhook, donation records, editable
+  program policy, Stripe/Netlify setup and the test-mode checklist.

@@ -8,6 +8,7 @@ import {
   BriefcaseBusiness,
   CalendarCheck,
   ClipboardList,
+  HandHeart,
   LogOut,
   Megaphone,
   QrCode,
@@ -53,6 +54,12 @@ const NAVIGATION = [
     label: BOOKING_NAV_LABEL,
     icon: CalendarCheck,
     active: (pathname: string) => pathname.startsWith("/admin/checkpoints/booking"),
+  },
+  {
+    href: "/admin/checkpoints/donations",
+    label: "Contributions",
+    icon: HandHeart,
+    active: (pathname: string) => pathname.startsWith("/admin/checkpoints/donations"),
   },
 ] as const;
 
