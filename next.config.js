@@ -82,6 +82,16 @@ const nextConfig = {
         ],
       },
       {
+        // Stripe returns here with ?session_id=…; keep it out of caches,
+        // referrers and search results.
+        source: "/donate/thank-you",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
         source: "/thank-you",
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0" },
